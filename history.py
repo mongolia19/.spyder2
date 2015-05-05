@@ -1,8 +1,5 @@
-# *** Spyder Python Console History Log ***
-# *** Spyder Python Console History Log ***
-%varexp --plot output
 runfile('C:/Users/mongolia19/Desktop/pythonCode/stock_withLib.py', wdir='C:/Users/mongolia19/Desktop/pythonCode')
-%varexp --plot output
+# *** Spyder Python Console History Log ***
 runfile('C:/Users/mongolia19/Desktop/pythonCode/stock_withLib.py', wdir='C:/Users/mongolia19/Desktop/pythonCode')
 %varexp --plot output
 runfile('C:/Users/mongolia19/Desktop/pythonCode/stock_withLib.py', wdir='C:/Users/mongolia19/Desktop/pythonCode')
@@ -130,4 +127,10 @@ debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C
 debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
 
 ##---(Sat May 02 15:26:20 2015)---
+debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
+
+##---(Tue May 05 00:08:51 2015)---
+debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
+
+##---(Tue May 05 23:39:56 2015)---
 debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
