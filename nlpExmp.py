@@ -12,7 +12,7 @@ import nltk.tree
 #text=u"The Washington Monument is the most prominent structure in Washington, D.C. and one of the city's early attractions. It was built in honor of George Washington, who led the country to independence and then became its first President."
 #sents=nltk.sent_tokenize(text=text)
 def keyWordsExtractor(text,keyCount):
-    return jieba.analyse.extract_tags(text,withWeight=(keyCount))
+    return jieba.analyse.extract_tags(text,topK=(keyCount))
     
 #keys=jieba.analyse.extract_tags(text,withWeight=(text.count))
 #print keys

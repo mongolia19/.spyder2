@@ -1,10 +1,5 @@
-runfile('C:/Users/mongolia19/Desktop/pythonCode/stock_withLib.py', wdir='C:/Users/mongolia19/Desktop/pythonCode')
 # *** Spyder Python Console History Log ***
-runfile('C:/Users/mongolia19/Desktop/pythonCode/stock_withLib.py', wdir='C:/Users/mongolia19/Desktop/pythonCode')
-%varexp --plot output
-runfile('C:/Users/mongolia19/Desktop/pythonCode/stock_withLib.py', wdir='C:/Users/mongolia19/Desktop/pythonCode')
-%varexp --plot output
-%varexp --plot ulist
+# *** Spyder Python Console History Log ***
 print 'ddd'
 form nltk.book import  *
 from nltk.book import  *
@@ -133,4 +128,18 @@ debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C
 debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
 
 ##---(Tue May 05 23:39:56 2015)---
+debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
+
+##---(Wed May 06 23:10:41 2015)---
+debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
+runfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
+debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
+
+##---(Thu May 07 23:42:55 2015)---
+runfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
+debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
+
+##---(Sun May 10 21:29:54 2015)---
+debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
+runfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
 debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
