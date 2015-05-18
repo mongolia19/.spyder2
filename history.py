@@ -1,14 +1,5 @@
 # *** Spyder Python Console History Log ***
 # *** Spyder Python Console History Log ***
-print 'ddd'
-form nltk.book import  *
-from nltk.book import  *
-text1.concordance('monstrous')
-text1.similar("monstrous")
-text2.common_contexts(["monstrous","very"])
-text3.generate()
-text3.name()
-text3.name('mkie')
 text3.name(object='')
 from nltk.corpus import wordnet
 x=wordnet.synsets('recommended')[-1]
@@ -142,4 +133,23 @@ debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C
 ##---(Sun May 10 21:29:54 2015)---
 debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
 runfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
+debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
+
+##---(Wed May 13 23:23:34 2015)---
+debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
+
+##---(Thu May 14 00:26:52 2015)---
+debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
+
+##---(Thu May 14 23:05:45 2015)---
+debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
+runfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
+
+##---(Sun May 17 20:30:48 2015)---
+debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
+
+##---(Mon May 18 23:12:34 2015)---
+debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
+
+##---(Tue May 19 00:36:47 2015)---
 debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')

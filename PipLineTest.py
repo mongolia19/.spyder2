@@ -6,9 +6,17 @@ import nlpExmp
 import re
 import PatternLoader
 import nltk
+import operator
 from BeautifulSoup import BeautifulSoup
 ###
 ##To Do: impliement a function to envalueate the importance of a sentence in an article
+##To Do: Extract patterns from a single article,which should remove words that has
+##a high tf-idf mark (which means only extract words that have high tf value)
+##extract patterns on a group of articles on a "serise of topics",that means the topics
+##are simmilar(such as how to make tea, how to make coffe ,how to make ice cream)
+## in these cases the program can see how a "how to ..." article always look like
+##To Do:Get all two word combinations,and get the combinations that appear most frequently
+## in other sentences(cleaned sentences AKA removed key words) 
 def getText(httpLink):
     return downloaderAndContentExtractor.ExtractContentFromURL(httpLink)
 
@@ -99,21 +107,44 @@ def ImportanceMeasure(sentence,word_dict):
     return count/totalCount        
 	
 
-
+#===========Data Cleaning======================
 url = "http://www.chinadaily.com.cn/world/2015xiattendwwii/2015-04/29/content_20627695.htm"
 
 RawText = getText(url)
+cleanedText = cleanText(RawText)
+#===========Pattern Loading================================
 exposPattern = loadPatterns()
 patternHashMap = {}
-for p in exposPattern.patternList:
-    patternHashMap[p] = p
-print patternHashMap
-
-cleanedText = cleanText(RawText)
-
-keyWordsList = ExtractKeyWords(cleanedText,1)
-print keyWordsList
-patternHashMap[0] = keyWordsList[0][0]
+#for p in exposPattern.patternList:
+#    patternHashMap[p] = p
+#print patternHashMap
+#============sentence stemming===============================
 sent_list = nltk.sent_tokenize(cleanedText)
-imp = ImportanceMeasure( sent_list[0],patternHashMap)
-print imp
+sentCount = len(sent_list)
+
+#============Key word Extraction===============================
+KeyRatio = 0.1
+keyWordsList = ExtractKeyWords(cleanedText,int(sentCount*KeyRatio))
+print keyWordsList
+for key in keyWordsList:
+    patternHashMap[key] = key
+#============Sentence sortting===============================
+impDict = {}
+for sent in sent_list:
+    imp = ImportanceMeasure( sent,patternHashMap)
+    impDict[sent] = imp
+sorted_imp = sorted(impDict.iteritems(), key=operator.itemgetter(1),reverse=True)  
+print sorted_imp
+extractedTXT = ''
+i = 0
+totalCount = len(sorted_imp)
+threshold = int(totalCount*0.1)
+for sent in sorted_imp:
+    if i<threshold:
+        extractedTXT = extractedTXT + sent[0]
+    i = i + 1
+print extractedTXT
+#patternHashMap[0] = keyWordsList[0][0]
+
+#imp = ImportanceMeasure( sent_list[0],patternHashMap)
+#print imp
