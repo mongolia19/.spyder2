@@ -6,7 +6,7 @@ Created on Wed Mar 25 22:46:27 2015
 """
 import nltk
 import jieba.analyse
-import nltk.tree
+
 #f = open('./nettext.text', 'r')
 #text = f.read()
 #text=u"The Washington Monument is the most prominent structure in Washington, D.C. and one of the city's early attractions. It was built in honor of George Washington, who led the country to independence and then became its first President."

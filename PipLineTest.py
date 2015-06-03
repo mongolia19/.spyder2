@@ -7,6 +7,7 @@ import re
 import PatternLoader
 import nltk
 import operator
+import itertools
 from BeautifulSoup import BeautifulSoup
 ###
 ##To Do: impliement a function to envalueate the importance of a sentence in an article
@@ -105,12 +106,21 @@ def ImportanceMeasure(sentence,word_dict):
         if word_dict.has_key(word):
             count = count + 1.0
     return count/totalCount        
-	
 
+def RemoveKeyWordsFromSentence(sentence,keyword_dict):
+    for key in keyword_dict.keys():
+        sentence = re.sub(key, "",str(sent))
+    return sentence
 #===========Data Cleaning======================
 url = "http://www.chinadaily.com.cn/world/2015xiattendwwii/2015-04/29/content_20627695.htm"
 
-RawText = getText(url)
+#RawText = getText(url)
+file_object = open('data.text') 
+try: 
+    RawText = file_object.read( ) 
+finally: 
+    file_object.close( ) 
+
 cleanedText = cleanText(RawText)
 #===========Pattern Loading================================
 exposPattern = loadPatterns()
@@ -135,6 +145,27 @@ for sent in sent_list:
     impDict[sent] = imp
 sorted_imp = sorted(impDict.iteritems(), key=operator.itemgetter(1),reverse=True)  
 print sorted_imp
+#########################
+combination_Dict = {}
+CombWordNum = 3
+for sent in sent_list:
+    sent = re.sub('[’!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~]+', "",str(sent))
+    #remove the keywords first
+    sent = RemoveKeyWordsFromSentence(sentence=sent,keyword_dict=patternHashMap)
+    words_in_sent = nltk.word_tokenize(sent)
+    comb = list(itertools.permutations(words_in_sent,CombWordNum))
+    print comb
+    for OneComb in comb:
+        if combination_Dict.has_key(OneComb):
+            combination_Dict[OneComb] = combination_Dict[OneComb] + 1
+        else:
+            combination_Dict[OneComb] = 1
+    print "All possiable combinations in a sentence."
+for OneComb in combination_Dict.keys():
+    if combination_Dict[OneComb] == 1:
+        combination_Dict.pop(OneComb)
+
+###########################
 extractedTXT = ''
 i = 0
 totalCount = len(sorted_imp)
