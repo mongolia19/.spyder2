@@ -1,15 +1,3 @@
-# *** Spyder Python Console History Log ***
-# *** Spyder Python Console History Log ***
-text3.name(object='')
-from nltk.corpus import wordnet
-x=wordnet.synsets('recommended')[-1]
-y=wordnet.synsets('suggested')[-1]
-x.shortest_path_distance(y)
-runfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/nlpExmp.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
-
-##---(Sun Mar 29 22:55:57 2015)---
-runfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/nlpExmp.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
-debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/nlpExmp.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
 
 ##---(Mon Mar 30 23:13:02 2015)---
 debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/nlpExmp.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
@@ -153,3 +141,26 @@ debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C
 
 ##---(Tue May 19 00:36:47 2015)---
 debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
+
+##---(Thu May 21 23:41:47 2015)---
+debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
+
+##---(Sun May 31 22:51:39 2015)---
+debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
+
+##---(Mon Jun 01 00:49:06 2015)---
+debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
+debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
+
+##---(Mon Jun 01 21:49:24 2015)---
+debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
+
+##---(Tue Jun 02 21:54:57 2015)---
+debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/GetAllUrl.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
+
+##---(Wed Jun 03 23:06:36 2015)---
+debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/GetAllUrl.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
+runfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/GetAllUrl.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
+
+##---(Thu Jun 04 21:43:37 2015)---
+debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/GetAllUrl.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')

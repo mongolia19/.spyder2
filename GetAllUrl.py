@@ -18,13 +18,13 @@ def getAllLinksFromPage(url):
 
  
 #定义百度函数
-def urlsToFile(url_list):   
+def urlsToFile(url_list,folder='htmls'):   
     i = 0
     for url in url_list:
         i = i + 1        
         sName = string.zfill(i,5) + '.html'#自动填充成六位的文件名
         print '正在下载第' + str(i) + '个网页，并将其存储为' + sName + '......'
-        dirName = 'htmls'
+        dirName = folder
         f = open( dirName + "/"+ sName,'w+')
         try:
             m = urllib2.urlopen(url[0]).read()
@@ -36,4 +36,4 @@ def urlsToFile(url_list):
         f.close()
         
 searchedKeyWord = 'How to make fried fish and potatos' 
-urlsToFile( getAllLinksFromPage('http://global.bing.com/search?q='+searchedKeyWord))
+urlsToFile(url_list= getAllLinksFromPage('http://global.bing.com/search?q='+searchedKeyWord))

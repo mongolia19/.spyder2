@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import sys
 reload(sys)
 sys.setdefaultencoding('utf-8')
@@ -9,6 +10,7 @@ import nltk
 import operator
 import itertools
 from BeautifulSoup import BeautifulSoup
+
 ###
 ##To Do: impliement a function to envalueate the importance of a sentence in an article
 ##To Do: Extract patterns from a single article,which should remove words that has
@@ -109,10 +111,23 @@ def ImportanceMeasure(sentence,word_dict):
 
 def RemoveKeyWordsFromSentence(sentence,keyword_dict):
     for key in keyword_dict.keys():
-        sentence = re.sub(key, "",str(sent))
+        sentence = re.sub(key, "",str(sentence))
     return sentence
+def getWebPageRawText(query):
+    engineUrl = 'http://global.bing.com/search?q='
+    return getText(engineUrl+query)
+def getCleanTextFromQuery(query):
+    return cleanText( getWebPageRawText(query))
+def getKeyWordDictFromQuery(query):
+    cleanedText = getCleanTextFromQuery(query)
+    KeyRatio = 0.1
+    keyWordsList = ExtractKeyWords(cleanedText,int(sentCount*KeyRatio))
+    print keyWordsList
+    for key in keyWordsList:
+         patternHashMap[key] = key
+    return patternHashMap
 #===========Data Cleaning======================
-url = "http://www.chinadaily.com.cn/world/2015xiattendwwii/2015-04/29/content_20627695.htm"
+#url = "http://www.chinadaily.com.cn/world/2015xiattendwwii/2015-04/29/content_20627695.htm"
 
 #RawText = getText(url)
 file_object = open('data.text') 
@@ -122,6 +137,7 @@ finally:
     file_object.close( ) 
 
 cleanedText = cleanText(RawText)
+
 #===========Pattern Loading================================
 exposPattern = loadPatterns()
 patternHashMap = {}
@@ -133,48 +149,54 @@ sent_list = nltk.sent_tokenize(cleanedText)
 sentCount = len(sent_list)
 
 #============Key word Extraction===============================
-KeyRatio = 0.1
-keyWordsList = ExtractKeyWords(cleanedText,int(sentCount*KeyRatio))
-print keyWordsList
-for key in keyWordsList:
-    patternHashMap[key] = key
-#============Sentence sortting===============================
-impDict = {}
-for sent in sent_list:
-    imp = ImportanceMeasure( sent,patternHashMap)
-    impDict[sent] = imp
-sorted_imp = sorted(impDict.iteritems(), key=operator.itemgetter(1),reverse=True)  
-print sorted_imp
-#########################
-combination_Dict = {}
-CombWordNum = 3
-for sent in sent_list:
-    sent = re.sub('[’!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~]+', "",str(sent))
-    #remove the keywords first
-    sent = RemoveKeyWordsFromSentence(sentence=sent,keyword_dict=patternHashMap)
-    words_in_sent = nltk.word_tokenize(sent)
-    comb = list(itertools.permutations(words_in_sent,CombWordNum))
-    print comb
-    for OneComb in comb:
-        if combination_Dict.has_key(OneComb):
-            combination_Dict[OneComb] = combination_Dict[OneComb] + 1
-        else:
-            combination_Dict[OneComb] = 1
-    print "All possiable combinations in a sentence."
-for OneComb in combination_Dict.keys():
-    if combination_Dict[OneComb] == 1:
-        combination_Dict.pop(OneComb)
+#KeyRatio = 0.1
+#keyWordsList = ExtractKeyWords(cleanedText,int(sentCount*KeyRatio))
+#print keyWordsList
+#for key in keyWordsList:
+#    patternHashMap[key] = key
 
-###########################
-extractedTXT = ''
-i = 0
-totalCount = len(sorted_imp)
-threshold = int(totalCount*0.1)
-for sent in sorted_imp:
-    if i<threshold:
-        extractedTXT = extractedTXT + sent[0]
-    i = i + 1
-print extractedTXT
+#============Sentence sortting===============================
+def sentenceSortingByKeyWords(sent_list,patternHashMap):
+    
+    impDict = {}
+    for sent in sent_list:
+        imp = ImportanceMeasure( sent,patternHashMap)
+        impDict[sent] = imp
+    sorted_imp = sorted(impDict.iteritems(), key=operator.itemgetter(1),reverse=True)  
+    return sorted_imp
+
+#########################
+def getWordCombinationDict(wordNum,sent_list,patternHashMap):#patternHashMap is a dict of keywords
+    combination_Dict = {}
+    CombWordNum = wordNum
+    for sent in sent_list:
+        sent = re.sub('[’!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~]+', "",str(sent))
+        #remove the keywords first
+        sent = RemoveKeyWordsFromSentence(sentence=sent,keyword_dict=patternHashMap)
+        words_in_sent = nltk.word_tokenize(sent)
+        comb = list(itertools.permutations(words_in_sent,CombWordNum))
+        print comb
+        for OneComb in comb:
+            if combination_Dict.has_key(OneComb):
+                combination_Dict[OneComb] = combination_Dict[OneComb] + 1
+            else:
+                combination_Dict[OneComb] = 1
+        print "All possiable combinations in a sentence."
+    for OneComb in combination_Dict.keys():
+        if combination_Dict[OneComb] == 1:
+            combination_Dict.pop(OneComb)
+    return combination_Dict
+
+############# key sentences selected by tf-idf ##############
+#extractedTXT = ''
+#i = 0
+#totalCount = len(sorted_imp)
+#threshold = int(totalCount*0.1)
+#for sent in sorted_imp:
+#    if i<threshold:
+#        extractedTXT = extractedTXT + sent[0]
+#    i = i + 1
+#print extractedTXT
 #patternHashMap[0] = keyWordsList[0][0]
 
 #imp = ImportanceMeasure( sent_list[0],patternHashMap)
