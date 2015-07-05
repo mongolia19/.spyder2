@@ -4,7 +4,7 @@ Created on Wed Mar 25 22:46:27 2015
 
 @author: mongolia19
 """
-import nltk
+
 import jieba.analyse
 
 #f = open('./nettext.text', 'r')
