@@ -1,13 +1,3 @@
-# *** Spyder Python Console History Log ***
-debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
-debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/downloaderAndContentExtractor.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
-debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
-runfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
-debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
-
-##---(Thu Apr 30 23:07:27 2015)---
-debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
-
 ##---(Fri May 01 22:56:52 2015)---
 debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
 
@@ -199,4 +189,17 @@ runfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/wordNet.py', wdir='C:/WinP
 debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/wordNet.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
 
 ##---(Sat Jul 04 17:41:39 2015)---
+debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/wordNet.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
+
+##---(Tue Jul 07 21:15:56 2015)---
+runfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/NameSexANN.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
+debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/NameSexANN.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
+runfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/NameSexANN.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
+debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/NameSexANN.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
+debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/wordNet.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
+
+##---(Thu Jul 09 22:10:51 2015)---
+debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/wordNet.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
+
+##---(Fri Jul 10 00:16:35 2015)---
 debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/wordNet.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')

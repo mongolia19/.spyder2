@@ -7,7 +7,9 @@ Created on Sat Jun 13 13:53:23 2015
 
 from nltk.corpus import wordnet as wn
 from nltk.stem import PorterStemmer
-
+#To Do: 
+#Just take lib Pattern for relation extraction 
+#!!!
 
 
 #print keyA
@@ -40,7 +42,7 @@ from sumy.nlp.tokenizers import Tokenizer
 from sumy.summarizers.lsa import LsaSummarizer as Summarizer
 from sumy.nlp.stemmers import Stemmer
 from sumy.utils import get_stop_words
-
+from textblob import TextBlob
 #import FileUtils
 
 
@@ -322,27 +324,24 @@ def getDeepestVP(tree,posTupleList):
                         vpStr = vpStr + ' ' + str(posTupleList[i][0])
             retList.append(vpStr)
     return retList   
-def getRelation(posTupleList):
+def getRelation( nounList, sentList):
     #get verb phrase
     #get the noun before it ,get the none after it 
     #return the none verb none tuple
-    firstNoneIndex = 0
-    secondNoneIndex = 0
-    firstN =''
-    secondN = ''
-    length = posTupleList    
-    for i in range(1,length):
-        if posTupleList[i-1][1] and IsVerb( posTupleList[i][1]):
-            firstNoneIndex = i - 1
-            for j in range(i,length):
-                if IsNamedEntity(posTupleList[j][1]):
-                    secondNoneIndex = j
-                    break
-    if secondNoneIndex > 0:
-        secondN = posTupleList[secondNoneIndex][0]
-        firstN = posTupleList[firstNoneIndex][0]
-        return firstN + posTupleList[firstNoneIndex+1][0] + secondN 
-    return ''
+    relationList = list()
+    for i in range(0,len(nounList)-1):
+        for j in range(i + 1,len(nounList)):
+            for sent in sentList:
+                if (nounList[i] in sent) and (nounList[j] in sent):
+                    subList = list()
+                    s = sent.index(nounList[i])
+                    e = sent.index(nounList[j])
+                    subList.append(nounList[i])
+                    subList.append(sent[s+len(nounList[i]):e-1])
+                    subList.append(nounList[j])
+                    relationList.append(subList)
+                    
+    return relationList
 #    while VisitNode.height() >= 2:
 #        subTrees = VisitNode.subtrees()
 #        h1 =   len (subTrees)
@@ -434,9 +433,13 @@ if __name__ == '__main__':
     #score = MeasureWordSimilarity('diary','career')
     #print score
     stemmer = PorterStemmer
-    passage = FileUtils.OpenFileGBK('./reading/passage1.txt')
+    passage = FileUtils.OpenFileGBK('./reading/passage.txt')
+    blob = TextBlob(passage)
+    NoneList = blob.noun_phrases
+    for sentence in blob.sentences:
+        print(sentence.sentiment.polarity)
     passage_sentList = PipLineTest.getSentenceListFromText(passage)    
-    qList = questionLoader('./reading/questions1.txt')
+    qList = questionLoader('./reading/questions.txt')
     temp_qestion = qList[3]# the question number
 
     question = temp_qestion[0].decode('gbk', 'ignore')
@@ -452,6 +455,8 @@ if __name__ == '__main__':
     for sent in sentDict.keys():
         tokens = nltk.word_tokenize(removePunctuation(sent))
         tags = nltk.pos_tag(tokens)
+        relation = getRelation(NoneList,passage_sentList)
+        print relation
         posTags = getPosTagList(tagTupleList=tags)
         tempTrees = grammerParser(posTags)
         #getSubSentence(tempTrees,tags)

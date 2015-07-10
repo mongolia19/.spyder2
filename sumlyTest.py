@@ -15,7 +15,7 @@ from sumy.nlp.stemmers import Stemmer
 from sumy.utils import get_stop_words
 
 import FileUtils
-
+from textblob import TextBlob
 LANGUAGE = "english"
 SENTENCES_COUNT = 3
 
@@ -25,13 +25,16 @@ if __name__ == "__main__":
     #parser = HtmlParser.from_url(url, Tokenizer(LANGUAGE))
     # or for plain text files
     passage = FileUtils.OpenFileGBK('./reading/passage.txt')
-    passage = passage.encode("UTF-8")
-    parser = PlaintextParser.from_string(passage, Tokenizer(LANGUAGE))
-    stemmer = Stemmer(LANGUAGE)
-
-    summarizer = Summarizer(stemmer)
-    summarizer.stop_words = get_stop_words(LANGUAGE)
-
-    for sentence in summarizer(parser.document, SENTENCES_COUNT):
-        print(type(sentence))
-        print(sentence)
+#    passage = passage.encode("UTF-8")
+#    parser = PlaintextParser.from_string(passage, Tokenizer(LANGUAGE))
+#    stemmer = Stemmer(LANGUAGE)
+#
+#    summarizer = Summarizer(stemmer)
+#    summarizer.stop_words = get_stop_words(LANGUAGE)
+#
+#    for sentence in summarizer(parser.document, SENTENCES_COUNT):
+#        print(type(sentence))
+#        print(sentence)
+    blob = TextBlob(passage)
+    NoneList = blob.noun_phrases
+    print NoneList
