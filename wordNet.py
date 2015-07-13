@@ -7,6 +7,7 @@ Created on Sat Jun 13 13:53:23 2015
 
 from nltk.corpus import wordnet as wn
 from nltk.stem import PorterStemmer
+
 #To Do: 
 #Just take lib Pattern for relation extraction 
 #!!!
@@ -323,43 +324,24 @@ def getDeepestVP(tree,posTupleList):
                     if leave is posList[i]:
                         vpStr = vpStr + ' ' + str(posTupleList[i][0])
             retList.append(vpStr)
-    return retList   
-def getRelation( nounList, sentList):
+    return retList
+
+from pattern.en import Sentence
+from pattern.en import tree
+from pattern.en import parsetree
+from pattern.en import tag
+def getRelation( SentStr):
+    
     #get verb phrase
     #get the noun before it ,get the none after it 
     #return the none verb none tuple
-    relationList = list()
-    for i in range(0,len(nounList)-1):
-        for j in range(i + 1,len(nounList)):
-            for sent in sentList:
-                if (nounList[i] in sent) and (nounList[j] in sent):
-                    subList = list()
-                    s = sent.index(nounList[i])
-                    e = sent.index(nounList[j])
-                    subList.append(nounList[i])
-                    subList.append(sent[s+len(nounList[i]):e-1])
-                    subList.append(nounList[j])
-                    relationList.append(subList)
-                    
-    return relationList
-#    while VisitNode.height() >= 2:
-#        subTrees = VisitNode.subtrees()
-#        h1 =   len (subTrees)
-#        print h1
-#        for subTree in subTrees:
-#            if subTree is VisitNode:
-#                continue
-#            if subTree.height == 2:
-#                if subTree.label() == 'NP':
-#                    retList = list()                
-#                    for leave in (subTree.leaves()):
-#                        for i in range(0,len(posList)):
-#                            if leave is posList[i]:
-#                                retList.append(posTupleList[i])
-#                    return retList
-#            else:
-#                outLoopRetList.extend(getDeepestNP(subTree,posTupleList))
-#    return outLoopRetList
+    
+    
+    #taggedstring = parse(SentStr)
+    #relationList = list()
+    #sentence = Sentence(taggedstring, token=['WORD', 'POS', 'CHUNK', 'PNP', 'REL', 'LEMMA'])
+    s = parsetree(SentStr, relations=True, lemmata=True)
+    return (s[0]).relations
 def getSubSentence(posTrees, posTupleList):
     subSentDict = {}
     print "inside getSubSentence ", posTrees
@@ -433,13 +415,13 @@ if __name__ == '__main__':
     #score = MeasureWordSimilarity('diary','career')
     #print score
     stemmer = PorterStemmer
-    passage = FileUtils.OpenFileGBK('./reading/passage.txt')
+    passage = FileUtils.OpenFileGBK('./reading/passage1.txt')
     blob = TextBlob(passage)
     NoneList = blob.noun_phrases
     for sentence in blob.sentences:
         print(sentence.sentiment.polarity)
     passage_sentList = PipLineTest.getSentenceListFromText(passage)    
-    qList = questionLoader('./reading/questions.txt')
+    qList = questionLoader('./reading/questions1.txt')
     temp_qestion = qList[3]# the question number
 
     question = temp_qestion[0].decode('gbk', 'ignore')
@@ -455,8 +437,16 @@ if __name__ == '__main__':
     for sent in sentDict.keys():
         tokens = nltk.word_tokenize(removePunctuation(sent))
         tags = nltk.pos_tag(tokens)
-        relation = getRelation(NoneList,passage_sentList)
-        print relation
+        relation = getRelation(sent)
+        relationStr = ''
+        if relation:
+            for k in relation:
+                print type(relation[k])
+                print k , relation[k]
+                for s in relation[k]:
+                    print relation[k][s].string
+                    relationStr = relationStr + " " + relation[k][s].string
+        print relationStr
         posTags = getPosTagList(tagTupleList=tags)
         tempTrees = grammerParser(posTags)
         #getSubSentence(tempTrees,tags)

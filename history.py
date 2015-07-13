@@ -1,21 +1,5 @@
-##---(Fri May 01 22:56:52 2015)---
-debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
-
-##---(Sat May 02 15:26:20 2015)---
-debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
-
-##---(Tue May 05 00:08:51 2015)---
-debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
-
-##---(Tue May 05 23:39:56 2015)---
-debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
-
-##---(Wed May 06 23:10:41 2015)---
-debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
-runfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
-debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
-
-##---(Thu May 07 23:42:55 2015)---
+# *** Spyder Python Console History Log ***
+# *** Spyder Python Console History Log ***
 runfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
 debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
 
@@ -203,3 +187,17 @@ debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/wordNet.py', wdir='C:/Wi
 
 ##---(Fri Jul 10 00:16:35 2015)---
 debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/wordNet.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
+
+##---(Sat Jul 11 22:58:37 2015)---
+debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/wordNet.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
+debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/sumlyTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
+debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/wordNet.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
+
+##---(Sun Jul 12 11:38:09 2015)---
+debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/sumlyTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
+
+##---(Sun Jul 12 16:36:17 2015)---
+debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/sumlyTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
+
+##---(Sun Jul 12 20:28:28 2015)---
+debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/sumlyTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
