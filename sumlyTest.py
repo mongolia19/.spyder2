@@ -20,8 +20,22 @@ from pattern.en import tag
 from pattern.en import parsetree
 import re,urllib
 import nltk
+from wordNet import wordInSentStr
 from wordNet import getAllEntities,getAllVerbs,getSentenceDictMatchingPatternList,getTopScoredSentenceDict
 import PipLineTest
+HOW = 'how'
+WHAT = 'what'
+WHO = 'who'
+WHERE = 'where'
+WHEN = 'when'
+DEFAULT = 'default'
+LANGUAGE = "english"
+SENTENCES_COUNT = 5
+def getQuestionType(key,questionWordList):
+    if wordInSentStr(key,questionWordList):
+        return key
+    else:
+        return DEFAULT
 def getRelation( SentStr):
     
     #get verb phrase
@@ -35,9 +49,15 @@ def getRelation( SentStr):
 def getAllLinksFromPage(url):
     htmlSource = urllib.urlopen(url).read(200000)
     #soup = BeautifulSoup.BeautifulSoup(htmlSource)
+    head = (url,'http')
+    headlist = list()
+    headlist.append(head)
     links = re.findall('"((http|ftp)s?://.*?)"',htmlSource)
-
+    links = headlist + links
     return links
+def getSentencesFromPassageText(text):
+    PassageContentList = nltk.sent_tokenize(text)
+    return PassageContentList
 def getSentencesFromPassage(urlStr):
     PassageContentList = list()
     try:
@@ -51,6 +71,18 @@ def getSentencesFromPassage(urlStr):
                 PassageContentList.append(h._text)
             return PassageContentList
     return list()
+def getPassageFromUrl(urlStr):
+    PassageContentList = ''
+    try:
+        parser = HtmlParser.from_url(urlStr, Tokenizer(LANGUAGE))
+    except Exception,ex:  
+        print Exception,":",ex
+        return PassageContentList
+    if parser.document:
+        if parser.document.sentences and len(parser.document.sentences)>0:
+            for h in parser.document.sentences:
+                PassageContentList = PassageContentList + (h._text)
+    return PassageContentList
 def getSentencesDictFromPassageByQuestion(question,passage_sentList):
     tokens = nltk.word_tokenize(question)
     tags = nltk.pos_tag(tokens)
@@ -64,19 +96,19 @@ def iif(condition, true_part, false_part):
     return (condition and [true_part] or [false_part])[0] 
 import FileUtils
 from textblob import TextBlob
-LANGUAGE = "english"
-SENTENCES_COUNT = 3
+
 
 if __name__ == "__main__":
     url = "http://en.wikipedia.org/wiki/Automatic_summarization"
     parser = HtmlParser.from_url(url, Tokenizer(LANGUAGE))
-    searchedKeyWords = 'who is Benjamin Franklin'
+    searchedKeyWords = 'who invented the iPhone'
 #    keyDict = PipLineTest.getKeyWordDictFromCleanedSentence(searchedKeyWords)
 #    searchedKeyWords = ''
 #    for k in keyDict:
 #        searchedKeyWords = searchedKeyWords + " " + k
     yahooHead = 'http://global.bing.com/search?q='
     yahooTail = '&intlF=1&setmkt=en-us&setlang=en-us&FORM=SECNEN'
+    searchURL = yahooHead + searchedKeyWords + yahooTail
     urlList = getAllLinksFromPage( yahooHead + searchedKeyWords + yahooTail)
 #    PassageContentList = list()
 #    for i in range(0,iif(len(urlList)>5,5,len(urlList))):
@@ -95,15 +127,25 @@ if __name__ == "__main__":
 #                    print h
 #                PassageContentList.append(content)
 #    print PassageContentList
-    URLNum = 5
+    URLNum = 6
     SentDict = list()
     keySentencesText = ''
+    MainSearchResultText = ''
     for i in range(0,iif(len(urlList)>URLNum,URLNum,len(urlList))):
-        passageSentList = getSentencesFromPassage(urlList[i][0])
-        SentDict = getSentencesDictFromPassageByQuestion(searchedKeyWords,passageSentList)
-        if SentDict.keys():
-            for k in SentDict.keys():         
-                keySentencesText = keySentencesText + ' ' + k.decode('gbk', 'ignore').encode('utf-8')
+        passageSentences = getSentencesFromPassage(urlList[i][0])
+        if passageSentences and len (passageSentences):            
+            for sent in passageSentences:
+                MainSearchResultText = MainSearchResultText + sent
+        parser = PlaintextParser.from_string(passageSentences, Tokenizer(LANGUAGE))
+        stemmer = Stemmer(LANGUAGE)
+        summarizer = Summarizer(stemmer)
+        summarizer.stop_words = get_stop_words(LANGUAGE)
+        for sentence in summarizer(parser.document, SENTENCES_COUNT):
+#            print(type(sentence))
+#            print(sentence)
+            ks = sentence._text.decode('gbk', 'ignore').encode('utf-8')
+            print ks
+            keySentencesText = keySentencesText + ' ' + ks
     # or for plain text files
 #    passage = FileUtils.OpenFileGBK('./reading/passage.txt')
 #    passage = passage.encode("UTF-8")
@@ -116,9 +158,23 @@ if __name__ == "__main__":
 #    for h in parser.document.sentences:
 #        print type(h)
 #        print h
+    print '====================================================='
     for sentence in summarizer(parser.document, SENTENCES_COUNT):
         print(type(sentence))
         print(sentence)
+    print '----------------------------------'
+    print MainSearchResultText
+    print '-----------------------------------'
+    MainSearchResultSentencesList = getSentencesFromPassageText(MainSearchResultText)
+    questionWords = nltk.word_tokenize(searchedKeyWords)
+    qDict = {}
+    for q in questionWords:
+        qDict[q] = q
+    combinationDict = PipLineTest.getWordCombinationDict(3,MainSearchResultSentencesList,qDict)
+    for k in combinationDict.keys():
+        if combinationDict[k]>=24:
+            print k ,':',combinationDict[k]
+            
 #    blob = TextBlob(passage)
 #    NoneList = blob.noun_phrases
 #    print NoneList

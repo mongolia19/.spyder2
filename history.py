@@ -201,3 +201,6 @@ debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/sumlyTest.py', wdir='C:/
 
 ##---(Sun Jul 12 20:28:28 2015)---
 debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/sumlyTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
+
+##---(Wed Jul 15 22:05:26 2015)---
+debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/sumlyTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
