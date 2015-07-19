@@ -109,7 +109,7 @@ def ImportanceMeasure(sentence,word_dict):
             count = count + 1.0
     return count/totalCount        
 
-def RemoveKeyWordsFromSentence(sentence,keyword_dict):
+def RemoveKeyWordsFromSentence(sentence,keyword_dict):# there is somethine wrong with the method
     for key in keyword_dict.keys():
         sentence = re.sub(key, "",str(sentence))
     return sentence
@@ -210,13 +210,13 @@ def sentenceSortingByKeyWords(sent_list,patternHashMap):
 
 #########################
 def getWordCombinationDict(wordNum,sent_list,patternHashMap):#patternHashMap is a dict of keywords
-    Max_Sentence_Length = 20
+    Max_Sentence_Length = 100
     combination_Dict = {}
     CombWordNum = wordNum
     for sent in sent_list:
         sent = re.sub('[’!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~]+', "",str(sent))
         #remove the keywords first
-        sent = RemoveKeyWordsFromSentence(sentence=sent,keyword_dict=patternHashMap)
+        #sent = RemoveKeyWordsFromSentence(sentence=sent,keyword_dict=patternHashMap)
         words_in_sent = nltk.word_tokenize(sent)
         if len(words_in_sent) > Max_Sentence_Length:
             continue
@@ -243,11 +243,10 @@ def CombinationInSentence(OneComb,sentenceStr):#if combination is in return 1
     mark = 0
     wordsInSentDict = getWordDictInSentence(sentenceStr)
     for word in OneComb:
-        if mark >=1:
-            break
+
         if wordsInSentDict.has_key(str(word)):
             mark = mark + 1
-    if mark >=1:
+    if mark >=len(OneComb):
         return 1
     else:
         return 0

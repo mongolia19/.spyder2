@@ -31,6 +31,33 @@ WHEN = 'when'
 DEFAULT = 'default'
 LANGUAGE = "english"
 SENTENCES_COUNT = 5
+def readStrToTuple(path):
+    resTupleList = list()
+    f = open(path,'r')
+    strList = f.readlines()
+    for s in strList:
+        tempTuple = s.strip().strip('\n').split(' ')
+        if len(tempTuple)>1:
+            resTupleList.append(tempTuple)
+    return resTupleList
+def tupleToStr(t):#tuple(e1,e2,e3)--->e1 e2 e3
+    if len(t) == 0:
+        return ''
+    resStr = ''
+    for e in t:
+        resStr = resStr + ' ' + str(e)
+    return resStr
+def keywithmaxval(d):
+  """ a) create a list of the dict's keys and values; 
+   b) return the key with the max value""" 
+  v=list(d.values())
+  k=list(d.keys())
+  if len(k) <= 0:
+      print 'dict is null'
+      return None
+  return k[v.index(max(v))]
+#for each type define a few words that should be appear in answers,use these words to filter
+#the backup sentences ---which sentences are closer to the words  
 def getQuestionType(key,questionWordList):
     if wordInSentStr(key,questionWordList):
         return key
@@ -68,7 +95,7 @@ def getSentencesFromPassage(urlStr):
     if parser.document:
         if parser.document.sentences and len(parser.document.sentences)>0:
             for h in parser.document.sentences:
-                PassageContentList.append(h._text)
+                PassageContentList.append(h._text.decode('gbk', 'ignore').encode('utf-8'))
             return PassageContentList
     return list()
 def getPassageFromUrl(urlStr):
@@ -92,16 +119,68 @@ def getSentencesDictFromPassageByQuestion(question,passage_sentList):
     sentDict = getTopScoredSentenceDict(sentDict)
     sentDict = getSentenceDictMatchingPatternList(verbs,sentDict)
     return sentDict
-def iif(condition, true_part, false_part):  
-    return (condition and [true_part] or [false_part])[0] 
+def getTopCombinations(combinationDict):
+    CombList = list()
+    maxComb = keywithmaxval(combinationDict)
+    maxCombVal = combinationDict[maxComb]    
+    while True and len(combinationDict.keys())>0:
+        combinationDict.pop(maxComb)
+        t_maxComb = keywithmaxval(combinationDict)
+        print maxComb , ':' , combinationDict[t_maxComb]
+        CombList.append(maxComb)
+        if combinationDict[t_maxComb] != maxCombVal:
+            
+            break
+        else:
+            maxComb = t_maxComb
+    return CombList
+def getTopPercentCombinations(combinationDict ,keepPercent):
+    originalLength = len(combinationDict.keys())
+    removePercent = 1 - keepPercent
+    resList = list()
+    while len(combinationDict.keys())>0 and originalLength*removePercent<len(combinationDict.keys()):
+        tempList = getTopCombinations(combinationDict)
+        resList = resList + tempList
+    return resList
 import FileUtils
 from textblob import TextBlob
+def getQuestionPatternsToFile(path,strContent):
+    FileUtils.WriteToFile(path,strContent)
+def WriteTupleToFile(path,t):
+    s = tupleToStr(t)
+    FileUtils.WriteToFile(path,s+'\r\n')
+def iif(condition, true_part, false_part):  
+    return (condition and [true_part] or [false_part])[0] 
 
+
+def questionPatternMining(firstHalf , secondHalf ,var,fileName):
+    searchedKeyWords = firstHalf + var + secondHalf
+    yahooHead = 'http://global.bing.com/search?q='
+    yahooTail = '&intlF=1&setmkt=en-us&setlang=en-us&FORM=SECNEN'
+    urlList = getAllLinksFromPage( yahooHead + searchedKeyWords + yahooTail)
+    URLNum = 6
+    keySentencesText = ''
+    for i in range(0,iif(len(urlList)>URLNum,URLNum,len(urlList))):
+        passageSentences = getSentencesFromPassage(urlList[i][0])
+        parser = PlaintextParser.from_string(passageSentences, Tokenizer(LANGUAGE))
+        stemmer = Stemmer(LANGUAGE)
+        summarizer = Summarizer(stemmer)
+        summarizer.stop_words = get_stop_words(LANGUAGE)
+        for sentence in summarizer(parser.document, SENTENCES_COUNT):
+#            print(type(sentence))
+#            print(sentence)
+            ks = sentence._text.decode('gbk', 'ignore').encode('utf-8')
+            print ks
+            keySentencesText = keySentencesText + ' ' + ks
+    getQuestionPatternsToFile(fileName,'\n'+keySentencesText)
 
 if __name__ == "__main__":
-    url = "http://en.wikipedia.org/wiki/Automatic_summarization"
-    parser = HtmlParser.from_url(url, Tokenizer(LANGUAGE))
-    searchedKeyWords = 'who invented the iPhone'
+#    url = "http://en.wikipedia.org/wiki/Automatic_summarization"
+#    parser = HtmlParser.from_url(url, Tokenizer(LANGUAGE))
+#    noneList = list(['table','coffee','ashtray','vacuum','door knob','safety','elevator','chair','processor','arm','space-time'])
+#    for n in noneList:
+#        questionPatternMining('what does ',' mean',n,'./what_patterns_txt.txt',)
+    searchedKeyWords = 'what does AI mean'
 #    keyDict = PipLineTest.getKeyWordDictFromCleanedSentence(searchedKeyWords)
 #    searchedKeyWords = ''
 #    for k in keyDict:
@@ -146,6 +225,18 @@ if __name__ == "__main__":
             ks = sentence._text.decode('gbk', 'ignore').encode('utf-8')
             print ks
             keySentencesText = keySentencesText + ' ' + ks
+    
+    MainSearchResultSentencesList = getSentencesFromPassageText(keySentencesText)
+    questionWords = nltk.word_tokenize(searchedKeyWords)
+    qDict = {}
+#    for q in questionWords:
+#        qDict[q] = q
+    combinationDict = PipLineTest.getWordCombinationDict(3,MainSearchResultSentencesList,qDict)
+    patternList = readStrToTuple('./what_tuple_patterns.txt')
+
+#    getQuestionPatternsToFile('./what_patterns_txt.txt','\n'+keySentencesText)
+
+
     # or for plain text files
 #    passage = FileUtils.OpenFileGBK('./reading/passage.txt')
 #    passage = passage.encode("UTF-8")
@@ -153,34 +244,41 @@ if __name__ == "__main__":
     stemmer = Stemmer(LANGUAGE)
     summarizer = Summarizer(stemmer)
     summarizer.stop_words = get_stop_words(LANGUAGE)
-    
-    
-#    for h in parser.document.sentences:
-#        print type(h)
-#        print h
+
     print '====================================================='
-    for sentence in summarizer(parser.document, SENTENCES_COUNT):
-        print(type(sentence))
-        print(sentence)
-    print '----------------------------------'
-    print MainSearchResultText
-    print '-----------------------------------'
-    MainSearchResultSentencesList = getSentencesFromPassageText(MainSearchResultText)
-    questionWords = nltk.word_tokenize(searchedKeyWords)
-    qDict = {}
-    for q in questionWords:
-        qDict[q] = q
-    combinationDict = PipLineTest.getWordCombinationDict(3,MainSearchResultSentencesList,qDict)
-    for k in combinationDict.keys():
-        if combinationDict[k]>=24:
-            print k ,':',combinationDict[k]
-            
+    backupAnwsersDict = {}
+    for sentence in MainSearchResultSentencesList:
+        strSent = sentence
+        for pat in patternList:
+            if PipLineTest.CombinationInSentence(pat,strSent):
+                if backupAnwsersDict.has_key(strSent):
+                    continue
+                else:
+                    backupAnwsersDict[strSent] = strSent
+                    print strSent
+                    print '-------extracted---------------------------'
+                    s = parsetree(strSent, relations=True, lemmata=True)
+                    print 'subjects', s[0].subjects
+                    print 'verbs', s[0].verbs
+                    print 'objects', s[0].objects
+                    print 'relations', s[0].relations
+                    print 'pnp', s[0].pnp
+#    print '.....................what questions patterns ..........................'
+#    whatTxt = FileUtils.OpenFileUnicode('./what_patterns_txt.txt')
+#    MainSearchResultSentencesList = getSentencesFromPassageText(whatTxt)
+#
+#    combinationDict = PipLineTest.getWordCombinationDict(3,MainSearchResultSentencesList,qDict)
+#
+#    patternList = getTopPercentCombinations(combinationDict,0.0001)
+#    for p in patternList:
+#        print p
+#        WriteTupleToFile('./what_tuple_patterns.txt',p)
+#    for k in combinationDict.keys():
+#        if combinationDict[k] > 50:
+#            print k , ":" , combinationDict[k]
+#    print type(keywithmaxval(combinationDict))        
 #    blob = TextBlob(passage)
 #    NoneList = blob.noun_phrases
 #    print NoneList
 #    sent = 'Punctuation marks are stripped from words, and n-grams will not run over sentence delimiters'
-#    s = parsetree(sent, relations=True, lemmata=True)
-#    print s[0].subjects
-#    print s[0].verbs
-#    print s[0].objects
-#    print s[0].pnp
+

@@ -1,8 +1,5 @@
-# *** Spyder Python Console History Log ***
-# *** Spyder Python Console History Log ***
-runfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
 debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
-
+# *** Spyder Python Console History Log ***
 ##---(Sun May 10 21:29:54 2015)---
 debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
 runfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
@@ -203,4 +200,7 @@ debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/sumlyTest.py', wdir='C:/
 debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/sumlyTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
 
 ##---(Wed Jul 15 22:05:26 2015)---
+debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/sumlyTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
+
+##---(Sun Jul 19 19:14:39 2015)---
 debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/sumlyTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')

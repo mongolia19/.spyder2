@@ -7,6 +7,10 @@ import BeautifulSoup
 def CleanHTMLTextByBS(RawText):
     tSoup = BeautifulSoup.BeautifulSoup(RawText)
     return tSoup.text
+def WriteToFile(path,content):
+    f = open(path,'a')
+    f.write(content)
+    f.close()
 def ReturnAllFileOnPath(level, path):
     global allFileNum
     '''
@@ -87,6 +91,12 @@ def getContentStrListFromHTMLPath(path='htmls'):
 def OpenFileGBK(OnefilePath):
     fileOBJ = open(OnefilePath)
     html_doc = fileOBJ.read().decode('gbk', 'ignore')
+    #html_doc = fileOBJ.read().decode('utf-8', 'ignore').encode('gbk') 
+    fileOBJ.close()
+    return html_doc
+def OpenFileUnicode(OnefilePath):
+    fileOBJ = open(OnefilePath)
+    html_doc = fileOBJ.read()
     #html_doc = fileOBJ.read().decode('utf-8', 'ignore').encode('gbk') 
     fileOBJ.close()
     return html_doc
