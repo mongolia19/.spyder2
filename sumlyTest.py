@@ -23,6 +23,7 @@ import nltk
 from wordNet import wordInSentStr
 from wordNet import getAllEntities,getAllVerbs,getSentenceDictMatchingPatternList,getTopScoredSentenceDict
 import PipLineTest
+from wordNet import listToDict
 HOW = 'how'
 WHAT = 'what'
 WHO = 'who'
@@ -30,7 +31,75 @@ WHERE = 'where'
 WHEN = 'when'
 DEFAULT = 'default'
 LANGUAGE = "english"
+TELL_REASON = 'TELL_REASON'
+TELL_DEFINATION = 'TELL_DEFINATION'
+TELL_SIMILAR = 'TELL_SIMILAR'
+TELL_RESULT = 'TELL_RESULT'
+GIVE_REMARKS = 'GIVE_REMARKS'
+#Use movie script to talk with human
+class RelationTuple:
+    SBJ = ''
+    OBJ = ''
+    VP = ''
+    def __init__(self,s,o,v):
+        self.SBJ = s
+        self.OBJ = o
+        self.VP = v
+        
 SENTENCES_COUNT = 5
+lessthan = lambda x, y:x < y;
+greaterthan = lambda x, y:x > y;
+def minmax(test, *args):
+    res = args[0]
+    for arg in args[1:]:
+        if test(arg, res):
+            res = arg
+    return res
+def getRelationsFromDict(relations):#sub obj verb
+    posList = list()
+    OBJDict = {}
+    SBJDict = {}
+    VPDict = {}
+    for k in relations.keys():
+        posList.append(relations[k])
+    for key in range(0,len(posList)):
+        t = posList[key]
+        if key == 0:
+            OBJDict = t
+        if key == 2:
+            SBJDict = t
+        if key == 1:
+            VPDict = t
+
+    len_S = len( SBJDict.keys())
+    len_O = len( OBJDict.keys())
+    len_V = len( VPDict.keys())
+    relationNum = minmax(greaterthan, len_S, len_O, len_V)
+    relationDict = {}
+    for i in range(1,relationNum+1):
+        relationDict[i] = RelationTuple('','','')
+    if len_S != 0:
+        for k in SBJDict.keys():
+            print k
+            relationDict[k].SBJ = SBJDict[k].string
+    if len_O != 0:
+        for k in OBJDict.keys():
+            print k
+            relationDict[k].OBJ = OBJDict[k].string
+    if len_V != 0:
+        for k in VPDict.keys():
+            print k
+            relationDict[k].VP = VPDict[k].string
+    return relationDict
+def filterSentencesByWords(sentenceList, WordsList):
+    sentenceDict = {}
+    for sent in sentenceList:
+        sentenceDict[sent] = 0
+    for sent in sentenceDict.keys():
+        for word in WordsList:
+            if PipLineTest.CombinationInSentence((word,),sent):
+                sentenceDict[sent] = sentenceDict[sent] + 1
+    return sentenceDict
 def readStrToTuple(path):
     resTupleList = list()
     f = open(path,'r')
@@ -58,11 +127,26 @@ def keywithmaxval(d):
   return k[v.index(max(v))]
 #for each type define a few words that should be appear in answers,use these words to filter
 #the backup sentences ---which sentences are closer to the words  
-def getQuestionType(key,questionWordList):
-    if wordInSentStr(key,questionWordList):
+def getQuestionType(key,sentStr):
+    if wordInSentStr(key,sentStr):
         return key
     else:
         return DEFAULT
+def getQuestionTypeFromTypeList(questionTypeList,questionWordList):
+    for qt in questionTypeList:
+        t = getQuestionType(qt,questionWordList)
+        if t != DEFAULT:
+            return t
+    return DEFAULT
+def questionPatternLoader(key):
+    headStr = './'
+    tailStr = '_tuple_patterns.txt'
+    types = (HOW,WHAT,WHO,WHERE,WHEN,DEFAULT,LANGUAGE)
+    switchDict = {}
+    for t in types:
+        switchDict[t] = headStr + t + tailStr
+    pList = readStrToTuple(switchDict[key])
+    return pList
 def getRelation( SentStr):
     
     #get verb phrase
@@ -92,7 +176,7 @@ def getSentencesFromPassage(urlStr):
     except Exception,ex:  
         print Exception,":",ex
         return PassageContentList
-    if parser.document:
+    if parser.document and parser.document != '':
         if parser.document.sentences and len(parser.document.sentences)>0:
             for h in parser.document.sentences:
                 PassageContentList.append(h._text.decode('gbk', 'ignore').encode('utf-8'))
@@ -151,8 +235,12 @@ def WriteTupleToFile(path,t):
     FileUtils.WriteToFile(path,s+'\r\n')
 def iif(condition, true_part, false_part):  
     return (condition and [true_part] or [false_part])[0] 
-
-
+def secondSentenceSplitor(sentenceList):
+    resList = list()
+    for sentence in sentenceList:
+        tList = re.split('\.\.\.|\', \'', sentence)
+        resList = resList + tList
+    return resList
 def questionPatternMining(firstHalf , secondHalf ,var,fileName):
     searchedKeyWords = firstHalf + var + secondHalf
     yahooHead = 'http://global.bing.com/search?q='
@@ -180,7 +268,17 @@ if __name__ == "__main__":
 #    noneList = list(['table','coffee','ashtray','vacuum','door knob','safety','elevator','chair','processor','arm','space-time'])
 #    for n in noneList:
 #        questionPatternMining('what does ',' mean',n,'./what_patterns_txt.txt',)
-    searchedKeyWords = 'what does AI mean'
+    searchedKeyWords = 'what is the weather like today'
+    relations = getRelation(searchedKeyWords)
+    tDict = getRelationsFromDict(relations)
+    for k in tDict.keys():
+        print tDict[k].SBJ
+        print tDict[k].OBJ
+        print tDict[k].VP
+    print '........'
+    for r in relations.keys():
+        print type(relations[r])
+        print relations[r]
 #    keyDict = PipLineTest.getKeyWordDictFromCleanedSentence(searchedKeyWords)
 #    searchedKeyWords = ''
 #    for k in keyDict:
@@ -227,12 +325,13 @@ if __name__ == "__main__":
             keySentencesText = keySentencesText + ' ' + ks
     
     MainSearchResultSentencesList = getSentencesFromPassageText(keySentencesText)
-    questionWords = nltk.word_tokenize(searchedKeyWords)
+    MainSearchResultSentencesList = secondSentenceSplitor(MainSearchResultSentencesList)
+    searchedKeyWords = searchedKeyWords.lower()
+    questionType = getQuestionTypeFromTypeList([HOW,WHAT,WHO,WHERE,WHEN,DEFAULT],searchedKeyWords.lower())
+    patternList = questionPatternLoader(questionType)
+
     qDict = {}
-#    for q in questionWords:
-#        qDict[q] = q
     combinationDict = PipLineTest.getWordCombinationDict(3,MainSearchResultSentencesList,qDict)
-    patternList = readStrToTuple('./what_tuple_patterns.txt')
 
 #    getQuestionPatternsToFile('./what_patterns_txt.txt','\n'+keySentencesText)
 
@@ -263,6 +362,13 @@ if __name__ == "__main__":
                     print 'objects', s[0].objects
                     print 'relations', s[0].relations
                     print 'pnp', s[0].pnp
+    keyDict = listToDict(nltk.word_tokenize(searchedKeyWords))
+    print '--------------------    key words  ----------------------'
+    print keyDict
+    print '--------------------After filtering ---------------------'    
+    sentD = filterSentencesByWords(backupAnwsersDict.keys(), keyDict.keys())
+    for k in sentD.keys():
+        print k ,":" , sentD[k]
 #    print '.....................what questions patterns ..........................'
 #    whatTxt = FileUtils.OpenFileUnicode('./what_patterns_txt.txt')
 #    MainSearchResultSentencesList = getSentencesFromPassageText(whatTxt)

@@ -1,18 +1,5 @@
-debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
-# *** Spyder Python Console History Log ***
-##---(Sun May 10 21:29:54 2015)---
-debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
-runfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
-debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
-
-##---(Wed May 13 23:23:34 2015)---
-debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
-
-##---(Thu May 14 00:26:52 2015)---
-debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
-
 ##---(Thu May 14 23:05:45 2015)---
-debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
+# *** Spyder Python Console History Log ***
 runfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
 
 ##---(Sun May 17 20:30:48 2015)---
@@ -203,4 +190,23 @@ debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/sumlyTest.py', wdir='C:/
 debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/sumlyTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
 
 ##---(Sun Jul 19 19:14:39 2015)---
+debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/sumlyTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
+
+##---(Wed Jul 22 23:35:13 2015)---
+runfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/sumlyTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
+debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/sumlyTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
+
+##---(Sat Jul 25 10:47:02 2015)---
+debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/patternExtractor.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
+
+##---(Sat Jul 25 17:52:55 2015)---
+debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/sumlyTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
+
+##---(Tue Jul 28 22:21:57 2015)---
+debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/sumlyTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
+
+##---(Wed Jul 29 00:48:52 2015)---
+debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/sumlyTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
+
+##---(Thu Jul 30 20:46:28 2015)---
 debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/sumlyTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
