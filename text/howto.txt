@@ -1,0 +1,77 @@
+{{fa}}Are you looking forward to making a delicious chocolate cake? There are so many variations that it might be difficult to choose a single recipe. Here's a simple one to get you started along with several variations to suit the occasion.
+[[Category:Chocolate Cakes]]
+==At a Glance: Chocolate Cake==
+{{GlanceSummary|Quick and easy chocolate cake can be made as follows:}}
+#Sift together all of the dry ingredients:flour, sugar, salt, baking soda, and cocoa to remove any clumps. [[#sift|See pictures and details]].
+#Now add all the dry ingredients:vanilla, water, egg, oil, and vinegar, either separately or all at once, and mix well. [[#liquid|See pictures and details]].
+#Grease and flour an 8-inch pan and pour the mixture in. [[#pan|See pictures and details]].
+#Bake the cake for 30 minutes at 350 °F (177 °C). [[#bake|See pictures and details]].
+#Let cake cool for at least 5 minutes before frosting or serving. [[#cool|See pictures and details]].
+==Ingredients==
+* 1 1/2 cup (192 grams) flour
+* 1 cup (201 grams) sugar
+* 1/2 teaspoon (7 grams) salt
+* 1 teaspoon (2 grams) baking soda
+* 3 tablespoons (43 grams) cocoa
+* 1 tablespoon (15 ml) vinegar
+* 6 tablespoons (90 ml) oil
+* 1 teaspoon (5 ml) vanilla essence or 2 tsp. (2ml) vanilla extract (optional)
+* 1 cup (200 ml) water
+* 2 eggs<span id="sift"></span>
+
+== Steps ==
+#Sift the dry ingredients together. The dry ingredients are: flour, sugar, salt, baking soda, and cocoa. Simply place everything in a sifter and shake it back and forth over a bowl to eliminate the  clumps.<br><br>{{whvid|Make a Chocolate Cake Step 1 Version 2.360p.mp4|Make a Chocolate Cake Step 1-preview Version 2.jpg|Make a Chocolate Cake Step 1.jpg}}<span id="liquid"></span>
+#Stir in the liquid ingredients and stir well. These are the vinegar, oil, vanilla, water and egg. Some people like to add these ingredients individually, but others stir them together in a second bowl and before adding them to the dry ingredients.<br><br>{{whvid|Make a Chocolate Cake Step 2 Version 2.360p.mp4|Make a Chocolate Cake Step 2-preview Version 2.jpg|Make a Chocolate Cake Step 2.jpg}}<span id="pan"></span>
+#Pour the mixture into an 8-inch greased and floured round pan. The grease and flour will keep the mix from sticking to the pan.<br><br>{{whvid|Make a Chocolate Cake Step 3 Version 2.360p.mp4|Make a Chocolate Cake Step 3-preview Version 2.jpg|Make a Chocolate Cake Step 3.jpg}}<span id="bake"></span>
+#'''Bake at {{convert|350|F}}. (175 C.) for 30 minutes'''.<br><br>{{whvid|Make a Chocolate Cake Step 4 Version 2.360p.mp4|Make a Chocolate Cake Step 4-preview Version 2.jpg|Make a Chocolate Cake Step 4.jpg}}<span id="cool"></span>
+#Let the cake cool for 5 minutes.<br><br>{{whvid|Make a Chocolate Cake Step 5 Version 2.360p.mp4|Make a Chocolate Cake Step 5-preview Version 2.jpg|Make a Chocolate Cake Step 5.jpg}}
+#Frost as desired.<br><br>{{whvid|Make a Chocolate Cake Step 6 Version 2.360p.mp4|Make a Chocolate Cake Step 6-preview.jpg|Make a Chocolate Cake Step 6.jpg}}
+
+
+== Variations ==
+* [[Make a Spongy Chocolate Cake|Make an airy, spongy chocolate cake]] as a light dessert.
+* [[Make a Dense Chocolate Cake|Make a dense chocolate cake]] if you want the dessert to be decadent and rich.
+* [[Make Chocolate and Hazelnut Praline Cake|Add a hazelnut praline twist to your chocolate cake]] if you want something original.
+* Avoid baking by [[Make a Chocolate Biscuit Cake|making a chocolate biscuit cake]].
+* Out of frosting? Try a [[Make a Chocolate Chip Cake|chocolate chip cake]]!
+* [[Make a Walnut Chocolate Bread Cake|Make a walnut chocolate bread cake]] to enjoy with afternoon tea.
+* Go for the crunch with a [[Make a Chocolate Covered Oreo Cookie Cake|chocolate covered Oreo cookie cake]].
+
+== Video ==
+{{Video:Make a Chocolate Cake|Chocolate Cake Recipe in Microwave ( 5 Minutes Time)}}
+
+== Tips ==
+* Use half or double the amount of ingredients for a smaller or larger cake, respectively.
+* Don't cut the cake or even try to remove it from the baking pan unless it has been cooled for minimum of 5 minutes. Preferably, leave it to cool completely. Only cut or try to remove it from the baking pan before it is completely if there is a big issue with time or if your cake is supposed to be served warm.
+*Try baking the cake at a slightly lower temperature to make it light and spongy. You will need to cook it a little longer, though.
+* Consider adding some edible decorations like chocolate chips, cream flowers or beads, etc.
+* If you want a softer cake, add more baking powder.
+* Some people are vegetarians and do not eat eggs, so you will need to prepare Eggless cakes for them. Many people even don’t like having sour cream or butter. So what you can do is have some substitutes in place of the eggs like rice flour. However if you use rice flour, be prepared for the cake batter to remain thin.
+* You can use milk instead of water.
+* Want to know if your cake is baked? Put a toothpick in the center.
+
+== Related wikiHows ==
+*  [[Bake a Cake|How to Bake a Cake]]
+*  [[Ice a Cake|How to Ice a Cake]]
+*  [[Decorate a Cake|How to Decorate a Cake]]
+*  [[Melt Chocolate|How to Melt Chocolate]]
+*[[Make a Sugar Free Chocolate Cake|How to Make a Sugar Free Chocolate Cake]]
+*[[Make Chocolate Covered Potato Chips|How to Make Chocolate Covered Potato Chips]]
+*[[Make a Chocolate Cake in Pressure Cooker at Home|How to Make a Chocolate Cake in Pressure Cooker at Home]]
+*[[Make Chocolate Vanilla Cake|How to Make Chocolate Vanilla Cake]]
+
+
+== Sources and Citations ==
+*[http://www.howtomakechocolatecake.org/make-chocolate-cake-cool-tips/ howtomakechocolatecake.org - Chocolate Cake tips and tricks]
+*[http://www.cooks.com/rec/view/0,176,149164-246200,00.html Cooks.com - Really Simple Chocolate Cake]
+
+[[de:Schokoladenkuchen backen]]
+[[es:preparar un pastel de chocolate]]
+[[it:Preparare-una-Torta-al-Cioccolato]]
+[[pt:Fazer um Bolo de Chocolate]]
+[[fr:faire un gateau au chocolat]]
+[[nl:Een chocoladecake maken]]
+[[ru:приготовить шоколадный торт]]
+[[zh:制作巧克力蛋糕]]
+[[ja:チョコレートケーキを作る]]
+

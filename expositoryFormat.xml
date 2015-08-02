@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class>
+    <title>
+    </title>
+    <keywords>
+    <key>
+    </key>
+    </keywords>
+    <summary>
+    </summary>
+    <patternList>
+        <pattern>because</pattern>
+        <pattern>as a result</pattern>
+        <pattern>but</pattern>
+        <pattern>however</pattern>
+        <pattern>how</pattern>
+    </patternList>
+</class>

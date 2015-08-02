@@ -1,8 +1,5 @@
-##---(Thu May 14 23:05:45 2015)---
-# *** Spyder Python Console History Log ***
-runfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
 
-##---(Sun May 17 20:30:48 2015)---
+# *** Spyder Python Console History Log ***
 debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/PipLineTest.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
 
 ##---(Mon May 18 23:12:34 2015)---

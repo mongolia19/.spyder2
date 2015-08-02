@@ -1,0 +1,10 @@
+search engine
+get docs
+remove html labels
+classify documents
+get key words
+use different kind of article framework
+extract with framework
+build user-friendly html pages with extracted contents
+show
+get feed back

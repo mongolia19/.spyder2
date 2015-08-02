@@ -398,6 +398,11 @@ def removePunctuationInStrList(StrList):
     for strSent in StrList:
         retList.append(removePunctuation(strSent))
     return retList
+def getNPListFromStr(SentenceStr):
+    tokens = nltk.word_tokenize(SentenceStr)
+    tags = nltk.pos_tag(tokens)
+    ners = getAllEntities(tags)
+    return ners
 #Answer steps
 #1. Get key words in the question
 #2. Search the key words in the article(search NE first if found then check if Verbs match )

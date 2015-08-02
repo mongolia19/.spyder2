@@ -20,10 +20,12 @@ from pattern.en import tag
 from pattern.en import parsetree
 import re,urllib
 import nltk
+from wordNet import getNPListFromStr
 from wordNet import wordInSentStr
 from wordNet import getAllEntities,getAllVerbs,getSentenceDictMatchingPatternList,getTopScoredSentenceDict
 import PipLineTest
 from wordNet import listToDict
+import random
 HOW = 'how'
 WHAT = 'what'
 WHO = 'who'
@@ -31,11 +33,11 @@ WHERE = 'where'
 WHEN = 'when'
 DEFAULT = 'default'
 LANGUAGE = "english"
-TELL_REASON = 'TELL_REASON'
-TELL_DEFINATION = 'TELL_DEFINATION'
-TELL_SIMILAR = 'TELL_SIMILAR'
-TELL_RESULT = 'TELL_RESULT'
-GIVE_REMARKS = 'GIVE_REMARKS'
+TELL_REASON = 0
+TELL_DEFINATION = 1
+TELL_SIMILAR = 2
+TELL_RESULT = 3
+GIVE_REMARKS = 4
 #Use movie script to talk with human
 class RelationTuple:
     SBJ = ''
@@ -176,12 +178,15 @@ def getSentencesFromPassage(urlStr):
     except Exception,ex:  
         print Exception,":",ex
         return PassageContentList
-    if parser.document and parser.document != '':
-        if parser.document.sentences and len(parser.document.sentences)>0:
-            for h in parser.document.sentences:
-                PassageContentList.append(h._text.decode('gbk', 'ignore').encode('utf-8'))
-            return PassageContentList
-    return list()
+    try:
+        if parser.document and parser.document != '':
+            if parser.document.sentences and len(parser.document.sentences)>0:
+                for h in parser.document.sentences:
+                    PassageContentList.append(h._text.decode('gbk', 'ignore').encode('utf-8'))
+                return PassageContentList
+    except Exception,ex:
+        print Exception,":",ex
+    return PassageContentList
 def getPassageFromUrl(urlStr):
     PassageContentList = ''
     try:
@@ -261,92 +266,69 @@ def questionPatternMining(firstHalf , secondHalf ,var,fileName):
             print ks
             keySentencesText = keySentencesText + ' ' + ks
     getQuestionPatternsToFile(fileName,'\n'+keySentencesText)
-
-if __name__ == "__main__":
-#    url = "http://en.wikipedia.org/wiki/Automatic_summarization"
-#    parser = HtmlParser.from_url(url, Tokenizer(LANGUAGE))
-#    noneList = list(['table','coffee','ashtray','vacuum','door knob','safety','elevator','chair','processor','arm','space-time'])
-#    for n in noneList:
-#        questionPatternMining('what does ',' mean',n,'./what_patterns_txt.txt',)
-    searchedKeyWords = 'what is the weather like today'
-    relations = getRelation(searchedKeyWords)
+def talkMod(inputSentence):
+    FunctionFlag = False
+    SelfFlag = False
+    relations = getRelation(inputSentence)
     tDict = getRelationsFromDict(relations)
     for k in tDict.keys():
-        print tDict[k].SBJ
-        print tDict[k].OBJ
+        if tDict[k].SBJ.lower() == 'me'.lower():
+#            FunctionFlag = True
+            break
+        if tDict[k].OBJ.lower() == 'I'.lower():
+#            FunctionFlag = True
+            break
+        
         print tDict[k].VP
-    print '........'
-    for r in relations.keys():
-        print type(relations[r])
-        print relations[r]
-#    keyDict = PipLineTest.getKeyWordDictFromCleanedSentence(searchedKeyWords)
-#    searchedKeyWords = ''
-#    for k in keyDict:
-#        searchedKeyWords = searchedKeyWords + " " + k
-    yahooHead = 'http://global.bing.com/search?q='
-    yahooTail = '&intlF=1&setmkt=en-us&setlang=en-us&FORM=SECNEN'
-    searchURL = yahooHead + searchedKeyWords + yahooTail
-    urlList = getAllLinksFromPage( yahooHead + searchedKeyWords + yahooTail)
-#    PassageContentList = list()
-#    for i in range(0,iif(len(urlList)>5,5,len(urlList))):
-#        try:
-#            parser = HtmlParser.from_url(urlList[i][0], Tokenizer(LANGUAGE))
-#        except Exception,ex:  
-#            print Exception,":",ex
-#            continue
-#        if parser.document:
-#            
-#            if parser.document.sentences and len(parser.document.sentences):
-#                content = ''
-#                for h in parser.document.sentences:
-#                    content = content + h._text                
-#                    print type(h)
-#                    print h
-#                PassageContentList.append(content)
-#    print PassageContentList
-    URLNum = 6
-    SentDict = list()
-    keySentencesText = ''
-    MainSearchResultText = ''
-    for i in range(0,iif(len(urlList)>URLNum,URLNum,len(urlList))):
-        passageSentences = getSentencesFromPassage(urlList[i][0])
-        if passageSentences and len (passageSentences):            
-            for sent in passageSentences:
-                MainSearchResultText = MainSearchResultText + sent
-        parser = PlaintextParser.from_string(passageSentences, Tokenizer(LANGUAGE))
-        stemmer = Stemmer(LANGUAGE)
-        summarizer = Summarizer(stemmer)
-        summarizer.stop_words = get_stop_words(LANGUAGE)
-        for sentence in summarizer(parser.document, SENTENCES_COUNT):
-#            print(type(sentence))
-#            print(sentence)
-            ks = sentence._text.decode('gbk', 'ignore').encode('utf-8')
-            print ks
-            keySentencesText = keySentencesText + ' ' + ks
+    if FunctionFlag == True:
+        FunctionMod(inputSentence)
+    elif SelfFlag == True:
+        LocalSearch(inputSentence)
+    else:
+        conversation(inputSentence)
+    return ''
+def LocalSearch():
+    print 'LocalSearch'
+def FunctionMod(inputSentence):
+    print 'FunctionMod'
+def WebSearch(inputSentence):
+    print 'WebSearch'
+WHAT_IS_STR = "what is"
+GIVE_REMARKS_STR = "what do you think of "
+def processInputSentence(inputSentence,searchExtraStr):
+    if searchExtraStr == WHAT_IS_STR or searchExtraStr == GIVE_REMARKS_STR:
+        npList = getNPListFromStr(inputSentence)
+        npstr = ''
+        for np in npList:
+            npstr = npstr + " " + np
+        return npstr
+    else:
+        return inputSentence
+        
+def conversation(inputSentence):
+    SearchExtraStr = getSearchExtraStr(inputSentence)
+    inputSentence = processInputSentence(inputSentence,SearchExtraStr)
+    questionMod(SearchExtraStr + inputSentence,DEFAULT)
+def TopicSelector():
+    r = random.randint(TELL_REASON, GIVE_REMARKS)
+    MapDict ={
+    TELL_REASON:"why ",
+    TELL_DEFINATION:"what is",
+    TELL_SIMILAR:" and ",
+    TELL_RESULT:" so ",
+    GIVE_REMARKS:"what do you think of "
+    }
+    print MapDict[r]
+    return MapDict[r]
+def getSearchExtraStr(inputSentence):
+    return TopicSelector()
     
-    MainSearchResultSentencesList = getSentencesFromPassageText(keySentencesText)
-    MainSearchResultSentencesList = secondSentenceSplitor(MainSearchResultSentencesList)
-    searchedKeyWords = searchedKeyWords.lower()
-    questionType = getQuestionTypeFromTypeList([HOW,WHAT,WHO,WHERE,WHEN,DEFAULT],searchedKeyWords.lower())
-    patternList = questionPatternLoader(questionType)
-
-    qDict = {}
-    combinationDict = PipLineTest.getWordCombinationDict(3,MainSearchResultSentencesList,qDict)
-
-#    getQuestionPatternsToFile('./what_patterns_txt.txt','\n'+keySentencesText)
-
-
-    # or for plain text files
-#    passage = FileUtils.OpenFileGBK('./reading/passage.txt')
-#    passage = passage.encode("UTF-8")
-    parser = PlaintextParser.from_string(keySentencesText, Tokenizer(LANGUAGE))
-    stemmer = Stemmer(LANGUAGE)
-    summarizer = Summarizer(stemmer)
-    summarizer.stop_words = get_stop_words(LANGUAGE)
-
+def questionMod(inputSentence,qType):
+    patternList = questionPatternLoader(qType)
     print '====================================================='
     backupAnwsersDict = {}
-    for sentence in MainSearchResultSentencesList:
+    SentencesList = getRelatedSentencesListFromWeb(inputSentence)
+    for sentence in SentencesList:
         strSent = sentence
         for pat in patternList:
             if PipLineTest.CombinationInSentence(pat,strSent):
@@ -368,7 +350,80 @@ if __name__ == "__main__":
     print '--------------------After filtering ---------------------'    
     sentD = filterSentencesByWords(backupAnwsersDict.keys(), keyDict.keys())
     for k in sentD.keys():
-        print k ,":" , sentD[k]
+        score = sentD[k]
+        if score ==0:
+            continue
+        print k ,":" , score
+def InputClassifier(InputStr):
+    questionType = getQuestionTypeFromTypeList([HOW,WHAT,WHO,WHERE,WHEN,DEFAULT],InputStr.lower())
+    if questionType == DEFAULT:
+        talkMod(InputStr)
+    else:    
+        questionMod(InputStr,questionType)
+def getRelatedSentencesListFromWeb(searchedKeyWords):
+    yahooHead = 'http://global.bing.com/search?q='
+    yahooTail = '&intlF=1&setmkt=en-us&setlang=en-us&FORM=SECNEN'
+    urlList = getAllLinksFromPage( yahooHead + searchedKeyWords + yahooTail)
+
+    URLNum = 6
+    keySentencesText = ''
+
+    for i in range(0,iif(len(urlList)>URLNum,URLNum,len(urlList))):
+        passageSentences = getSentencesFromPassage(urlList[i][0])
+
+        parser = PlaintextParser.from_string(passageSentences, Tokenizer(LANGUAGE))
+        stemmer = Stemmer(LANGUAGE)
+        summarizer = Summarizer(stemmer)
+        summarizer.stop_words = get_stop_words(LANGUAGE)
+        for sentence in summarizer(parser.document, SENTENCES_COUNT):
+#            print(type(sentence))
+#            print(sentence)
+            ks = sentence._text.decode('gbk', 'ignore').encode('utf-8')
+            print ks
+            keySentencesText = keySentencesText + ' ' + ks
+    MainSearchResultSentencesList = getSentencesFromPassageText(keySentencesText)
+    MainSearchResultSentencesList = secondSentenceSplitor(MainSearchResultSentencesList)
+    return MainSearchResultSentencesList
+if __name__ == "__main__":
+#    url = "http://en.wikipedia.org/wiki/Automatic_summarization"
+#    parser = HtmlParser.from_url(url, Tokenizer(LANGUAGE))
+#    noneList = list(['table','coffee','ashtray','vacuum','door knob','safety','elevator','chair','processor','arm','space-time'])
+#    for n in noneList:
+#        questionPatternMining('what does ',' mean',n,'./what_patterns_txt.txt',)
+    while True:
+        searchedKeyWords = raw_input('You :')
+        if searchedKeyWords == 'quit\n':
+            break
+        InputClassifier(searchedKeyWords)
+#    relations = getRelation(searchedKeyWords)
+#    tDict = getRelationsFromDict(relations)
+#    for k in tDict.keys():
+#        print tDict[k].SBJ
+#        print tDict[k].OBJ
+#        print tDict[k].VP
+#    print '........'
+#    for r in relations.keys():
+#        print type(relations[r])
+#        print relations[r]
+#    keyDict = PipLineTest.getKeyWordDictFromCleanedSentence(searchedKeyWords)
+#    searchedKeyWords = ''
+#    for k in keyDict:
+#        searchedKeyWords = searchedKeyWords + " " + k
+
+
+
+#    qDict = {}
+#    combinationDict = PipLineTest.getWordCombinationDict(3,MainSearchResultSentencesList,qDict)
+
+#    getQuestionPatternsToFile('./what_patterns_txt.txt','\n'+keySentencesText)
+
+
+    # or for plain text files
+#    passage = FileUtils.OpenFileGBK('./reading/passage.txt')
+#    passage = passage.encode("UTF-8")
+
+
+
 #    print '.....................what questions patterns ..........................'
 #    whatTxt = FileUtils.OpenFileUnicode('./what_patterns_txt.txt')
 #    MainSearchResultSentencesList = getSentencesFromPassageText(whatTxt)

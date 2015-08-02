@@ -1,0 +1,54 @@
+======================================
+Logging time: Sat Mar 21 21:24:59 2015
+======================================
+
+Context
+-------
+
+__get_global__("answer")
+
+Traceback
+---------
+
+Traceback (most recent call last):
+  File "C:\WinPython-32bit-2.7.9.3\python-2.7.9\lib\site-packages\spyderlib\widgets\externalshell\monitor.py", line 558, in run
+    output = pickle.dumps(result, PICKLE_HIGHEST_PROTOCOL)
+MemoryError: out of memory
+
+
+======================================
+Logging time: Sat Mar 21 21:25:04 2015
+======================================
+
+Context
+-------
+
+__get_global__("answer")
+
+Traceback
+---------
+
+Traceback (most recent call last):
+  File "C:\WinPython-32bit-2.7.9.3\python-2.7.9\lib\site-packages\spyderlib\widgets\externalshell\monitor.py", line 558, in run
+    output = pickle.dumps(result, PICKLE_HIGHEST_PROTOCOL)
+MemoryError: out of memory
+
+
+======================================
+Logging time: Wed Jun 17 23:56:41 2015
+======================================
+
+Context
+-------
+
+__get_global__("result")
+
+Traceback
+---------
+
+Traceback (most recent call last):
+  File "C:\WinPython-32bit-2.7.9.3\python-2.7.9\lib\site-packages\spyderlib\widgets\externalshell\monitor.py", line 558, in run
+    output = pickle.dumps(result, PICKLE_HIGHEST_PROTOCOL)
+TypeError: 'unicode' object is not callable
+
+
