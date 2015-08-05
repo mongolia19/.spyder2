@@ -69,7 +69,10 @@ def listToDict(in_list):
 def wordSimilarityToWordDict(w,wordDict):
     sim = 0
     for key in wordDict.keys():
-        tSim = getSimilarityByConceptNet(str(w),str(key))
+        if str(w) == str(key):
+            tSim = 1
+        else:            
+            tSim = getSimilarityByConceptNet(str(w),str(key))
         if None != tSim:
             if tSim>sim:
                 sim = tSim
@@ -77,6 +80,8 @@ def wordSimilarityToWordDict(w,wordDict):
     
 def wordDictRelation(MeasuredDict,dictBase):
     length = len(MeasuredDict)
+    if length == 0:
+        return 0
     sum = 0
     for word in MeasuredDict.keys():
         sum = wordSimilarityToWordDict(word,dictBase) + sum
@@ -377,14 +382,17 @@ def getSimilarityByConceptNet(wordA, wordB):
     wordA = str(wn.morphy(wordA))
     wordB = str(wn.morphy(wordB))
     queryUrl = 'http://conceptnet5.media.mit.edu/data/5.2/assoc/c/en/' + wordA + '?filter=/c/en/' + wordB + '&limit=1'
-    jsonText = htmlDownLoader.getTextFromURL(queryUrl)
-    print jsonText    
-    sim = json.loads(jsonText)
-    if not sim.get("similar"):
-        return 0
-    if sim["similar"] != None and len(sim["similar"]) != 0:
-        return sim["similar"][0][1]
-    else:
+    try:    
+        jsonText = htmlDownLoader.getTextFromURL(queryUrl)
+        print jsonText    
+        sim = json.loads(jsonText)
+        if not sim.get("similar"):
+            return 0
+        if sim["similar"] != None and len(sim["similar"]) != 0:
+            return sim["similar"][0][1]
+        else:
+            return 0
+    except:
         return 0
 def getLongestVP(strList):
     max_length = len(strList[0])
@@ -403,6 +411,11 @@ def getNPListFromStr(SentenceStr):
     tags = nltk.pos_tag(tokens)
     ners = getAllEntities(tags)
     return ners
+def getVPListFromStr(SentenceStr):
+    tokens = nltk.word_tokenize(SentenceStr)
+    tags = nltk.pos_tag(tokens)
+    vbs = getAllVerbs(tags)
+    return vbs
 #Answer steps
 #1. Get key words in the question
 #2. Search the key words in the article(search NE first if found then check if Verbs match )

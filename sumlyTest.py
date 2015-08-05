@@ -20,6 +20,8 @@ from pattern.en import tag
 from pattern.en import parsetree
 import re,urllib
 import nltk
+from wordNet import wordDictRelation
+from wordNet import getVPListFromStr
 from wordNet import getNPListFromStr
 from wordNet import wordInSentStr
 from wordNet import getAllEntities,getAllVerbs,getSentenceDictMatchingPatternList,getTopScoredSentenceDict
@@ -38,6 +40,8 @@ TELL_DEFINATION = 1
 TELL_SIMILAR = 2
 TELL_RESULT = 3
 GIVE_REMARKS = 4
+
+articlesFromHtmls = list()#used to store each article from one search 
 #Use movie script to talk with human
 class RelationTuple:
     SBJ = ''
@@ -83,15 +87,18 @@ def getRelationsFromDict(relations):#sub obj verb
     if len_S != 0:
         for k in SBJDict.keys():
             print k
-            relationDict[k].SBJ = SBJDict[k].string
+            if relationDict.has_key(k):                
+                relationDict[k].SBJ = SBJDict[k].string
     if len_O != 0:
         for k in OBJDict.keys():
             print k
-            relationDict[k].OBJ = OBJDict[k].string
+            if relationDict.has_key(k):                
+                relationDict[k].OBJ = OBJDict[k].string
     if len_V != 0:
         for k in VPDict.keys():
             print k
-            relationDict[k].VP = VPDict[k].string
+            if relationDict.has_key(k):
+                relationDict[k].VP = VPDict[k].string
     return relationDict
 def filterSentencesByWords(sentenceList, WordsList):
     sentenceDict = {}
@@ -270,16 +277,17 @@ def talkMod(inputSentence):
     FunctionFlag = False
     SelfFlag = False
     relations = getRelation(inputSentence)
-    tDict = getRelationsFromDict(relations)
-    for k in tDict.keys():
-        if tDict[k].SBJ.lower() == 'me'.lower():
-#            FunctionFlag = True
-            break
-        if tDict[k].OBJ.lower() == 'I'.lower():
-#            FunctionFlag = True
-            break
+    if len(relations)>0:
         
-        print tDict[k].VP
+        tDict = getRelationsFromDict(relations)
+        for k in tDict.keys():
+            if tDict[k].SBJ.lower() == 'me'.lower():
+    #            FunctionFlag = True
+                break
+            if tDict[k].OBJ.lower() == 'I'.lower():
+    #            FunctionFlag = True
+                break
+
     if FunctionFlag == True:
         FunctionMod(inputSentence)
     elif SelfFlag == True:
@@ -313,8 +321,8 @@ def TopicSelector():
     r = random.randint(TELL_REASON, GIVE_REMARKS)
     MapDict ={
     TELL_REASON:"why ",
-    TELL_DEFINATION:"what is",
-    TELL_SIMILAR:" and ",
+    TELL_DEFINATION:"defination of ",
+    TELL_SIMILAR:" also ",
     TELL_RESULT:" so ",
     GIVE_REMARKS:"what do you think of "
     }
@@ -344,16 +352,27 @@ def questionMod(inputSentence,qType):
                     print 'objects', s[0].objects
                     print 'relations', s[0].relations
                     print 'pnp', s[0].pnp
-    keyDict = listToDict(nltk.word_tokenize(searchedKeyWords))
+    keyDict = listToDict(getVPListFromStr(inputSentence))
+    keyNPDict = listToDict(getNPListFromStr(inputSentence))
     print '--------------------    key words  ----------------------'
     print keyDict
-    print '--------------------After filtering ---------------------'    
-    sentD = filterSentencesByWords(backupAnwsersDict.keys(), keyDict.keys())
-    for k in sentD.keys():
-        score = sentD[k]
-        if score ==0:
-            continue
-        print k ,":" , score
+    print '--------------------After filtering ---------------------'
+    for k in backupAnwsersDict.keys():
+
+        corpusSentenceDict = listToDict(getVPListFromStr(k))
+        print 'verbs from text ',corpusSentenceDict
+        print 'verbs form question ', keyDict
+        verbScore = wordDictRelation(corpusSentenceDict,keyDict)
+        corpusSentenceDict = listToDict(getNPListFromStr(k))
+        print 'nouns from text ',corpusSentenceDict
+        print 'nouns form question ', keyNPDict
+        NounScore = wordDictRelation(corpusSentenceDict,keyNPDict)
+        backupAnwsersDict[k] = verbScore + NounScore
+#    sentD = filterSentencesByWords(backupAnwsersDict.keys(), keyDict.keys())
+    sentD = backupAnwsersDict
+    sentD = sorted(sentD.iteritems(), key=lambda d:d[1], reverse = True)
+    for s in sentD:    
+        print s
 def InputClassifier(InputStr):
     questionType = getQuestionTypeFromTypeList([HOW,WHAT,WHO,WHERE,WHEN,DEFAULT],InputStr.lower())
     if questionType == DEFAULT:
@@ -365,11 +384,13 @@ def getRelatedSentencesListFromWeb(searchedKeyWords):
     yahooTail = '&intlF=1&setmkt=en-us&setlang=en-us&FORM=SECNEN'
     urlList = getAllLinksFromPage( yahooHead + searchedKeyWords + yahooTail)
 
-    URLNum = 6
+    URLNum = 10
     keySentencesText = ''
-
+    articleStrList = list()
     for i in range(0,iif(len(urlList)>URLNum,URLNum,len(urlList))):
         passageSentences = getSentencesFromPassage(urlList[i][0])
+        
+        articleStrList.append(passageSentences)
 
         parser = PlaintextParser.from_string(passageSentences, Tokenizer(LANGUAGE))
         stemmer = Stemmer(LANGUAGE)
@@ -383,6 +404,9 @@ def getRelatedSentencesListFromWeb(searchedKeyWords):
             keySentencesText = keySentencesText + ' ' + ks
     MainSearchResultSentencesList = getSentencesFromPassageText(keySentencesText)
     MainSearchResultSentencesList = secondSentenceSplitor(MainSearchResultSentencesList)
+    articlesFromHtmls = articleStrList
+#for a single article remove the summary sentences,leaving only the details.
+# then extract patterns from only the details
     return MainSearchResultSentencesList
 if __name__ == "__main__":
 #    url = "http://en.wikipedia.org/wiki/Automatic_summarization"
@@ -390,9 +414,10 @@ if __name__ == "__main__":
 #    noneList = list(['table','coffee','ashtray','vacuum','door knob','safety','elevator','chair','processor','arm','space-time'])
 #    for n in noneList:
 #        questionPatternMining('what does ',' mean',n,'./what_patterns_txt.txt',)
+
     while True:
         searchedKeyWords = raw_input('You :')
-        if searchedKeyWords == 'quit\n':
+        if searchedKeyWords == 'quit':
             break
         InputClassifier(searchedKeyWords)
 #    relations = getRelation(searchedKeyWords)
