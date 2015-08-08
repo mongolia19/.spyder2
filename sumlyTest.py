@@ -13,6 +13,7 @@ from sumy.nlp.tokenizers import Tokenizer
 from sumy.summarizers.lsa import LsaSummarizer as Summarizer
 from sumy.nlp.stemmers import Stemmer
 from sumy.utils import get_stop_words
+from pattern.search import Pattern
 from pattern.en import Sentence
 from pattern.en import tree
 from pattern.en import parse
@@ -43,6 +44,24 @@ GIVE_REMARKS = 4
 
 articlesFromHtmls = list()#used to store each article from one search 
 #Use movie script to talk with human
+class slot:
+    ACTION = ''
+    OBJ = ''
+    def __init__(self,a,o):
+        self.ACTION = a
+        self.OBJ = o
+    def __str__(self):
+        return self.ACTION + '---' + self.OBJ
+class body:
+    NAME = ''
+    SLOTList = list()
+    def __init__(self,n):
+        self.NAME = n
+    def __str__(self):
+        properties = ''        
+        for p in self.SLOTList:
+            properties = properties + str(p)
+        return self.NAME + ':' + properties
 class RelationTuple:
     SBJ = ''
     OBJ = ''
@@ -51,7 +70,8 @@ class RelationTuple:
         self.SBJ = s
         self.OBJ = o
         self.VP = v
-        
+    def __str__(self):
+        return 'SBJ:' + self.SBJ + ' VP: ' + self.VP + ' OBJ: ' + self.OBJ 
 SENTENCES_COUNT = 5
 lessthan = lambda x, y:x < y;
 greaterthan = lambda x, y:x > y;
@@ -61,7 +81,7 @@ def minmax(test, *args):
         if test(arg, res):
             res = arg
     return res
-def getRelationsFromDict(relations):#sub obj verb
+def getRelationsFromDict(relations):#key is numbers value is self-defined RelationTuple obj verb
     posList = list()
     OBJDict = {}
     SBJDict = {}
@@ -408,13 +428,48 @@ def getRelatedSentencesListFromWeb(searchedKeyWords):
 #for a single article remove the summary sentences,leaving only the details.
 # then extract patterns from only the details
     return MainSearchResultSentencesList
+def getOntologyKnowledge(relationTupleList):
+    OntoList = list()
+    for r in relationTupleList:
+        OntologyBody = body(r.SBJ)
+        name = r.SBJ
+        OntologyBody.SLOTList.append(slot(r.VP,r.OBJ))
+        for rt in relationTupleList:
+            if rt.SBJ.lower() == name.lower():
+                OntologyBody.SLOTList.append(slot(rt.VP,rt.OBJ))
+                print OntologyBody
+                relationTupleList.remove(rt)
+        if len(OntologyBody.SLOTList)>1:
+            OntoList.append(OntologyBody)
+
+    return OntoList
 if __name__ == "__main__":
 #    url = "http://en.wikipedia.org/wiki/Automatic_summarization"
 #    parser = HtmlParser.from_url(url, Tokenizer(LANGUAGE))
 #    noneList = list(['table','coffee','ashtray','vacuum','door knob','safety','elevator','chair','processor','arm','space-time'])
 #    for n in noneList:
 #        questionPatternMining('what does ',' mean',n,'./what_patterns_txt.txt',)
+    t = parsetree(' Dogs love cats and bones in 1945', lemmata=True)
+    p = Pattern.fromstring('{IN} {CD}')
+    if p == None:
+        print 'None'
+        
+    else:
+        
+        m = p.match(t)
+        print m
+        print m.group(1)
+        print m.group(2)
 
+#    relations = getRelation('dogs likes bones. man dislike cats.')
+#    print relations
+#    print 'relation numbers',len(relations)
+#    if len(relations)>0:
+#        tDict = getRelationsFromDict(relations)
+#        ontoList = tDict.values()
+#        for o in ontoList:
+#            print 'relation ' , str(o)
+#        getOntologyKnowledge(ontoList)
     while True:
         searchedKeyWords = raw_input('You :')
         if searchedKeyWords == 'quit':
