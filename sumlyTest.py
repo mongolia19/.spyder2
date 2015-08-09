@@ -6,7 +6,15 @@ Created on Sun Jul 05 14:22:06 2015
 """
 #from __future__ import absolute_import
 #from __future__ import division, print_function, unicode_literals
+#One entry of knowledge should contains (subject) (verb) (object) (on what condition | by what means) 
+#(at what time ) (in waht place)
 
+#Do more pre-processing after get question :
+#classifty questions into more types
+#change the question into normal order
+#remove interrogatives (like what ,how ,when)
+#Maybe computer should know what does "before" "after" relation-words mean
+#eg. after means it should search ansers in sentences that appear after where the question mentioned
 from sumy.parsers.html import HtmlParser
 from sumy.parsers.plaintext import PlaintextParser
 from sumy.nlp.tokenizers import Tokenizer
