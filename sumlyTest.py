@@ -29,6 +29,7 @@ import nltk
 
 from pattern.search import Pattern
 from pattern.en import parsetree
+import MySqlHelper
 from wordNet import wordDictRelation
 from wordNet import getVPListFromStr
 from wordNet import getNPListFromStr
@@ -37,6 +38,7 @@ from wordNet import getAllEntities, getAllVerbs, getSentenceDictMatchingPatternL
 import PipLineTest
 from wordNet import listToDict
 
+db_list = ['', '8313040', 'python']
 HOW = 'how'
 WHAT = 'what'
 WHO = 'who'
@@ -229,6 +231,17 @@ def getRelation(SentStr):
     # return sentence.relations
 
 
+def get_pnp(sent_str):
+    # get verb phrase
+    # get the noun before it ,get the none after it
+    # return the none verb none tuple
+    # relationList = list()
+    s = parsetree(sent_str, relations=True, lemmata=True)
+    return (s[0]).pnp
+    # sentence = Sentence(taggedstring, token=['WORD', 'POS', 'CHUNK', 'PNP', 'REL', 'LEMMA'])
+    # return sentence.relations
+
+
 def getAllLinksFromPage(url):
     htmlSource = urllib.urlopen(url).read(200000)
     # soup = BeautifulSoup.BeautifulSoup(htmlSource)
@@ -365,17 +378,25 @@ def talkMod(inputSentence):
     FunctionFlag = False
     SelfFlag = False
     relations = getRelation(inputSentence)
+    pnp = get_pnp(inputSentence)
+    pnp_string = ''
+    if len(pnp) >= 1:
+        pnp_string = pnp[0].string
+    print type(pnp)
     if len(relations) > 0:
 
         tDict = getRelationsFromDict(relations)
         for k in tDict.keys():
+            values = [(k, tDict[k].OBJ.lower(), tDict[k].VP.lower(), tDict[k].SBJ.lower(), pnp_string)]
+            MySqlHelper.insert(db_list, values, "insert into relation values(%s,%s,%s,%s,%s)")
+
             if tDict[k].SBJ.lower() == 'me'.lower():
                 #            FunctionFlag = True
                 break
             if tDict[k].OBJ.lower() == 'I'.lower():
                 #            FunctionFlag = True
                 break
-
+        MySqlHelper.select(db_list, "select * from relation")
     if FunctionFlag == True:
         FunctionMod(inputSentence)
     elif SelfFlag == True:
@@ -383,6 +404,28 @@ def talkMod(inputSentence):
     else:
         conversation(inputSentence)
     return ''
+
+
+def InsertRelationsFromStrArticle(article_str, db_info_list):
+    """
+
+    :param article_str: string
+    :param db_info_list: database connection info
+    """
+    sentenceslist = getSentencesFromPassageText(article_str)
+    sentenceslist = secondSentenceSplitor(sentenceslist)
+    for sent in sentenceslist:
+        relations = getRelation(sent)
+        pnp = get_pnp(sent)
+        pnp_string = ''
+        if len(pnp) >= 1:
+            pnp_string = pnp[0].string
+        if len(relations) > 0:
+            tDict = getRelationsFromDict(relations)
+            for k in tDict.keys():
+                values = [(k, tDict[k].OBJ.lower(), tDict[k].VP.lower(), tDict[k].SBJ.lower(), pnp_string)]
+                MySqlHelper.insert(db_info_list, values, "insert into relation values(%s,%s,%s,%s,%s)")
+    MySqlHelper.select(db_info_list, "select * from relation")
 
 
 def LocalSearch():
@@ -471,7 +514,7 @@ def questionMod(inputSentence, qType):
         print 'nouns form question ', keyNPDict
         NounScore = wordDictRelation(corpusSentenceDict, keyNPDict)
         backupAnwsersDict[k] = verbScore + NounScore
-    #    sentD = filterSentencesByWords(backupAnwsersDict.keys(), keyDict.keys())
+    # sentD = filterSentencesByWords(backupAnwsersDict.keys(), keyDict.keys())
     sentD = backupAnwsersDict
     sentD = sorted(sentD.iteritems(), key=lambda d: d[1], reverse=True)
     for s in sentD:
@@ -535,81 +578,9 @@ def getOntologyKnowledge(relationTupleList):
 
 
 if __name__ == "__main__":
-    #    url = "http://en.wikipedia.org/wiki/Automatic_summarization"
-    #    parser = HtmlParser.from_url(url, Tokenizer(LANGUAGE))
-    #    noneList = list(['table','coffee','ashtray','vacuum','door knob','safety','elevator','chair','processor','arm','space-time'])
-    #    for n in noneList:
-    #        questionPatternMining('what does ',' mean',n,'./what_patterns_txt.txt',)
-    t = parsetree(' Dogs love cats and bones in 1945', lemmata=True)
-    p = Pattern.fromstring('{IN} {CD}')
-    if p == None:
-        print 'None'
-
-    else:
-
-        m = p.match(t)
-        print m
-        print m.group(1)
-        print m.group(2)
-
-    #    relations = getRelation('dogs likes bones. man dislike cats.')
-    #    print relations
-    #    print 'relation numbers',len(relations)
-    #    if len(relations)>0:
-    #        tDict = getRelationsFromDict(relations)
-    #        ontoList = tDict.values()
-    #        for o in ontoList:
-    #            print 'relation ' , str(o)
-    #        getOntologyKnowledge(ontoList)
-    while True:
-        searchedKeyWords = raw_input('You :')
-        if searchedKeyWords == 'quit':
-            break
-        InputClassifier(searchedKeyWords)
-    #    relations = getRelation(searchedKeyWords)
-    #    tDict = getRelationsFromDict(relations)
-    #    for k in tDict.keys():
-    #        print tDict[k].SBJ
-    #        print tDict[k].OBJ
-    #        print tDict[k].VP
-    #    print '........'
-    #    for r in relations.keys():
-    #        print type(relations[r])
-    #        print relations[r]
-    #    keyDict = PipLineTest.getKeyWordDictFromCleanedSentence(searchedKeyWords)
-    #    searchedKeyWords = ''
-    #    for k in keyDict:
-    #        searchedKeyWords = searchedKeyWords + " " + k
-
-
-
-    #    qDict = {}
-    #    combinationDict = PipLineTest.getWordCombinationDict(3,MainSearchResultSentencesList,qDict)
-
-    #    getQuestionPatternsToFile('./what_patterns_txt.txt','\n'+keySentencesText)
-
-
-    # or for plain text files
-# passage = FileUtils.OpenFileGBK('./reading/passage.txt')
-#    passage = passage.encode("UTF-8")
-
-
-
-#    print '.....................what questions patterns ..........................'
-#    whatTxt = FileUtils.OpenFileUnicode('./what_patterns_txt.txt')
-#    MainSearchResultSentencesList = getSentencesFromPassageText(whatTxt)
-#
-#    combinationDict = PipLineTest.getWordCombinationDict(3,MainSearchResultSentencesList,qDict)
-#
-#    patternList = getTopPercentCombinations(combinationDict,0.0001)
-#    for p in patternList:
-#        print p
-#        WriteTupleToFile('./what_tuple_patterns.txt',p)
-#    for k in combinationDict.keys():
-#        if combinationDict[k] > 50:
-#            print k , ":" , combinationDict[k]
-#    print type(keywithmaxval(combinationDict))        
-#    blob = TextBlob(passage)
-#    NoneList = blob.noun_phrases
-#    print NoneList
-#    sent = 'Punctuation marks are stripped from words, and n-grams will not run over sentence delimiters'
+    txt = '''Pick up fresh fruit from the farmer's market or your local grocery store
+    and make sure that they are nice and ripe and ready to be made into a salad.
+    If they are not ripe enough, then the salad will be a bit tough to chew.
+     It is better for them to be a bit overripe than unripe so that the flavors blend.
+     For this simple fruit salad, you'll need strawberries, cherries, blueberries, red apples, peaches, and a kiwi.'''
+    InsertRelationsFromStrArticle(txt, db_list)
