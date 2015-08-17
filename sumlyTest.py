@@ -15,8 +15,12 @@ Created on Sun Jul 05 14:22:06 2015
 # remove interrogatives (like what ,how ,when)
 # Maybe computer should know what does "before" "after" relation-words mean
 # eg. after means it should search ansers in sentences that appear after where the question mentioned
+#give more weight to nouns than to verbs while scoring sentences
+#classify questions into every kind of wh-words : who where which when ans so on
+#use more than one taggers to tag a sentence to increase precision
+#Only extract the sentences that do not contain interrogatives such as what how why
 import re
-import urllib
+
 import random
 
 from sumy.parsers.html import HtmlParser
@@ -26,6 +30,7 @@ from sumy.summarizers.lsa import LsaSummarizer as Summarizer
 from sumy.nlp.stemmers import Stemmer
 from sumy.utils import get_stop_words
 import nltk
+
 
 from pattern.search import Pattern
 from pattern.en import parsetree
@@ -37,13 +42,19 @@ from wordNet import wordInSentStr
 from wordNet import getAllEntities, getAllVerbs, getSentenceDictMatchingPatternList, getTopScoredSentenceDict
 import PipLineTest
 from wordNet import listToDict
-
+from wordNet import getAllLinksFromPage
+from wordNet import html_to_plain_text
+from wordNet import measure_similarity_by_search_engine
 db_list = ['', '8313040', 'python']
 HOW = 'how'
 WHAT = 'what'
+WHICH = 'which'
 WHO = 'who'
+WHOM = 'whom'
+WHOSE = 'whose'
 WHERE = 'where'
 WHEN = 'when'
+WHY = 'why'
 DEFAULT = 'default'
 LANGUAGE = "english"
 TELL_REASON = 0
@@ -96,7 +107,7 @@ class RelationTuple:
         return 'SBJ:' + self.SBJ + ' VP: ' + self.VP + ' OBJ: ' + self.OBJ
 
 
-SENTENCES_COUNT = 5
+SENTENCES_COUNT = 4
 lessthan = lambda x, y: x < y;
 greaterthan = lambda x, y: x > y;
 
@@ -242,20 +253,30 @@ def get_pnp(sent_str):
     # return sentence.relations
 
 
-def getAllLinksFromPage(url):
-    htmlSource = urllib.urlopen(url).read(200000)
-    # soup = BeautifulSoup.BeautifulSoup(htmlSource)
-    head = (url, 'http')
-    headlist = list()
-    headlist.append(head)
-    links = re.findall('"((http|ftp)s?://.*?)"', htmlSource)
-    links = headlist + links
-    return links
 
 
 def getSentencesFromPassageText(text):
     PassageContentList = nltk.sent_tokenize(text)
     return PassageContentList
+
+
+def get_sentences_str_from_url(url_str):
+    passage_sentence_list = list()
+    try:
+        plain_txt = html_to_plain_text(url_str)
+
+    except Exception, ex:
+        print Exception, ":", ex
+        return passage_sentence_list
+    sent_list = getSentencesFromPassageText(plain_txt)
+    try:
+        for sent in sent_list:
+            if len(sent) > 0:
+                passage_sentence_list.append(sent)
+            return passage_sentence_list
+    except Exception, ex:
+        print Exception, ":", ex
+    return passage_sentence_list
 
 
 def getSentencesFromPassage(urlStr):
@@ -357,7 +378,7 @@ def questionPatternMining(firstHalf, secondHalf, var, fileName):
     yahooHead = 'http://global.bing.com/search?q='
     yahooTail = '&intlF=1&setmkt=en-us&setlang=en-us&FORM=SECNEN'
     urlList = getAllLinksFromPage(yahooHead + searchedKeyWords + yahooTail)
-    URLNum = 6
+    URLNum = 5
     keySentencesText = ''
     for i in range(0, iif(len(urlList) > URLNum, URLNum, len(urlList))):
         passageSentences = getSentencesFromPassage(urlList[i][0])
@@ -388,7 +409,7 @@ def talkMod(inputSentence):
         tDict = getRelationsFromDict(relations)
         for k in tDict.keys():
             values = [(k, tDict[k].OBJ.lower(), tDict[k].VP.lower(), tDict[k].SBJ.lower(), pnp_string)]
-            MySqlHelper.insert(db_list, values, "insert into relation values(%s,%s,%s,%s,%s)")
+            # MySqlHelper.insert(db_list, values, "insert into relation values(%s,%s,%s,%s,%s)")
 
             if tDict[k].SBJ.lower() == 'me'.lower():
                 #            FunctionFlag = True
@@ -396,13 +417,16 @@ def talkMod(inputSentence):
             if tDict[k].OBJ.lower() == 'I'.lower():
                 #            FunctionFlag = True
                 break
-        MySqlHelper.select(db_list, "select * from relation")
+        # MySqlHelper.select(db_list, "select * from relation")
     if FunctionFlag == True:
         FunctionMod(inputSentence)
     elif SelfFlag == True:
         LocalSearch(inputSentence)
     else:
-        conversation(inputSentence)
+        if len(relations) > 0:
+            print conversation_with_relation(tDict[k].OBJ.lower(), tDict[k].VP.lower(), tDict[k].SBJ.lower(), pnp_string)
+        else:
+            conversation(inputSentence)
     return ''
 
 
@@ -461,6 +485,22 @@ def conversation(inputSentence):
     questionMod(SearchExtraStr + inputSentence, DEFAULT)
 
 
+def replace_part(sbj, vp, obj, means):
+    str_list = [sbj, vp, obj, means]
+    search_str = sbj + " " + obj + means
+    sents_sorted = questionMod(search_str,DEFAULT)
+    for sent in sents_sorted:
+        if vp in sent:
+            continue
+        else:
+            return sent
+    return  sents_sorted[0]
+def make_topic(sbj, vp, obj, means):
+    return replace_part(sbj, vp, obj, means)
+
+def conversation_with_relation(sbj, vp, obj, means):
+    return make_topic(sbj, vp, obj, means)
+
 def TopicSelector():
     r = random.randint(TELL_REASON, GIVE_REMARKS)
     MapDict = {
@@ -513,13 +553,14 @@ def questionMod(inputSentence, qType):
         print 'nouns from text ', corpusSentenceDict
         print 'nouns form question ', keyNPDict
         NounScore = wordDictRelation(corpusSentenceDict, keyNPDict)
-        backupAnwsersDict[k] = verbScore + NounScore
+        noun_weight = 0.7
+        backupAnwsersDict[k] = (1-noun_weight)*verbScore + noun_weight*NounScore
     # sentD = filterSentencesByWords(backupAnwsersDict.keys(), keyDict.keys())
     sentD = backupAnwsersDict
     sentD = sorted(sentD.iteritems(), key=lambda d: d[1], reverse=True)
     for s in sentD:
         print s
-
+    return sentD
 
 def InputClassifier(InputStr):
     questionType = getQuestionTypeFromTypeList([HOW, WHAT, WHO, WHERE, WHEN, DEFAULT], InputStr.lower())
@@ -534,11 +575,11 @@ def getRelatedSentencesListFromWeb(searchedKeyWords):
     yahooTail = '&intlF=1&setmkt=en-us&setlang=en-us&FORM=SECNEN'
     urlList = getAllLinksFromPage(yahooHead + searchedKeyWords + yahooTail)
 
-    URLNum = 10
+    URLNum = 3
     keySentencesText = ''
     articleStrList = list()
     for i in range(0, iif(len(urlList) > URLNum, URLNum, len(urlList))):
-        passageSentences = getSentencesFromPassage(urlList[i][0])
+        passageSentences = html_to_plain_text(urlList[i][0])
 
         articleStrList.append(passageSentences)
 
@@ -554,10 +595,15 @@ def getRelatedSentencesListFromWeb(searchedKeyWords):
             keySentencesText = keySentencesText + ' ' + ks
     MainSearchResultSentencesList = getSentencesFromPassageText(keySentencesText)
     MainSearchResultSentencesList = secondSentenceSplitor(MainSearchResultSentencesList)
-    articlesFromHtmls = articleStrList
     # for a single article remove the summary sentences,leaving only the details.
     # then extract patterns from only the details
     return MainSearchResultSentencesList
+
+
+
+
+
+
 
 
 def getOntologyKnowledge(relationTupleList):
@@ -578,9 +624,17 @@ def getOntologyKnowledge(relationTupleList):
 
 
 if __name__ == "__main__":
-    txt = '''Pick up fresh fruit from the farmer's market or your local grocery store
+    txt = '''jill is a nice name. Pick up fresh fruit from the farmer's market or your local grocery store
     and make sure that they are nice and ripe and ready to be made into a salad.
     If they are not ripe enough, then the salad will be a bit tough to chew.
      It is better for them to be a bit overripe than unripe so that the flavors blend.
      For this simple fruit salad, you'll need strawberries, cherries, blueberries, red apples, peaches, and a kiwi.'''
-    InsertRelationsFromStrArticle(txt, db_list)
+    txt = txt.lower()
+    # entity_List = getNPListFromStr(txt)
+    # InsertRelationsFromStrArticle(txt, db_list)
+
+    question = 'an iphone is better than an android phone'
+    tokens = nltk.word_tokenize(question)
+    tags = nltk.pos_tag(tokens)
+    print tags
+    talkMod(question)

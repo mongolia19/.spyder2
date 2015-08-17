@@ -8,23 +8,24 @@ Created on Sat Jun 13 13:53:23 2015
 from nltk.corpus import wordnet as wn
 from nltk.stem import PorterStemmer
 
-#To Do: 
-#Just take lib Pattern for relation extraction 
-#!!!
+# To Do:
+# Just take lib Pattern for relation extraction
+# !!!
 
 
-#print keyA
-#print keyB
-#print keyC
+# print keyA
+# print keyB
+# print keyC
 #
 
-#print keyC.path_similarity(keyB)
+# print keyC.path_similarity(keyB)
 
-#for w in wordBList:
+# for w in wordBList:
 #    print w.path_similarity(key)
 #    print w
 #    print type(w)
 import sys
+
 reload(sys)
 sys.setdefaultencoding('utf-8')
 import re
@@ -34,17 +35,70 @@ import PipLineTest
 import FileUtils
 import string
 import htmlDownLoader
-#from __future__ import absolute_import
-#from __future__ import division, print_function, unicode_literals
+# from __future__ import absolute_import
+# from __future__ import division, print_function, unicode_literals
 
-#from sumy.parsers.html import HtmlParser
+# from sumy.parsers.html import HtmlParser
 from sumy.parsers.plaintext import PlaintextParser
 from sumy.nlp.tokenizers import Tokenizer
 from sumy.summarizers.lsa import LsaSummarizer as Summarizer
 from sumy.nlp.stemmers import Stemmer
 from sumy.utils import get_stop_words
 from textblob import TextBlob
-#import FileUtils
+
+
+# import FileUtils
+from pattern.web import URL, plaintext
+import urllib
+
+
+def getAllLinksFromPage(url):
+    htmlSource = urllib.urlopen(url).read(200000)
+    # soup = BeautifulSoup.BeautifulSoup(htmlSource)
+    head = (url, 'http')
+    headlist = list()
+    headlist.append(head)
+    links = re.findall('"((http|ftp)s?://.*?)"', htmlSource)
+    links = headlist + links
+    return links
+
+
+
+def html_to_plain_text(url_str):
+    try:
+        s = URL(url_str).download()
+        s = plaintext(s)
+        s = s.decode('gbk', 'ignore').encode('utf-8')
+        s = s.encode('raw_unicode_escape').decode('utf8')
+    except Exception, ex:
+        print Exception, ":", ex
+        s = ''
+    return s
+
+
+def measure_similarity_by_search_engine(word1, word2):
+    # the similarity is w2 to w1
+    word1 = str(word1).strip()
+    word2 = str(word2).strip()
+    yahooHead = 'http://global.bing.com/search?q='
+    yahooTail = '&intlF=1&setmkt=en-us&setlang=en-us&FORM=SECNEN'
+    urlList = getAllLinksFromPage(yahooHead + word1 + " " + word2 + yahooTail)
+    passage_sentence = html_to_plain_text(urlList[0][0])
+    tokens = nltk.word_tokenize(passage_sentence)
+    num1 = 0
+    num2 = 0
+    for t in tokens:
+        if t.lower() == word1.lower():
+            num1 += 1
+        if t.lower() == word2.lower():
+            num2 += 1
+    if num1 == 0 or num2 == 0:
+        return 0
+    else:
+        if num1 > num2:
+            return  float(num2) /num1
+        else:
+            return float(num1) / num2
 
 
 def getSummaryFromText(passage):
@@ -61,45 +115,53 @@ def getSummaryFromText(passage):
         print(type(sentence))
         sentList.append(sentence)
     return sentList
+
+
 def listToDict(in_list):
-    ret_dict = {}    
+    ret_dict = {}
     for i in in_list:
         ret_dict[i] = i
     return ret_dict
-def wordSimilarityToWordDict(w,wordDict):
+
+
+def wordSimilarityToWordDict(w, wordDict):
     sim = 0
     for key in wordDict.keys():
         if str(w) == str(key):
             tSim = 1
-        else:            
-            tSim = getSimilarityByConceptNet(str(w),str(key))
+        else:
+            tSim = getSimilarityByConceptNet(str(w), str(key))
         if None != tSim:
-            if tSim>sim:
+            if tSim > sim:
                 sim = tSim
     return sim
-    
-def wordDictRelation(MeasuredDict,dictBase):
+
+
+def wordDictRelation(MeasuredDict, dictBase):
     length = len(MeasuredDict)
-    if length == 0:
+    length_base = len(dictBase)
+    if length == 0 or length_base == 0:
         return 0
     sum = 0
     for word in MeasuredDict.keys():
-        sum = wordSimilarityToWordDict(word,dictBase) + sum
-    return sum/length
+        sum = wordSimilarityToWordDict(word, dictBase) + sum
+    return sum / length_base
 
-def MeasureWordSimilarity(wordA,wordB):
+
+def MeasureWordSimilarity(wordA, wordB):
     wordAList = wn.synsets(wordA)
-    
+
     wordBList = wn.synsets(wordB)
-    if (len(wordAList) <= 0) or (len(wordBList) <=0):
+    if (len(wordAList) <= 0) or (len(wordBList) <= 0):
         return 0
     keyA = wordAList[0]
     keyB = wordBList[0]
     return keyA.path_similarity(keyB)
 
+
 def IsNamedEntity(TagStr):
     p = re.compile('NNP|NN|NNS|NE|PRP')
-    m = p.match( TagStr )
+    m = p.match(TagStr)
     if m:
 
         return True
@@ -107,9 +169,11 @@ def IsNamedEntity(TagStr):
     else:
 
         return False
+
+
 def IsVerb(TagStr):
     p = re.compile('V|VB*')
-    m = p.match( TagStr )
+    m = p.match(TagStr)
     if m:
 
         return True
@@ -117,55 +181,67 @@ def IsVerb(TagStr):
     else:
 
         return False
+
+
 def getAllEntities(TaggedWordList):
     NEList = list()
     for taggedWord in TaggedWordList:
-        if IsNamedEntity( taggedWord[1]):
+        if IsNamedEntity(taggedWord[1]):
             NEList.append(taggedWord[0])
     return NEList
+
 
 def getAllVerbs(TaggedWordList):
     NEList = list()
     for taggedWord in TaggedWordList:
-        if IsVerb( taggedWord[1]):
+        if IsVerb(taggedWord[1]):
             NEList.append(taggedWord[0])
     return NEList
-def wordInSentStr(word,sentStr):
+
+
+def wordInSentStr(word, sentStr):
     wordsDisctInSent = PipLineTest.getWordDictInSentence(sentStr)
     if wordsDisctInSent.has_key(str(word)):
         return True
     else:
         return False
-def getMatchSentenceListFromSentenceList(keyWord,sentList):
-    RetList = list()    
+
+
+def getMatchSentenceListFromSentenceList(keyWord, sentList):
+    RetList = list()
     for sent in sentList:
         wordsDisctInSent = PipLineTest.getWordDictInSentence(sent)
         if wordsDisctInSent.has_key(str(keyWord)):
             RetList.append(sent)
     return RetList
 
-def getSentenceDictMatchingPatternList(keyWords,sentList):
+
+def getSentenceDictMatchingPatternList(keyWords, sentList):
     sentenceDict = {}
     for sent in sentList:
         sentenceDict[sent] = 0
     for sent in sentList:
         for key in keyWords:
-            if wordInSentStr(key,sent):
+            if wordInSentStr(key, sent):
                 sentenceDict[sent] = sentenceDict[sent] + 1
-    #sentenceDict = sorted(sentenceDict.items(), key=lambda sentenceDict:sentenceDict[1], reverse=True)
+    # sentenceDict = sorted(sentenceDict.items(), key=lambda sentenceDict:sentenceDict[1], reverse=True)
     return sentenceDict
+
+
 def getTopScoredSentenceDict(sentDict):
     Highscore = 0
     ResDict = {}
     for key in sentDict.keys():
-        if sentDict[key]> Highscore:
+        if sentDict[key] > Highscore:
             Highscore = sentDict[key]
     for key in sentDict.keys():
         if sentDict[key] == Highscore:
             ResDict[key] = Highscore
     return ResDict
+
+
 def questionLoader(filePath):
-    f = open(filePath,'r')
+    f = open(filePath, 'r')
     quesionList = list()
     question = list()
     while True:
@@ -180,11 +256,15 @@ def questionLoader(filePath):
         else:
             break
     return quesionList
+
+
 def getPosTagList(tagTupleList):
     retList = list()
     for tagTuple in tagTupleList:
         retList.append(tagTuple[1])
     return retList
+
+
 def grammerParser(sentPosList):
     groucho_grammar = nltk.CFG.fromstring("""
     S -> NP VP | NP VP CC VP | NP CC NP VP | CC S
@@ -199,17 +279,17 @@ def grammerParser(sentPosList):
     P -> 'in' | 'on' | 'off' | 'TO' | 'IN'
     CC -> 'CC' | u'CC'
     """)
-#    dep_grammar = nltk.grammar.DependencyGrammar.fromstring("""
-#    S -> NP VP | NP VP CC VP | NP CC NP VP
-#    PP -> P NP
-#    NP -> N | Det NP | 'PRP$' | 'PRP' | N NP | 'RP' NP | 'JJ' NP | Det 'JJ' NP
-#    VP -> V | V NP | VP PP | VP 'RB' | 'RB' VP | V V | V 'JJ'
-#    Det -> 'DT'
-#    N -> 'NNP' | 'NN' | 'NNS' | 'NE' 
-#    V -> 'V' | 'VB' | 'VBS' | 'VBD' | 'VBN' | 'VBG' | 'VBZ'
-#    P -> 'in' | 'on' | 'off' | 'TO' | 'IN'
-#    CC -> 'CC' | u'CC'
-#    """)
+    #    dep_grammar = nltk.grammar.DependencyGrammar.fromstring("""
+    #    S -> NP VP | NP VP CC VP | NP CC NP VP
+    #    PP -> P NP
+    #    NP -> N | Det NP | 'PRP$' | 'PRP' | N NP | 'RP' NP | 'JJ' NP | Det 'JJ' NP
+    #    VP -> V | V NP | VP PP | VP 'RB' | 'RB' VP | V V | V 'JJ'
+    #    Det -> 'DT'
+    #    N -> 'NNP' | 'NN' | 'NNS' | 'NE'
+    #    V -> 'V' | 'VB' | 'VBS' | 'VBD' | 'VBN' | 'VBG' | 'VBZ'
+    #    P -> 'in' | 'on' | 'off' | 'TO' | 'IN'
+    #    CC -> 'CC' | u'CC'
+    #    """)
     parser = nltk.TopDownChartParser(groucho_grammar)
     trees = parser.parse(sentPosList)
     treeList = list()
@@ -218,8 +298,10 @@ def grammerParser(sentPosList):
         print(tree.label())
         print(tree)
         treeList.append(tree)
-        #print tree.start() ,'-' ,tree.end()
+        # print tree.start() ,'-' ,tree.end()
     return treeList
+
+
 def SentenceFailGrammerParser(sentPosList):
     fail_grammar = nltk.CFG.fromstring("""
     S -> NP VP | NP VP CC VP | NP CC NP VP | CC S
@@ -243,14 +325,18 @@ def SentenceFailGrammerParser(sentPosList):
         print (tree)
         treeList.append(tree)
     return treeList
+
+
 def removePunctuation(s):
-    s = s.replace(':',' ')
+    s = s.replace(':', ' ')
     regex = re.compile('[%s]' % re.escape(string.punctuation))
-    s = regex.sub(' ',s)
+    s = regex.sub(' ', s)
     return s
+
+
 def getVBFromNoneSentence(posTupleList):
-    endPos = len (posTupleList)-1
-    VBEnd = 0    
+    endPos = len(posTupleList) - 1
+    VBEnd = 0
     retList = list()
     i = 0
     j = 0
@@ -270,13 +356,14 @@ def getVBFromNoneSentence(posTupleList):
             if IsVerb(posTupleList[i][1]):
                 j = i + 1
                 while j <= endPos:
-                    vbStr = vbStr + (' ' + posTupleList[j-1][0])
+                    vbStr = vbStr + (' ' + posTupleList[j - 1][0])
                     if j == endPos:
                         vbStr = vbStr + (' ' + posTupleList[j][0])
                         retList.append(vbStr)
                         break
-                    if posTupleList[j][1] == 'CC' or (IsVerb(posTupleList[j][1]) and IsNamedEntity(posTupleList[j-1][1])):
-                        j = j +1
+                    if posTupleList[j][1] == 'CC' or (
+                        IsVerb(posTupleList[j][1]) and IsNamedEntity(posTupleList[j - 1][1])):
+                        j = j + 1
                         retList.append(vbStr)
                         break
                     else:
@@ -285,84 +372,94 @@ def getVBFromNoneSentence(posTupleList):
                 i = i + 1
                 j = i
     return retList
+
+
 def getDeepestNPFromChartParser(tree, posTupleList):
-    retList = list()    
+    retList = list()
     name = str(tree.lhs())
     right = str(tree.rhs())
     print right
     if name == 'VP':
         t1 = tree.start()
-        t2= tree.end()
-        if len (posTupleList)<t2:
+        t2 = tree.end()
+        if len(posTupleList) < t2:
             t2 = t2 - 1
-        for i in range(t1,t2):
+        for i in range(t1, t2):
             retList.append(posTupleList[i][0])
     return retList
-def getDeepestNP(tree,posTupleList):
+
+
+def getDeepestNP(tree, posTupleList):
     name = tree.label()
-    h = tree.height() 
-    print name , h
+    h = tree.height()
+    print name, h
     posList = tree.leaves()
     retList = list()
     t = tree
-    for s in t.subtrees(): #for s in t.subtrees(lambda t: t.height() <= 4):
+    for s in t.subtrees():  # for s in t.subtrees(lambda t: t.height() <= 4):
         if s.label() == 'NP':
             npStr = ''
             for leave in (s.leaves()):
-                for i in range(0,len(posList)):
+                for i in range(0, len(posList)):
                     if leave is posList[i]:
                         npStr = npStr + ' ' + str(posTupleList[i][0])
             retList.append(npStr)
     return retList
-def getDeepestVP(tree,posTupleList):
+
+
+def getDeepestVP(tree, posTupleList):
     name = tree.label()
-    h = tree.height() 
-    print name , h
+    h = tree.height()
+    print name, h
     posList = tree.leaves()
     retList = list()
     t = tree
     for s in t.subtrees():
         if s.label() == 'VP':
-            vpStr = ''            
+            vpStr = ''
             for leave in (s.leaves()):
-                for i in range(0,len(posList)):
+                for i in range(0, len(posList)):
                     if leave is posList[i]:
                         vpStr = vpStr + ' ' + str(posTupleList[i][0])
             retList.append(vpStr)
     return retList
 
+
 from pattern.en import Sentence
 from pattern.en import tree
 from pattern.en import parsetree
 from pattern.en import tag
-def getRelation( SentStr):
-    
-    #get verb phrase
-    #get the noun before it ,get the none after it 
-    #return the none verb none tuple
-    
-    
-    #taggedstring = parse(SentStr)
-    #relationList = list()
-    #sentence = Sentence(taggedstring, token=['WORD', 'POS', 'CHUNK', 'PNP', 'REL', 'LEMMA'])
+
+
+def getRelation(SentStr):
+    # get verb phrase
+    # get the noun before it ,get the none after it
+    # return the none verb none tuple
+
+
+    # taggedstring = parse(SentStr)
+    # relationList = list()
+    # sentence = Sentence(taggedstring, token=['WORD', 'POS', 'CHUNK', 'PNP', 'REL', 'LEMMA'])
     s = parsetree(SentStr, relations=True, lemmata=True)
     return (s[0]).relations
+
+
 def getSubSentence(posTrees, posTupleList):
     subSentDict = {}
     print "inside getSubSentence ", posTrees
     for tree in posTrees:
         print "getSubSentence", tree
         root = (tree.label())
-        if root == 'S' :
+        if root == 'S':
             subSent = ''
             PosStr = ''
             t1 = tree.start()
             t2 = tree.end()
-            if t2 <= len(posTupleList)-1:
+            if t2 <= len(posTupleList) - 1:
                 tx = t2
             else:
-                tx = t2-1
-            for i in range(t1,tx+1):
+                tx = t2 - 1
+            for i in range(t1, tx + 1):
                 w = str(posTupleList[i][0])
                 p = str(posTupleList[i][1])
                 subSent = subSent + ' ' + w
@@ -375,6 +472,8 @@ def getSubSentence(posTrees, posTupleList):
                 print 'the sub sentence is ', subSent
                 print 'the pos is ', PosStr
     return subSentDict
+
+
 def getSimilarityByConceptNet(wordA, wordB):
     import json
     if wordA == '' or wordB == '':
@@ -382,9 +481,9 @@ def getSimilarityByConceptNet(wordA, wordB):
     wordA = str(wn.morphy(wordA))
     wordB = str(wn.morphy(wordB))
     queryUrl = 'http://conceptnet5.media.mit.edu/data/5.2/assoc/c/en/' + wordA + '?filter=/c/en/' + wordB + '&limit=1'
-    try:    
+    try:
         jsonText = htmlDownLoader.getTextFromURL(queryUrl)
-        print jsonText    
+        print jsonText
         sim = json.loads(jsonText)
         if not sim.get("similar"):
             return 0
@@ -394,6 +493,8 @@ def getSimilarityByConceptNet(wordA, wordB):
             return 0
     except:
         return 0
+
+
 def getLongestVP(strList):
     max_length = len(strList[0])
     longVP = strList[0]
@@ -401,46 +502,54 @@ def getLongestVP(strList):
         if len(vp) > max_length:
             longVP = vp
     return longVP
+
+
 def removePunctuationInStrList(StrList):
-    retList = list()    
+    retList = list()
     for strSent in StrList:
         retList.append(removePunctuation(strSent))
     return retList
+
+
 def getNPListFromStr(SentenceStr):
     tokens = nltk.word_tokenize(SentenceStr)
     tags = nltk.pos_tag(tokens)
     ners = getAllEntities(tags)
     return ners
+
+
 def getVPListFromStr(SentenceStr):
     tokens = nltk.word_tokenize(SentenceStr)
     tags = nltk.pos_tag(tokens)
     vbs = getAllVerbs(tags)
     return vbs
-#Answer steps
-#1. Get key words in the question
-#2. Search the key words in the article(search NE first if found then check if Verbs match )
-#3. If not found measure the word similartiy between words in question and the ones in 
+
+
+# Answer steps
+# 1. Get key words in the question
+# 2. Search the key words in the article(search NE first if found then check if Verbs match )
+# 3. If not found measure the word similartiy between words in question and the ones in
 # article.Try to get the most closely relatied sentence in the article to the question 
-#4. Compare it the the options.
-#5. Choose the closiest option to the sentence(s) in the article
+# 4. Compare it the the options.
+# 5. Choose the closiest option to the sentence(s) in the article
 
 
-#Get summary sentence 
-#Get main points for each segment
-#Get time- place -person -for an event 
-#Answer questions about this article
+# Get summary sentence
+# Get main points for each segment
+# Get time- place -person -for an event
+# Answer questions about this article
 if __name__ == '__main__':
-    #score = MeasureWordSimilarity('diary','career')
-    #print score
+    # score = MeasureWordSimilarity('diary','career')
+    # print score
     stemmer = PorterStemmer
     passage = FileUtils.OpenFileGBK('./reading/passage1.txt')
     blob = TextBlob(passage)
     NoneList = blob.noun_phrases
     for sentence in blob.sentences:
         print(sentence.sentiment.polarity)
-    passage_sentList = PipLineTest.getSentenceListFromText(passage)    
+    passage_sentList = PipLineTest.getSentenceListFromText(passage)
     qList = questionLoader('./reading/questions1.txt')
-    temp_qestion = qList[3]# the question number
+    temp_qestion = qList[3]  # the question number
 
     question = temp_qestion[0].decode('gbk', 'ignore')
     tokens = nltk.word_tokenize(question)
@@ -448,10 +557,10 @@ if __name__ == '__main__':
     ners = getAllEntities(tags)
     verbs = getAllVerbs(tags)
     keyWordsDict = PipLineTest.getKeyWordDictFromCleanedSentence(question)
-    sentDict = getSentenceDictMatchingPatternList(ners,passage_sentList)
+    sentDict = getSentenceDictMatchingPatternList(ners, passage_sentList)
     sentDict = getTopScoredSentenceDict(sentDict)
-    sentDict = getSentenceDictMatchingPatternList(verbs,sentDict)
-    related_passage_sentence_ner_dict ={}
+    sentDict = getSentenceDictMatchingPatternList(verbs, sentDict)
+    related_passage_sentence_ner_dict = {}
     for sent in sentDict.keys():
         tokens = nltk.word_tokenize(removePunctuation(sent))
         tags = nltk.pos_tag(tokens)
@@ -460,78 +569,79 @@ if __name__ == '__main__':
         if relation:
             for k in relation:
                 print type(relation[k])
-                print k , relation[k]
+                print k, relation[k]
                 for s in relation[k]:
                     print relation[k][s].string
                     relationStr = relationStr + " " + relation[k][s].string
         print relationStr
         posTags = getPosTagList(tagTupleList=tags)
         tempTrees = grammerParser(posTags)
-        #getSubSentence(tempTrees,tags)
+        # getSubSentence(tempTrees,tags)
         nList = list()
         vList = list()
-        LastIndex = len(tempTrees)-1
+        LastIndex = len(tempTrees) - 1
         if LastIndex == -1:
             vList = getVBFromNoneSentence(tags)
-#            tempTrees = SentenceFailGrammerParser(posTags)
-#            for tree in tempTrees:
-#                tList = getDeepestNPFromChartParser(tree,tags)
-#                if tList:
-#                    vList = vList.extend(tList)
+        #            tempTrees = SentenceFailGrammerParser(posTags)
+        #            for tree in tempTrees:
+        #                tList = getDeepestNPFromChartParser(tree,tags)
+        #                if tList:
+        #                    vList = vList.extend(tList)
         else:
-            nList = getDeepestNP(tempTrees[LastIndex],tags)
-            vList = getDeepestVP(tempTrees[LastIndex],tags)
-        #t_ners = getAllEntities(tags)
-        if len(vList)>0:
-            
+            nList = getDeepestNP(tempTrees[LastIndex], tags)
+            vList = getDeepestVP(tempTrees[LastIndex], tags)
+        # t_ners = getAllEntities(tags)
+        if len(vList) > 0:
+
             longVP = getLongestVP(vList)
         else:
             longVP = getLongestVP(nList)
         tagsFromVP = longVP.strip().split(' ')
         related_passage_sentence_ner_dict = listToDict(tagsFromVP)
-        #t_verbs = getAllVerbs(tags)
+        # t_verbs = getAllVerbs(tags)
 
     option_score_list_for_similarity = list()
-    for i in range(1,5):
+    for i in range(1, 5):
         opt = temp_qestion[i].decode('gbk', 'ignore')
         tokens = nltk.word_tokenize(removePunctuation(opt))
         tags = nltk.pos_tag(tokens)
         posTags = getPosTagList(tagTupleList=tags)
         tempTrees = grammerParser(posTags)
-        #nltk.tree.Tree
+        # nltk.tree.Tree
         print type(tempTrees)
         print 'options'
         nList = list()
         vList = list()
-        LastIndex = len(tempTrees)-1
+        LastIndex = len(tempTrees) - 1
         if LastIndex == -1:
             vList = getVBFromNoneSentence(tags)
-#            tempTrees = SentenceFailGrammerParser(posTags)
-#            for tree in tempTrees:
-#                tList = getDeepestNPFromChartParser(tree,tags)
-#                if tList:
-#                    vList = vList.extend(tList)
+        #            tempTrees = SentenceFailGrammerParser(posTags)
+        #            for tree in tempTrees:
+        #                tList = getDeepestNPFromChartParser(tree,tags)
+        #                if tList:
+        #                    vList = vList.extend(tList)
         else:
-            nList = getDeepestNP(tempTrees[LastIndex],tags)
-            vList = getDeepestVP(tempTrees[LastIndex],tags)
-        
+            nList = getDeepestNP(tempTrees[LastIndex], tags)
+            vList = getDeepestVP(tempTrees[LastIndex], tags)
+
         t_ners = getAllEntities(tags)
         t_verbs = getAllVerbs(tags)
-        if len(vList)>0:
-            
+        if len(vList) > 0:
+
             longVP = getLongestVP(vList)
         else:
-            if len(nList)>0:
-                
+            if len(nList) > 0:
+
                 longVP = getLongestVP(nList)
             else:
                 longVP = removePunctuation(opt)
         tagsFromVP = longVP.split(' ')
         KeyWordsDictFromOption = listToDict(tagsFromVP)
-        #KeyWordsDictFromOption = PipLineTest.getKeyWordDictFromCleanedSentence(opt)
-        option_score_list_for_similarity.append(wordDictRelation(KeyWordsDictFromOption,related_passage_sentence_ner_dict))
+        # KeyWordsDictFromOption = PipLineTest.getKeyWordDictFromCleanedSentence(opt)
+        option_score_list_for_similarity.append(
+            wordDictRelation(KeyWordsDictFromOption, related_passage_sentence_ner_dict))
     print question
     print sentDict
     print option_score_list_for_similarity
-#ners = nltk.ne_chunk(tags)
-#print '%s --- %s' % (str(ners),str(ners.label))
+    # ners = nltk.ne_chunk(tags)
+    # print '%s --- %s' % (str(ners),str(ners.label))
