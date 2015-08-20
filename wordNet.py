@@ -63,7 +63,6 @@ def getAllLinksFromPage(url):
     return links
 
 
-
 def html_to_plain_text(url_str):
     try:
         s = URL(url_str).download()
@@ -96,7 +95,7 @@ def measure_similarity_by_search_engine(word1, word2):
         return 0
     else:
         if num1 > num2:
-            return  float(num2) /num1
+            return float(num2) / num1
         else:
             return float(num1) / num2
 
@@ -274,7 +273,7 @@ def grammerParser(sentPosList):
     ADV -> 'RBR' | 'RBS' | 'RB'
     AD -> 'JJ' | 'JJR' | 'JJS'
     Det -> 'DT' | u'-NONE-'
-    N -> 'NNP' | 'NN' | 'NNS' | 'NE' | 'CD' | u'CD' | 'WDT' | u'WRB' | u'EX'
+    N -> 'NNP' | 'NN' | 'NNS' | 'NE' | 'CD' | u'CD' | 'WDT' | u'WRB' | u'EX' | 'NNPS'
     V -> 'V' | 'VB' | 'VBS' | 'VBD' | 'VBN' | 'VBG' | 'VBZ' | 'MD' | 'WP' | 'VBP'
     P -> 'in' | 'on' | 'off' | 'TO' | 'IN'
     CC -> 'CC' | u'CC'
@@ -362,7 +361,7 @@ def getVBFromNoneSentence(posTupleList):
                         retList.append(vbStr)
                         break
                     if posTupleList[j][1] == 'CC' or (
-                        IsVerb(posTupleList[j][1]) and IsNamedEntity(posTupleList[j - 1][1])):
+                                IsVerb(posTupleList[j][1]) and IsNamedEntity(posTupleList[j - 1][1])):
                         j = j + 1
                         retList.append(vbStr)
                         break
@@ -525,6 +524,29 @@ def getVPListFromStr(SentenceStr):
     return vbs
 
 
+def parse_sentence(sent):
+    tokens = nltk.word_tokenize(removePunctuation(sent))
+    tags = nltk.pos_tag(tokens)
+    posTags = getPosTagList(tagTupleList=tags)
+    temp_trees = grammerParser(posTags)
+    return temp_trees
+    # # getSubSentence(tempTrees,tags)
+    # nList = list()
+    # vList = list()
+    # LastIndex = len(tempTrees) - 1
+    # if LastIndex == -1:
+    #     vList = getVBFromNoneSentence(tags)
+    # else:
+    #     nList = getDeepestNP(tempTrees[LastIndex], tags)
+    #     vList = getDeepestVP(tempTrees[LastIndex], tags)
+    # if len(vList) > 0:
+    #     longVP = getLongestVP(vList)
+    # else:
+    #     longVP = getLongestVP(nList)
+    # tagsFromVP = longVP.strip().split(' ')
+    # related_passage_sentence_ner_dict = listToDict(tagsFromVP)
+
+
 # Answer steps
 # 1. Get key words in the question
 # 2. Search the key words in the article(search NE first if found then check if Verbs match )
@@ -582,7 +604,7 @@ if __name__ == '__main__':
         LastIndex = len(tempTrees) - 1
         if LastIndex == -1:
             vList = getVBFromNoneSentence(tags)
-        #            tempTrees = SentenceFailGrammerParser(posTags)
+        # tempTrees = SentenceFailGrammerParser(posTags)
         #            for tree in tempTrees:
         #                tList = getDeepestNPFromChartParser(tree,tags)
         #                if tList:
@@ -615,7 +637,7 @@ if __name__ == '__main__':
         LastIndex = len(tempTrees) - 1
         if LastIndex == -1:
             vList = getVBFromNoneSentence(tags)
-        #            tempTrees = SentenceFailGrammerParser(posTags)
+        # tempTrees = SentenceFailGrammerParser(posTags)
         #            for tree in tempTrees:
         #                tList = getDeepestNPFromChartParser(tree,tags)
         #                if tList:
