@@ -31,7 +31,6 @@ from sumy.nlp.stemmers import Stemmer
 from sumy.utils import get_stop_words
 import nltk
 
-from pattern.search import Pattern
 from pattern.en import parsetree
 import MySqlHelper
 from wordNet import wordDictRelation
@@ -45,7 +44,6 @@ from wordNet import getAllLinksFromPage
 from wordNet import html_to_plain_text
 from wordNet import parse_sentence
 import textblob
-from wordNet import measure_similarity_by_search_engine
 
 db_list = ['', '8313040', 'python']
 HOW = 'how'
@@ -232,6 +230,35 @@ def questionPatternLoader(key):
     pList = readStrToTuple(switchDict[key])
     return pList
 
+from pattern.search import match
+
+SENTENCES_STRUCT_1 = 'NP VP'
+SENTENCES_STRUCT_2 = 'NP VP NP (VP) (NP)'
+SENTENCES_STRUCT_3 = 'NP VP NP NP'
+SENTENCES_STRUCT_4 = 'NP VP ADJP|PP|VP (NP)'
+SENTENCES_STRUCT_5 = '{NP|WP} {VP} {NP} ADJP|VP|PP (NP)'
+from pattern.search import Pattern
+def sentence_structure_finder(sent_str, pattern_str ):
+    s = parsetree(sent_str, lemmata=True)
+    p = Pattern.fromstring(pattern_str)
+    pattern_list = p.search(s)
+    if pattern_list is None or len(pattern_list)==0:
+        return None
+    if s is None:
+        return None
+    m = pattern_list[0]
+    # try:
+    #     if match(pattern_str, s) is None:
+    #         return None
+    #     else:
+    #         m = match(pattern_str, s)
+    # except:
+    #     return None
+    if m is None:
+        return None
+    for w in m.words:
+        print w, '\t =>', m.constraint(w)
+    return m.constituents()
 
 def getRelation(SentStr):
     # get verb phrase
@@ -376,9 +403,16 @@ def iif(condition, true_part, false_part):
 def secondSentenceSplitor(sentenceList):
     resList = list()
     for sentence in sentenceList:
-        tList = re.split('\.\.\.|\', \'', sentence)
+        # tList = re.split('(\.\.\.|\', \')|(\|)|(\*)', sentence)
+        tList = re.split('\*', sentence)
         resList = resList + tList
-    return resList
+    rlist = list()
+    for s in range(0, len(resList)):
+        if resList[s] is None:
+            continue
+        else:
+            rlist.append(resList[s])
+    return rlist
 
 
 def questionPatternMining(firstHalf, secondHalf, var, fileName):
@@ -431,16 +465,17 @@ def talkMod(inputSentence):
     elif SelfFlag == True:
         LocalSearch(inputSentence)
     else:
-        if len(tDict.keys()) > 0:
-            k = ''
-            print len(tDict.keys())
-            for r in tDict.keys():
-                k = r
-            print 'key is ', k
-            print conversation_with_relation(tDict[k].OBJ.lower(), tDict[k].VP.lower(), tDict[k].SBJ.lower(),
-                                             pnp_string)
-        else:
-            conversation(inputSentence)
+        print conversation_with_sent_structure_ansys(inputSentence)
+        # if len(tDict.keys()) > 0:
+        #     k = ''
+        #     print len(tDict.keys())
+        #     for r in tDict.keys():
+        #         k = r
+        #     print 'key is ', k
+        #     print conversation_with_relation(tDict[k].OBJ.lower(), tDict[k].VP.lower(), tDict[k].SBJ.lower(),
+        #                                      pnp_string)
+        # else:
+        #     conversation(inputSentence)
     return ''
 
 
@@ -499,9 +534,30 @@ def conversation(inputSentence):
     questionMod(SearchExtraStr + inputSentence, DEFAULT)
 
 
+def heuristic_sentence_breaker(sentence_str):
+    match_list = list()
+    structlist = [SENTENCES_STRUCT_5,
+                  SENTENCES_STRUCT_4,
+                  SENTENCES_STRUCT_3,
+                  SENTENCES_STRUCT_2,
+                  SENTENCES_STRUCT_1]
+    for struct in structlist:
+        match_list = sentence_structure_finder(sentence_str, struct)
+        if match_list is not None and len(match_list) > 0:
+            break
+    res_str = ''
+    if len(match_list)>=2:
+        match_list.pop()
+        for chunk in match_list:
+            res_str = res_str + " " + chunk.string
+    else:
+        res_str = sentence_str
+    return res_str
+
+
 def replace_part(sbj, vp, obj, means):
     str_list = [sbj, vp, obj, means]
-    search_str = sbj + " " + obj + means
+    search_str = sbj + " " + vp + " " + means
     sents_sorted = questionMod(search_str, DEFAULT)
     for sent in sents_sorted:
         if vp in sent:
@@ -517,6 +573,12 @@ def make_topic(sbj, vp, obj, means):
 
 def conversation_with_relation(sbj, vp, obj, means):
     return make_topic(sbj, vp, obj, means)
+
+
+def conversation_with_sent_structure_ansys(sent_str):
+    # search_str = heuristic_sentence_breaker(sent_str)
+    sents_sorted = questionMod("why " + sent_str, DEFAULT)
+    return sents_sorted[0]
 
 
 def TopicSelector():
@@ -579,21 +641,30 @@ def summary_over_article_text(article_text):
         print "summary", s
     ner_list = extract_ner_from_str_by_textblob(article_text)
     print 'nouns ', ner_list
-    for p in sum_list:
-        for n in ner_list:
-            sent_str = str(p).decode('gbk', 'ignore').encode('utf-8')
-            if n in sent_str:
-                s = parsetree(sent_str, relations=True, lemmata=True)
-                print '-------------------------'
-                for sentence in s:
-                    for chunk in sentence.chunks:
-                        print chunk.type, [(w.string, w.type) for w in chunk.words]
+    for p in parser.document.sentences:
+        sent_str = p._text.decode('gbk', 'ignore').encode('utf-8')
+        if sentence_structure_finder(sent_str, SENTENCES_STRUCT_5) is not None:
+            continue
+        if sentence_structure_finder(sent_str, SENTENCES_STRUCT_4) is not None:
+            continue
+        if sentence_structure_finder(sent_str, SENTENCES_STRUCT_3) is not None:
+            continue
+        if sentence_structure_finder(sent_str, SENTENCES_STRUCT_2) is not None:
+            continue
+        if sentence_structure_finder(sent_str, SENTENCES_STRUCT_1) is not None:
+            continue
+        # s = parsetree(sent_str, relations=True, lemmata=True)
+        print '-------------------------'
+
+                # for sentence in s:
+                #     for chunk in sentence.chunks:
+                #         print chunk.type, [(w.string, w.type) for w in chunk.words]
                 # temp_dict = getRelation(sent_str)
                 # relation_dict = getRelationsFromDict(temp_dict)
                 # for k in relation_dict.keys():
                 #
                 #     print "OBJ ", relation_dict[k].OBJ.lower(), "VP", relation_dict[k].VP.lower(), "SBJ", relation_dict[k].SBJ.lower()
-                break
+
 
 def questionMod(inputSentence, qType):
     patternList = questionPatternLoader(qType)
@@ -628,6 +699,7 @@ def questionMod(inputSentence, qType):
     print '--------------------After filtering ---------------------'
     for k in backupAnwsersDict.keys():
         if filter_sentences_containing_interrogatives(k, filter_list):
+            backupAnwsersDict.pop(k)
             continue
         if filter_sentences_containing_string(k, 'HTML Working Group'):
             continue
@@ -716,10 +788,14 @@ if __name__ == "__main__":
      For this simple fruit salad, you'll need strawberries, cherries, blueberries, red apples, peaches, and a kiwi.'''
     # entity_List = getNPListFromStr(txt)
     # InsertRelationsFromStrArticle(txt, db_list)
-    txt = html_to_plain_text('http://www.ehow.com/how_291_make-green-salad.html')
-    summary_over_article_text(txt)
-    # question = 'human will explore the world'
+    # txt = html_to_plain_text('http://www.ehow.com/how_291_make-green-salad.html')
+    # summary_over_article_text(txt)
+    question = 'people are spending too much time with their phones'
+
+    # chunk_list = sentence_structure_finder(question, SENTENCES_STRUCT_2)
+    # sentence_structure_finder(question, SENTENCES_STRUCT_4)
+    # sentence_structure_finder(question, SENTENCES_STRUCT_5)
     # tokens = nltk.word_tokenize(question)
     # tags = nltk.pos_tag(tokens)
     # print tags
-    # InputClassifier(question)
+    InputClassifier(question)
