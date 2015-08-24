@@ -19,6 +19,9 @@ Created on Sun Jul 05 14:22:06 2015
 # classify questions into every kind of wh-words : who where which when and so on
 # use more than one taggers to tag a sentence to increase precision
 # Only extract the sentences that do not contain interrogatives such as what how why
+# Base on a conversation script to learn talking patterns
+# search the web with the first sentence then in the resluts find the sentences that
+# are similar to the original anserw ,take them as the answer data base to a certain question
 import re
 
 import random
@@ -697,23 +700,35 @@ def questionMod(inputSentence, qType):
     print '--------------------    key words  ----------------------'
     print keyDict
     print '--------------------After filtering ---------------------'
+    back_sent_list = list()
     for k in backupAnwsersDict.keys():
         if filter_sentences_containing_interrogatives(k, filter_list):
             backupAnwsersDict.pop(k)
             continue
         if filter_sentences_containing_string(k, 'HTML Working Group'):
             continue
-        corpusSentenceDict = listToDict(getVPListFromStr(k))
-        print 'verbs from text ', corpusSentenceDict
-        print 'verbs form question ', keyDict
-        verbScore = wordDictRelation(corpusSentenceDict, keyDict)
-        corpusSentenceDict = listToDict(getNPListFromStr(k))
-        print 'nouns from text ', corpusSentenceDict
-        print 'nouns form question ', keyNPDict
-        NounScore = wordDictRelation(corpusSentenceDict, keyNPDict)
-        noun_weight = 0.7
-        backupAnwsersDict[k] = (1 - noun_weight) * verbScore + noun_weight * NounScore
+        back_sent_list.append(k)
+        # corpusSentenceDict = listToDict(getVPListFromStr(k))
+        # print 'verbs from text ', corpusSentenceDict
+        # print 'verbs form question ', keyDict
+        # verbScore = wordDictRelation(corpusSentenceDict, keyDict)
+        # corpusSentenceDict = listToDict(getNPListFromStr(k))
+        # print 'nouns from text ', corpusSentenceDict
+        # print 'nouns form question ', keyNPDict
+        # NounScore = wordDictRelation(corpusSentenceDict, keyNPDict)
+        # noun_weight = 0.7
+        # backupAnwsersDict[k] = (1 - noun_weight) * verbScore + noun_weight * NounScore
     # sentD = filterSentencesByWords(backupAnwsersDict.keys(), keyDict.keys())
+    total_txt = ''
+    for s in back_sent_list:
+        total_txt = total_txt + ' ' + s
+    total_txt = total_txt.strip()
+    simVal_list = similarity(back_sent_list,total_txt)
+    i = 0
+    for k in backupAnwsersDict.keys():
+        backupAnwsersDict[k] = simVal_list[i]
+        i = i + 1
+
     sentD = backupAnwsersDict
     sentD = sorted(sentD.iteritems(), key=lambda d: d[1], reverse=True)
     for s in sentD:
@@ -738,7 +753,7 @@ def getRelatedSentencesListFromWeb(searchedKeyWords):
     yahooTail = '&intlF=1&setmkt=en-us&setlang=en-us&FORM=SECNEN'
     urlList = getAllLinksFromPage(yahooHead + searchedKeyWords + yahooTail)
 
-    URLNum = 5
+    URLNum = 10
     keySentencesText = ''
     articleStrList = list()
     for i in range(0, iif(len(urlList) > URLNum, URLNum, len(urlList))):
@@ -780,6 +795,44 @@ def getOntologyKnowledge(relationTupleList):
     return OntoList
 
 
+import logging
+from gensim import corpora, models, similarities
+
+
+def similarity(sent_list, total_corp):
+    logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
+
+    class MyCorpus(object):
+        m_sentence_list = list()
+
+        def fill_sent_list(self, l):
+            self.m_sentence_list = l
+
+        def __iter__(self):
+            for line in self.m_sentence_list:
+                yield line.split()
+
+    Corp = MyCorpus()
+    Corp.fill_sent_list(sent_list)
+    dictionary = corpora.Dictionary(Corp)
+    corpus = [dictionary.doc2bow(text) for text in Corp]
+
+    tfidf = models.TfidfModel(corpus)
+
+    corpus_tfidf = tfidf[corpus]
+
+    query = total_corp
+    vec_bow = dictionary.doc2bow(query.split())
+    vec_tfidf = tfidf[vec_bow]
+
+    index = similarities.MatrixSimilarity(corpus_tfidf)
+    sims = index[vec_tfidf]
+
+    similarity_list = list(sims)
+
+    return similarity_list
+
+
 if __name__ == "__main__":
     txt = '''Jill is a nice name. Pick up fresh fruit from the farmer's market or your local grocery store
     and make sure that they are nice and ripe and ready to be made into a salad.
@@ -790,7 +843,7 @@ if __name__ == "__main__":
     # InsertRelationsFromStrArticle(txt, db_list)
     # txt = html_to_plain_text('http://www.ehow.com/how_291_make-green-salad.html')
     # summary_over_article_text(txt)
-    question = 'people are spending too much time with their phones'
+    question = 'the Mars has no moons, but the earth has one'
 
     # chunk_list = sentence_structure_finder(question, SENTENCES_STRUCT_2)
     # sentence_structure_finder(question, SENTENCES_STRUCT_4)
