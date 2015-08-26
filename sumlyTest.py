@@ -21,7 +21,16 @@ Created on Sun Jul 05 14:22:06 2015
 # Only extract the sentences that do not contain interrogatives such as what how why
 # Base on a conversation script to learn talking patterns
 # search the web with the first sentence then in the resluts find the sentences that
-# are similar to the original anserw ,take them as the answer data base to a certain question
+# are similar to the original answer ,take them as the answer data base to a certain question
+# extract specific relations such like is-a,isinstanceOf,After,Before
+# to make bodies of Ontology automatically
+# if we have already extracted out a relation A r B,how to evaluate the
+# relation r ?
+# search the web with A and B ,then extract realtions containing A x X
+# check how many relation r re-appears this time in all relations{ x }
+# the higher the percentage is the more reliable the relation r is.
+
+
 import re
 
 import random
@@ -407,7 +416,7 @@ def secondSentenceSplitor(sentenceList):
     resList = list()
     for sentence in sentenceList:
         # tList = re.split('(\.\.\.|\', \')|(\|)|(\*)', sentence)
-        tList = re.split('\*', sentence)
+        tList = re.split('(\|)|(\*)|(-+)|(\.)', sentence)
         resList = resList + tList
     rlist = list()
     for s in range(0, len(resList)):
@@ -670,6 +679,7 @@ def summary_over_article_text(article_text):
 
 
 def questionMod(inputSentence, qType):
+    #return a tuple list: tuple (str, score)
     patternList = questionPatternLoader(qType)
     print '====================================================='
     backupAnwsersDict = {}
@@ -727,7 +737,7 @@ def questionMod(inputSentence, qType):
     i = 0
     for k in backupAnwsersDict.keys():
         backupAnwsersDict[k] = simVal_list[i]
-        i = i + 1
+        i += 1
 
     sentD = backupAnwsersDict
     sentD = sorted(sentD.iteritems(), key=lambda d: d[1], reverse=True)
@@ -748,6 +758,30 @@ def InputClassifier(InputStr):
         questionMod(InputStr, questionType)
 
 
+def get_all_sentences_list_from_web(search_content):
+    yahooHead = 'http://global.bing.com/search?q='
+    yahooTail = '&intlF=1&setmkt=en-us&setlang=en-us&FORM=SECNEN'
+    urlList = getAllLinksFromPage(yahooHead + search_content + yahooTail)
+
+    URLNum = 10
+    keySentencesText = ''
+    all_sentence_List = list()
+    for i in range(0, iif(len(urlList) > URLNum, URLNum, len(urlList))):
+        passageSentences = html_to_plain_text(urlList[i][0])
+
+        parser = PlaintextParser.from_string(passageSentences, Tokenizer(LANGUAGE))
+        stemmer = Stemmer(LANGUAGE)
+        summarizer = Summarizer(stemmer)
+        summarizer.stop_words = get_stop_words(LANGUAGE)
+        if len(parser.document.sentences) == 0:
+            continue
+        for sentence in parser.document.sentences:
+            ks = sentence._text.decode('gbk', 'ignore').encode('utf-8')
+            print ks
+            all_sentence_List.append(ks)
+    return all_sentence_List
+
+
 def getRelatedSentencesListFromWeb(searchedKeyWords):
     yahooHead = 'http://global.bing.com/search?q='
     yahooTail = '&intlF=1&setmkt=en-us&setlang=en-us&FORM=SECNEN'
@@ -765,7 +799,9 @@ def getRelatedSentencesListFromWeb(searchedKeyWords):
         stemmer = Stemmer(LANGUAGE)
         summarizer = Summarizer(stemmer)
         summarizer.stop_words = get_stop_words(LANGUAGE)
-        for sentence in summarizer(parser.document, SENTENCES_COUNT):
+        if len(parser.document.sentences) == 0:
+            break
+        for sentence in parser.document.sentences:
             #            print(type(sentence))
             #            print(sentence)
             ks = sentence._text.decode('gbk', 'ignore').encode('utf-8')
@@ -833,6 +869,74 @@ def similarity(sent_list, total_corp):
     return similarity_list
 
 
+def self_learn_by_question_answer(local_text_seed_article, out_put_path, similarity_tol):
+    f = open(local_text_seed_article, 'r')
+    raw_text = f.read()
+    raw_text = raw_text.decode('gbk', 'ignore').encode('utf-8')
+    sent_str_list = getSentencesFromPassageText(raw_text)
+    sent_str_list = secondSentenceSplitor(sent_str_list)
+    if len(sent_str_list) <=1:
+        return
+    for n in range(0, len(sent_str_list)-1):
+        question_str = sent_str_list[n]
+        answer_str = sent_str_list[n+1]
+        candidate_sent_list = questionMod(question_str,DEFAULT)
+        c_list = list()
+        c_list.append(answer_str)
+        for c in candidate_sent_list:
+            c_list.append(c[0])
+        total_txt = ''
+        for s in c_list:
+            total_txt = total_txt + ' ' + s
+        total_txt = total_txt.strip()
+        simVal_list = similarity(c_list, total_txt)
+        # get the sentences that are most like the answer
+        for i in range(1, len(c_list)):
+            if float(abs(simVal_list[i]-simVal_list[0]))/simVal_list[0] > similarity_tol:
+                match_list = sentence_structure_finder(c_list[i], SENTENCES_STRUCT_2)
+                if match_list is not None and len(match_list) > 0:
+                    match_str_list = list()
+                    for chunk in match_list:
+                        match_str_list.append(chunk.string)
+
+                    if  not evaluate_relation_by_search_web(match_str_list, 0):
+                        continue
+                    rel_str = ''
+
+                    for chunk in match_list:
+                        rel_str = rel_str + " " + chunk.string
+                    FileUtils.WriteToFile(out_put_path, rel_str + '\r\n')
+
+
+def evaluate_relation_by_search_web(chunk_list, tol_val):
+    if len(chunk_list)<=2:
+        return False
+    else:
+        search_list = chunk_list
+        hidden_str = search_list.pop()
+        search_str = ''
+        for str in search_list:
+            search_str = search_str + " " + str
+        sent_list = get_all_sentences_list_from_web(search_str)
+        half_relation_list = list()
+        total_relation_list = list()
+        for s in sent_list:
+            for w in search_list:
+                if wordInSentStr(w,s) == False:
+                    continue
+            half_relation_list.append(s)
+        if len(half_relation_list) == 0:
+            return False
+        else:
+            for s in half_relation_list:
+                if wordInSentStr(hidden_str,s):
+                    total_relation_list.append(s)
+            if float(len(total_relation_list))/len(half_relation_list)>= tol_val:
+                return True
+            else:
+                return False
+
+
 if __name__ == "__main__":
     txt = '''Jill is a nice name. Pick up fresh fruit from the farmer's market or your local grocery store
     and make sure that they are nice and ripe and ready to be made into a salad.
@@ -851,4 +955,5 @@ if __name__ == "__main__":
     # tokens = nltk.word_tokenize(question)
     # tags = nltk.pos_tag(tokens)
     # print tags
-    InputClassifier(question)
+    # InputClassifier(question)
+    self_learn_by_question_answer("./data.text", 'self_learn_newphy_relations.txt', 0)
