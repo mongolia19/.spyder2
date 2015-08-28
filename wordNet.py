@@ -53,7 +53,11 @@ import urllib
 
 
 def getAllLinksFromPage(url):
-    htmlSource = urllib.urlopen(url).read(200000)
+    try:
+
+        htmlSource = urllib.urlopen(url).read(200000)
+    except:
+        htmlSource = ''
     # soup = BeautifulSoup.BeautifulSoup(htmlSource)
     head = (url, 'http')
     headlist = list()

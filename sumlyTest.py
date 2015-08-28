@@ -545,6 +545,22 @@ def conversation(inputSentence):
     inputSentence = processInputSentence(inputSentence, SearchExtraStr)
     questionMod(SearchExtraStr + inputSentence, DEFAULT)
 
+def muti_sentence_structure_finder(sentence_str):
+    match_list = list()
+    structlist = [SENTENCES_STRUCT_5,
+                  SENTENCES_STRUCT_4,
+                  SENTENCES_STRUCT_3,
+                  SENTENCES_STRUCT_2,
+                  SENTENCES_STRUCT_1]
+    for struct in structlist:
+        match_list = sentence_structure_finder(sentence_str, struct)
+        if match_list is not None and len(match_list) > 0:
+            break
+    if match_list is not None and len(match_list)>0:
+        return match_list
+    else:
+        return None
+
 
 def heuristic_sentence_breaker(sentence_str):
     match_list = list()
@@ -692,21 +708,19 @@ def questionMod(inputSentence, qType):
                     continue
                 else:
                     backupAnwsersDict[strSent] = strSent
-                    print strSent
-                    print '-------extracted---------------------------'
-                    s = parsetree(strSent, relations=True, lemmata=True)
-                    print 'subjects', s[0].subjects
-                    print 'verbs', s[0].verbs
-                    print 'objects', s[0].objects
-                    print 'relations', s[0].relations
-                    print 'pnp', s[0].pnp
+                    # print strSent
+                    # print '-------extracted---------------------------'
+                    # s = parsetree(strSent, relations=True, lemmata=True)
+                    # print 'subjects', s[0].subjects
+                    # print 'verbs', s[0].verbs
+                    # print 'objects', s[0].objects
+                    # print 'relations', s[0].relations
+                    # print 'pnp', s[0].pnp
     keyDict = listToDict(getVPListFromStr(inputSentence))
-    np_list = getNPListFromStr(inputSentence)
-    np_list1 = extract_ner_from_str_by_textblob(inputSentence)
+    # np_list = getNPListFromStr(inputSentence)
+    # np_list1 = extract_ner_from_str_by_textblob(inputSentence)
     filter_list = [HOW, WHAT, WHERE, WHO, WHY, WHEN, 'HyperText', 'RDFa', 'W3C', 'HTML', 'Michael', 'JavaScript']
-    if len(np_list1) > len(np_list):
-        np_list = np_list1
-    keyNPDict = listToDict(np_list)
+
     print '--------------------    key words  ----------------------'
     print keyDict
     print '--------------------After filtering ---------------------'
@@ -893,27 +907,57 @@ def self_learn_by_question_answer(local_text_seed_article, out_put_path, similar
         # get the sentences that are most like the answer
         for i in range(1, len(c_list)):
             if float(abs(simVal_list[i]-simVal_list[0]))/simVal_list[0] > similarity_tol:
-                match_list = sentence_structure_finder(c_list[i], SENTENCES_STRUCT_2)
+                match_list = muti_sentence_structure_finder(c_list[i])
                 if match_list is not None and len(match_list) > 0:
                     match_str_list = list()
                     for chunk in match_list:
                         match_str_list.append(chunk.string)
-
-                    if  not evaluate_relation_by_search_web(match_str_list, 0):
+                    verb_string = evaluate_verb_in_relation_by_search_web(match_list,0)
+                    if verb_string is None:
                         continue
-                    rel_str = ''
+                    else:
+                        rel_str = ''
+                        for chunk in match_list:
+                            rel_str = rel_str + " " + chunk.string
+                        FileUtils.WriteToFile(out_put_path, rel_str + '\r\n')
 
-                    for chunk in match_list:
-                        rel_str = rel_str + " " + chunk.string
-                    FileUtils.WriteToFile(out_put_path, rel_str + '\r\n')
+from copy import deepcopy
+def evaluate_verb_in_relation_by_search_web(chunk_type_list, tol_val):
+    temp_chunk_list = deepcopy( chunk_type_list)
+    verb_chunk = None
+    sbj_chunk = None
+    obj_chunk = None
+    np_chunk_list = list()
+    for n in range(0, len(temp_chunk_list)):
+        if 'VP' in temp_chunk_list[n].tag:
+            verb_chunk = temp_chunk_list.pop(n)
+            break
+    if len(temp_chunk_list)<2:
+        return None
+    for n in range(0, len(temp_chunk_list)):
+        if np_chunk_list is None or len(np_chunk_list)<2:
+            if 'NP' in temp_chunk_list[n].tag:
+                np_chunk_list.append(temp_chunk_list[n])
+        else:
+            break
+    if len(np_chunk_list)<=1:
+        return None
+    verb_with_sbj = [np_chunk_list[0].string,verb_chunk.string,np_chunk_list[1].string]
+    if evaluate_relation_by_search_web(verb_with_sbj,0,0):
+        return verb_chunk.string
+    else:
+        return None
 
 
-def evaluate_relation_by_search_web(chunk_list, tol_val):
+def evaluate_relation_by_search_web(chunk_list, pop_index=-1, tol_val=0):
     if len(chunk_list)<=2:
         return False
     else:
         search_list = chunk_list
-        hidden_str = search_list.pop()
+        if pop_index == -1:
+            hidden_str = search_list.pop()
+        else:
+            hidden_str = search_list.pop(pop_index)
         search_str = ''
         for str in search_list:
             search_str = search_str + " " + str
@@ -956,4 +1000,6 @@ if __name__ == "__main__":
     # tags = nltk.pos_tag(tokens)
     # print tags
     # InputClassifier(question)
-    self_learn_by_question_answer("./data.text", 'self_learn_newphy_relations.txt', 0)
+    raw_text_path_list = FileUtils.ReturnAllFileOnPath(1, "./text/sci.space")
+    for rf in raw_text_path_list:
+        self_learn_by_question_answer(rf, 'self_learn_newphy_relations.txt', 0)
