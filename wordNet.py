@@ -70,13 +70,24 @@ def getAllLinksFromPage(url):
 def html_to_plain_text(url_str):
     try:
         s = URL(url_str).download()
-        s = plaintext(s)
+        s = plaintext(s, keep={'h1':[], 'h2':[], 'span':[], 'p':[], 'li':[], 'b':[]})
         s = s.decode('gbk', 'ignore').encode('utf-8')
-        s = s.encode('raw_unicode_escape').decode('utf8')
+        # pattern = re.compile('(?<=\<[h1]\>)[^<,^>](?=\</[h1]\>)')
+        result_s = ''
+        str_array = [r'<h1>([^<>\/].+?)</h1>', r'<h2>([^<>\/].+?)</h2>',\
+                     r'<span>([^<>\/].+?)</span>', r'<p>([^<>\/].+?)</p>', r'<li>([^<>\/].+?)</li>',\
+                     r'<b>([^<>\/].+?)</b>']
+        for sp in str_array:
+            pattern = re.compile(sp)
+            match_list = pattern.findall(s)
+            for m in match_list:
+                result_s += " " + m + "."
+        # s = s.encode('raw_unicode_escape').decode('utf8')
     except Exception, ex:
+        print "exception found in html_to_plain_text"
         print Exception, ":", ex
-        s = ''
-    return s
+        return ''
+    return result_s
 
 
 def measure_similarity_by_search_engine(word1, word2):
@@ -163,7 +174,30 @@ def MeasureWordSimilarity(wordA, wordB):
 
 
 def IsNamedEntity(TagStr):
-    p = re.compile('NNP|NN|NNS|NE|PRP')
+    p = re.compile('NNP|NN|NNS|NE|PRP|NNPS')
+    m = p.match(TagStr)
+    if m:
+
+        return True
+
+    else:
+
+        return False
+
+
+def IsNumberEntity(TagStr):
+    p = re.compile('CD')
+    m = p.match(TagStr)
+    if m:
+
+        return True
+
+    else:
+
+        return False
+
+def IsProperEntity(TagStr):
+    p = re.compile('NNP|NNPS')
     m = p.match(TagStr)
     if m:
 
@@ -193,6 +227,21 @@ def getAllEntities(TaggedWordList):
             NEList.append(taggedWord[0])
     return NEList
 
+
+def getAllNumbers(TaggedWordList):
+    NEList = list()
+    for taggedWord in TaggedWordList:
+        if IsNumberEntity(taggedWord[1]):
+            NEList.append(taggedWord[0])
+    return NEList
+
+
+def getAllProperEntities(TaggedWordList):
+    NEList = list()
+    for taggedWord in TaggedWordList:
+        if IsProperEntity(taggedWord[1]):
+            NEList.append(taggedWord[0])
+    return NEList
 
 def getAllVerbs(TaggedWordList):
     NEList = list()

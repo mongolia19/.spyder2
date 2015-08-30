@@ -50,6 +50,7 @@ from wordNet import getVPListFromStr
 from wordNet import getNPListFromStr
 from wordNet import wordInSentStr
 from wordNet import getAllEntities, getAllVerbs, getSentenceDictMatchingPatternList, getTopScoredSentenceDict
+from wordNet import getAllNumbers, getAllProperEntities
 import PipLineTest
 from wordNet import listToDict
 from wordNet import getAllLinksFromPage
@@ -349,6 +350,18 @@ def getPassageFromUrl(urlStr):
                 PassageContentList = PassageContentList + (h._text)
     return PassageContentList
 
+
+def get_all_entities_by_nltk(sent_string):
+    tokens = nltk.word_tokenize(question)
+    tags = nltk.pos_tag(tokens)
+    ners = getAllEntities(tags)
+    return ners
+
+
+def get_tagged_sentence(sent_string):
+    tokens = nltk.word_tokenize(sent_string)
+    tags = nltk.pos_tag(tokens)
+    return tags
 
 def getSentencesDictFromPassageByQuestion(question, passage_sentList):
     tokens = nltk.word_tokenize(question)
@@ -662,28 +675,43 @@ def summary_over_article_text(article_text):
     summarizer = Summarizer(stemmer)
     summarizer.stop_words = get_stop_words(LANGUAGE)
     sum_list = list()
+    total_list = list()
+    place_sent_list = list()
+    time_sent_list = list()
     for sentence in summarizer(parser.document, SENTENCES_COUNT):
         ks = sentence._text.decode('gbk', 'ignore').encode('utf-8')
         sum_list.append(ks)
+    key_named_entities = list()
     for s in sum_list:
         print "summary", s
-    ner_list = extract_ner_from_str_by_textblob(article_text)
-    print 'nouns ', ner_list
+        ner_list = get_all_entities_by_nltk(s)
+        key_named_entities += ner_list
+
+    # print 'nouns ', ner_list
     for p in parser.document.sentences:
         sent_str = p._text.decode('gbk', 'ignore').encode('utf-8')
-        if sentence_structure_finder(sent_str, SENTENCES_STRUCT_5) is not None:
-            continue
-        if sentence_structure_finder(sent_str, SENTENCES_STRUCT_4) is not None:
-            continue
-        if sentence_structure_finder(sent_str, SENTENCES_STRUCT_3) is not None:
-            continue
-        if sentence_structure_finder(sent_str, SENTENCES_STRUCT_2) is not None:
-            continue
-        if sentence_structure_finder(sent_str, SENTENCES_STRUCT_1) is not None:
-            continue
-        # s = parsetree(sent_str, relations=True, lemmata=True)
+        if len(sent_str.strip().split())>3:
+            total_list.append(sent_str)
+            for key in key_named_entities:
+                if wordInSentStr(key,sent_str):
+                    sum_list.append(sent_str)
+            s = parsetree(sent_str, relations=True, lemmata=True)
+            # print 'subjects', s[0].subjects
+            # print 'verbs', s[0].verbs
+            # print 'objects', s[0].objects
+            # print 'relations', s[0].relations
+            #
+            if s[0].pnp is not None and len(s[0].pnp)>0:
+                print 'pnp', s[0].pnp
+                pnp_str = s[0].pnp[0].string
+                tagged_pnp = get_tagged_sentence(pnp_str)
+                if getAllNumbers(tagged_pnp) is not None:
+                    time_sent_list.append(sent_str)
+                if getAllProperEntities(tagged_pnp) is not None:
+                    place_sent_list.append(sent_str)
         print '-------------------------'
-
+    result_tuple = (list(), sum_list, total_list, time_sent_list, place_sent_list)
+    return  result_tuple
                 # for sentence in s:
                 #     for chunk in sentence.chunks:
                 #         print chunk.type, [(w.string, w.type) for w in chunk.words]
@@ -755,12 +783,12 @@ def questionMod(inputSentence, qType):
 
     sentD = backupAnwsersDict
     sentD = sorted(sentD.iteritems(), key=lambda d: d[1], reverse=True)
-    for s in sentD:
-        print s
-        temp_relation = getRelation(s[0])
-        temp_dict = getRelationsFromDict(temp_relation)
-        for k in temp_dict.keys():
-            print temp_dict[k].OBJ.lower(), temp_dict[k].VP.lower(), temp_dict[k].SBJ.lower()
+    # for s in sentD:
+    #     print s
+    #     temp_relation = getRelation(s[0])
+    #     temp_dict = getRelationsFromDict(temp_relation)
+    #     for k in temp_dict.keys():
+    #         print temp_dict[k].OBJ.lower(), temp_dict[k].VP.lower(), temp_dict[k].SBJ.lower()
     return sentD
 
 
@@ -867,16 +895,16 @@ def similarity(sent_list, total_corp):
     dictionary = corpora.Dictionary(Corp)
     corpus = [dictionary.doc2bow(text) for text in Corp]
 
-    tfidf = models.TfidfModel(corpus)
+    lsi = models.LsiModel(corpus)
 
-    corpus_tfidf = tfidf[corpus]
+    corpus_lsi = lsi[corpus]
 
     query = total_corp
     vec_bow = dictionary.doc2bow(query.split())
-    vec_tfidf = tfidf[vec_bow]
+    vec_lsi = lsi[vec_bow]
 
-    index = similarities.MatrixSimilarity(corpus_tfidf)
-    sims = index[vec_tfidf]
+    index = similarities.MatrixSimilarity(corpus_lsi)
+    sims = index[vec_lsi]
 
     similarity_list = list(sims)
 
@@ -916,10 +944,13 @@ def self_learn_by_question_answer(local_text_seed_article, out_put_path, similar
                     if verb_string is None:
                         continue
                     else:
-                        rel_str = ''
-                        for chunk in match_list:
-                            rel_str = rel_str + " " + chunk.string
-                        FileUtils.WriteToFile(out_put_path, rel_str + '\r\n')
+
+                        rel_chunks_list = discover_entity_relation_by_verb(verb_string, match_list[0].string, ' ')
+                        for rel_chunks in rel_chunks_list:
+                            rel_str = ''
+                            for chunk in rel_chunks:
+                                rel_str = rel_str + " " + chunk.string
+                            FileUtils.WriteToFile(out_put_path, rel_str + '\r\n')
 
 from copy import deepcopy
 def evaluate_verb_in_relation_by_search_web(chunk_type_list, tol_val):
@@ -981,6 +1012,118 @@ def evaluate_relation_by_search_web(chunk_list, pop_index=-1, tol_val=0):
                 return False
 
 
+def discover_entity_relation_by_verb(verb_str, seed_sbj, seed_obj):
+    sent_list = get_all_sentences_list_from_web(seed_sbj + verb_str + seed_obj)
+    chunks_list = list()
+    noun1 = ''
+    noun2 = ''
+    for sent in sent_list:
+        match_list = muti_sentence_structure_finder(sent)
+        if match_list is None:
+            continue
+        else:
+            length = len(match_list)
+            if length <=2:
+                continue
+            else:
+                for n in range(0, length):
+                    if (verb_str.lower() in match_list[n].string.lower()) and 'VP' in match_list[n].tag:
+                        if n >0 and 'NP' in match_list[n-1].tag:
+                            noun1 = match_list[n-1].string
+                        if n + 1 < length and 'NP' in match_list[n+1].tag:
+                            noun2 = match_list[n+1].string
+                        if (noun1 != '' and noun2 != '') and\
+                            not (noun1 == seed_sbj and noun2 == seed_obj):
+                            chunks_list.append(match_list)
+    return chunks_list
+
+
+def get_articles_withURKL_from_websearch_query(query_string):
+    real_yahoo_head = 'http://global.bing.com/search?q='
+    real_yahoo_tail = '&setlang=en-us&encoding=utf-8'
+    yahooHead = 'http://global.bing.com/search?q='
+    yahooTail = '&intlF=1&setmkt=en-us&setlang=en-us&FORM=SECNEN'
+    real_bing_search_url = yahooHead + query_string + yahooTail
+    real_yahoo_search_url = real_yahoo_head + query_string + real_yahoo_tail
+
+    urlList = getAllLinksFromPage(real_yahoo_search_url)
+
+    URLNum = 10
+    keySentencesText = ''
+    articleStrList = list()
+    for i in range(0, iif(len(urlList) > URLNum, URLNum, len(urlList))):
+        passageSentences = html_to_plain_text(urlList[i][0])
+        if passageSentences is None or len(passageSentences)<=3:
+            continue
+        articleStrList.append((passageSentences,urlList[i][0]))
+    return articleStrList
+
+
+def topic_to_tuple_list(topic):
+    art_tuple_str_list = get_articles_withURKL_from_websearch_query(topic)
+    art_list = list()
+    art_total_str = ''
+    for art in art_tuple_str_list:
+        art_list.append(art[0])
+        assert isinstance(art, tuple)
+        art_total_str += " " + art[0]
+    score_list = similarity(art_list, art_total_str)
+    temp_dict = {}
+    for n in range(0,len(art_list)):
+        temp_dict[art_list[n]] = score_list[n]
+    temp_dict = sorted(temp_dict.iteritems(), key=lambda d: d[1], reverse=True)
+
+
+    if len(art_tuple_str_list)>=3:
+        main_article = temp_dict[1][0]
+    else:
+        main_article = temp_dict[0][0]
+    main_art_tuple = summary_over_article_text(main_article)
+    ner_list = main_art_tuple[0]
+    summary_list = main_art_tuple[1]
+    all_sent_list = main_art_tuple[2]
+    time_sent_list = main_art_tuple[3]
+    place_sent_list = main_art_tuple[4]
+    result_tuple_list = list()
+    # for ner in ner_list:
+        # t = (ner, True, False,'')#(content, if is ner , is key sentence, url string)
+        # result_tuple_list.append(t)
+    for sent in all_sent_list:
+        Is_key_sent = False
+        if sent in summary_list or\
+                        sent in time_sent_list or\
+                        sent in place_sent_list:
+            Is_key_sent = True
+        t = (sent, False, Is_key_sent, '')
+        result_tuple_list.append(t)
+    return result_tuple_list
+
+
+from pyh import *
+def tuple_to_html_page(tuple_list, title='TestDoc', output_file='./testHtml.html'):
+    ner_str = ''
+    sent_list = list()
+    for t in tuple_list:
+        if t[1] == True and len(t[0])< 30:
+            ner_str = ner_str + " " + t[0]
+        else:
+            sent_list.append(t)
+
+
+    page = PyH(title)
+    page<<h2('key words: ' + ner_str, c1 = 'center')
+    for sent_tuple in sent_list:
+        if not sent_tuple[2]:
+            page << (h3(sent_tuple[0]))
+        else:
+            page << (h2(sent_tuple[0], style = 'color:red'))
+    page.printOut(output_file)
+
+
+def summary_to_html(topic):
+    tuple_list = topic_to_tuple_list(topic)
+    tuple_to_html_page(tuple_list, topic)
+
 if __name__ == "__main__":
     txt = '''Jill is a nice name. Pick up fresh fruit from the farmer's market or your local grocery store
     and make sure that they are nice and ripe and ready to be made into a salad.
@@ -991,8 +1134,8 @@ if __name__ == "__main__":
     # InsertRelationsFromStrArticle(txt, db_list)
     # txt = html_to_plain_text('http://www.ehow.com/how_291_make-green-salad.html')
     # summary_over_article_text(txt)
-    question = 'the Mars has no moons, but the earth has one'
-
+    question = 'news today'
+    summary_to_html(question)
     # chunk_list = sentence_structure_finder(question, SENTENCES_STRUCT_2)
     # sentence_structure_finder(question, SENTENCES_STRUCT_4)
     # sentence_structure_finder(question, SENTENCES_STRUCT_5)
@@ -1000,6 +1143,7 @@ if __name__ == "__main__":
     # tags = nltk.pos_tag(tokens)
     # print tags
     # InputClassifier(question)
-    raw_text_path_list = FileUtils.ReturnAllFileOnPath(1, "./text/sci.space")
-    for rf in raw_text_path_list:
-        self_learn_by_question_answer(rf, 'self_learn_newphy_relations.txt', 0)
+
+    # raw_text_path_list = FileUtils.ReturnAllFileOnPath(1, "./text/sci.space")
+    # for rf in raw_text_path_list:
+    #     self_learn_by_question_answer(rf, 'self_learn_newphy_relations.txt', 0)
