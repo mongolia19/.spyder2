@@ -252,6 +252,7 @@ def getAllVerbs(TaggedWordList):
 
 
 def wordInSentStr(word, sentStr):
+    sentStr = sentStr.decode('gbk', 'ignore')
     wordsDisctInSent = PipLineTest.getWordDictInSentence(sentStr)
     if wordsDisctInSent.has_key(str(word)):
         return True
