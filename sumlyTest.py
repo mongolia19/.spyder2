@@ -296,7 +296,16 @@ def get_pnp(sent_str):
 
 
 def getSentencesFromPassageText(text):
-    PassageContentList = nltk.sent_tokenize(text)
+    text_array = text.split()
+    text_str = ''
+    for t in text_array:
+        try:
+
+            t = t.decode('gbk', 'strict')
+            text_str += ' ' + t
+        except:
+            continue
+    PassageContentList = nltk.sent_tokenize(text_str)
     return PassageContentList
 
 
@@ -352,7 +361,7 @@ def getPassageFromUrl(urlStr):
 
 
 def get_all_entities_by_nltk(sent_string):
-    tokens = nltk.word_tokenize(question)
+    tokens = nltk.word_tokenize(sent_string)
     tags = nltk.pos_tag(tokens)
     ners = getAllEntities(tags)
     return ners
@@ -710,7 +719,7 @@ def summary_over_article_text(article_text):
                 if getAllProperEntities(tagged_pnp) is not None:
                     place_sent_list.append(sent_str)
         print '-------------------------'
-    result_tuple = (list(), sum_list, total_list, time_sent_list, place_sent_list)
+    result_tuple = [list(), sum_list, total_list, time_sent_list, place_sent_list]
     return  result_tuple
                 # for sentence in s:
                 #     for chunk in sentence.chunks:
@@ -1079,11 +1088,19 @@ def topic_to_tuple_list(topic):
     else:
         main_article = temp_dict[0][0]
     main_art_tuple = summary_over_article_text(main_article)
+    other_article_list = list()
+    for i in temp_dict:
+        if i[0] == main_article:
+            continue
+        else:
+            other_article_list.append(i[0])
+
+    sum_list = summary_by_comparing_articles(main_article,other_article_list)
     ner_list = main_art_tuple[0]
     summary_list = main_art_tuple[1]
     all_sent_list = main_art_tuple[2]
     time_sent_list = main_art_tuple[3]
-    place_sent_list = main_art_tuple[4]
+    place_sent_list = sum_list
     result_tuple_list = list()
     # for ner in ner_list:
         # t = (ner, True, False,'')#(content, if is ner , is key sentence, url string)
@@ -1097,6 +1114,32 @@ def topic_to_tuple_list(topic):
         t = (sent, False, Is_key_sent, '')
         result_tuple_list.append(t)
     return result_tuple_list
+
+
+def summary_by_comparing_articles(article, other_article_list):
+    summary_text_list = list()
+    main_art_sent_list = getSentencesFromPassageText(article)
+    total_sent_list = list()
+    for art in other_article_list:
+        other_art_sent_list = getSentencesFromPassageText(art)
+        total_sent_list += other_art_sent_list
+    threshhold = 2
+    for main_sent in main_art_sent_list:
+        if len(main_sent) <= 3:
+            continue
+        else:
+            hit = 0
+            ner_list = get_all_entities_by_nltk(main_sent)
+            for ner in ner_list:
+                for other_sent in total_sent_list:
+                    if wordInSentStr(ner, other_sent):
+                        hit += 1
+                    if hit >=threshhold:
+                        summary_text_list.append(main_sent)
+                        break
+                if hit >=threshhold:
+                    break
+    return summary_text_list
 
 
 from pyh import *
@@ -1134,7 +1177,7 @@ if __name__ == "__main__":
     # InsertRelationsFromStrArticle(txt, db_list)
     # txt = html_to_plain_text('http://www.ehow.com/how_291_make-green-salad.html')
     # summary_over_article_text(txt)
-    question = 'news today'
+    question = 'why sun shines'
     summary_to_html(question)
     # chunk_list = sentence_structure_finder(question, SENTENCES_STRUCT_2)
     # sentence_structure_finder(question, SENTENCES_STRUCT_4)

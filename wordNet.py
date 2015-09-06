@@ -70,18 +70,11 @@ def getAllLinksFromPage(url):
 def html_to_plain_text(url_str):
     try:
         s = URL(url_str).download()
-        s = plaintext(s, keep={'h1':[], 'h2':[], 'span':[], 'p':[], 'li':[], 'b':[]})
-        s = s.decode('gbk', 'ignore').encode('utf-8')
+        s = plaintext(s)
+        s = s.decode('gbk', 'ignore')
         # pattern = re.compile('(?<=\<[h1]\>)[^<,^>](?=\</[h1]\>)')
         result_s = ''
-        str_array = [r'<h1>([^<>\/].+?)</h1>', r'<h2>([^<>\/].+?)</h2>',\
-                     r'<span>([^<>\/].+?)</span>', r'<p>([^<>\/].+?)</p>', r'<li>([^<>\/].+?)</li>',\
-                     r'<b>([^<>\/].+?)</b>']
-        for sp in str_array:
-            pattern = re.compile(sp)
-            match_list = pattern.findall(s)
-            for m in match_list:
-                result_s += " " + m + "."
+        result_s = s.replace('*', '. ')
         # s = s.encode('raw_unicode_escape').decode('utf8')
     except Exception, ex:
         print "exception found in html_to_plain_text"
