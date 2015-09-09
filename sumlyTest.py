@@ -1095,26 +1095,59 @@ def topic_to_tuple_list(topic):
         else:
             other_article_list.append(i[0])
 
-    sum_list = summary_by_comparing_articles(main_article,other_article_list)
+    sum_list = filter_when(main_article, topic)
+    # sum_list = summary_by_comparing_articles(main_article,other_article_list)
     ner_list = main_art_tuple[0]
     summary_list = main_art_tuple[1]
     all_sent_list = main_art_tuple[2]
     time_sent_list = main_art_tuple[3]
-    place_sent_list = sum_list
+    summary_list = sum_list
     result_tuple_list = list()
     # for ner in ner_list:
         # t = (ner, True, False,'')#(content, if is ner , is key sentence, url string)
         # result_tuple_list.append(t)
     for sent in all_sent_list:
         Is_key_sent = False
-        if sent in summary_list or\
-                        sent in time_sent_list or\
-                        sent in place_sent_list:
+        if sent in summary_list:
+                        # sent in time_sent_list or\
+                        # sent in place_sent_list:
             Is_key_sent = True
         t = (sent, False, Is_key_sent, '')
         result_tuple_list.append(t)
     return result_tuple_list
 
+
+def filter_when(article, question):
+    relations = getRelation(question)
+    # pnp = get_pnp(question)
+    # pnp_string = ''
+    # if len(pnp) >= 1:
+    #     pnp_string = pnp[0].string
+    # print type(pnp)
+    values = None
+    if len(relations) > 0:
+        tDict = getRelationsFromDict(relations)
+        for k in tDict.keys():
+            values = (k, tDict[k].OBJ.lower(), tDict[k].VP.lower(), tDict[k].SBJ.lower())
+            # MySqlHelper.insert(db_list, values, "insert into relation values(%s,%s,%s,%s,%s)")
+    ners = get_all_entities_by_nltk(question)
+    n1 = ''
+    n2 = ''
+    if ners:
+        n1 = ners[0]
+        if len(ners)>1:
+            n2 = ners[1]
+        else:
+            n2 = n1
+    summary_text_list = list()
+    main_art_sent_list = getSentencesFromPassageText(article)
+    for sent in main_art_sent_list:
+        if (n1 != '' and n1 in sent) or (n2 != '' and n2 in sent):
+            if len(getAllNumbers(get_tagged_sentence(sent)))>0:
+                pnp = get_pnp(sent)
+                if pnp is not None and len(pnp)>=1:
+                    summary_text_list.append(sent)
+    return summary_text_list
 
 def summary_by_comparing_articles(article, other_article_list):
     summary_text_list = list()
@@ -1177,7 +1210,7 @@ if __name__ == "__main__":
     # InsertRelationsFromStrArticle(txt, db_list)
     # txt = html_to_plain_text('http://www.ehow.com/how_291_make-green-salad.html')
     # summary_over_article_text(txt)
-    question = 'why sun shines'
+    question = 'when did Albert born'
     summary_to_html(question)
     # chunk_list = sentence_structure_finder(question, SENTENCES_STRUCT_2)
     # sentence_structure_finder(question, SENTENCES_STRUCT_4)
