@@ -178,6 +178,17 @@ def IsNamedEntity(TagStr):
         return False
 
 
+def IsPronounEntity(TagStr):
+    p = re.compile('PRP*')
+    m = p.match(TagStr)
+    if m:
+
+        return True
+
+    else:
+
+        return False
+
 def IsNumberEntity(TagStr):
     p = re.compile('CD')
     m = p.match(TagStr)
@@ -235,6 +246,15 @@ def getAllProperEntities(TaggedWordList):
         if IsProperEntity(taggedWord[1]):
             NEList.append(taggedWord[0])
     return NEList
+
+
+def getAllPronounEntities(TaggedWordList):
+    NEList = list()
+    for taggedWord in TaggedWordList:
+        if IsPronounEntity(taggedWord[1]):
+            NEList.append(taggedWord[0])
+    return NEList
+
 
 def getAllVerbs(TaggedWordList):
     NEList = list()
