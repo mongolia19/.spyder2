@@ -50,7 +50,7 @@ from wordNet import getVPListFromStr
 from wordNet import getNPListFromStr
 from wordNet import wordInSentStr
 from wordNet import getAllEntities, getAllVerbs, getSentenceDictMatchingPatternList, getTopScoredSentenceDict
-from wordNet import getAllNumbers, getAllProperEntities
+from wordNet import getAllNumbers, getAllProperEntities, getAllPronounEntities
 import PipLineTest
 from wordNet import listToDict
 from wordNet import getAllLinksFromPage
@@ -313,7 +313,9 @@ def get_sentences_str_from_url(url_str):
     passage_sentence_list = list()
     try:
         plain_txt = html_to_plain_text(url_str)
-
+        if plain_txt == '':
+            print 'plain_txt is empty in get_sentences_str_from_url '
+            return passage_sentence_list
     except Exception, ex:
         print Exception, ":", ex
         return passage_sentence_list
@@ -438,7 +440,7 @@ def secondSentenceSplitor(sentenceList):
     resList = list()
     for sentence in sentenceList:
         # tList = re.split('(\.\.\.|\', \')|(\|)|(\*)', sentence)
-        tList = re.split('(\|)|(\*)|(-+)|(\.)', sentence)
+        tList = re.split("(\|)|(\*)|(-+)|(\.)|(\n)", sentence)
         resList = resList + tList
     rlist = list()
     for s in range(0, len(resList)):
@@ -734,7 +736,7 @@ def summary_over_article_text(article_text):
 def questionMod(inputSentence, qType):
     #return a tuple list: tuple (str, score)
     patternList = questionPatternLoader(qType)
-    print '====================================================='
+    print '========== question mod entered ============'
     backupAnwsersDict = {}
     SentencesList = getRelatedSentencesListFromWeb(inputSentence)
     for sentence in SentencesList:
@@ -784,6 +786,8 @@ def questionMod(inputSentence, qType):
     for s in back_sent_list:
         total_txt = total_txt + ' ' + s
     total_txt = total_txt.strip()
+    if len(back_sent_list)==0 or len(total_txt)<3:
+        return list()
     simVal_list = similarity(back_sent_list,total_txt)
     i = 0
     for k in backupAnwsersDict.keys():
@@ -925,6 +929,7 @@ def self_learn_by_question_answer(local_text_seed_article, out_put_path, similar
     raw_text = f.read()
     raw_text = raw_text.decode('gbk', 'ignore').encode('utf-8')
     sent_str_list = getSentencesFromPassageText(raw_text)
+    print '--------- after splitting, getSentencesFromPassageText'
     sent_str_list = secondSentenceSplitor(sent_str_list)
     if len(sent_str_list) <=1:
         return
@@ -935,7 +940,11 @@ def self_learn_by_question_answer(local_text_seed_article, out_put_path, similar
         c_list = list()
         c_list.append(answer_str)
         for c in candidate_sent_list:
-            c_list.append(c[0])
+            #remove the sentences with pronouns
+            if len(c[0])>0 and len(getAllPronounEntities(get_tagged_sentence(c[0])))==0:
+                c_list.append(c[0])
+            else:
+                continue
         total_txt = ''
         for s in c_list:
             total_txt = total_txt + ' ' + s
@@ -946,6 +955,8 @@ def self_learn_by_question_answer(local_text_seed_article, out_put_path, similar
             if float(abs(simVal_list[i]-simVal_list[0]))/simVal_list[0] > similarity_tol:
                 match_list = muti_sentence_structure_finder(c_list[i])
                 if match_list is not None and len(match_list) > 0:
+                    if len(filter_when(c_list[i], question_str))>0:
+                        FileUtils.WriteToFile(out_put_path, c_list[i] + '\r\n')
                     match_str_list = list()
                     for chunk in match_list:
                         match_str_list.append(chunk.string)
@@ -953,13 +964,13 @@ def self_learn_by_question_answer(local_text_seed_article, out_put_path, similar
                     if verb_string is None:
                         continue
                     else:
-
                         rel_chunks_list = discover_entity_relation_by_verb(verb_string, match_list[0].string, ' ')
                         for rel_chunks in rel_chunks_list:
                             rel_str = ''
                             for chunk in rel_chunks:
                                 rel_str = rel_str + " " + chunk.string
                             FileUtils.WriteToFile(out_put_path, rel_str + '\r\n')
+
 
 from copy import deepcopy
 def evaluate_verb_in_relation_by_search_web(chunk_type_list, tol_val):
@@ -1062,6 +1073,8 @@ def get_articles_withURKL_from_websearch_query(query_string):
     articleStrList = list()
     for i in range(0, iif(len(urlList) > URLNum, URLNum, len(urlList))):
         passageSentences = html_to_plain_text(urlList[i][0])
+        print 'html_to_plain_text called in get_articles_withURKL_from_websearch_query'
+        print 'the text is ' , passageSentences
         if passageSentences is None or len(passageSentences)<=3:
             continue
         articleStrList.append((passageSentences,urlList[i][0]))
@@ -1095,7 +1108,7 @@ def topic_to_tuple_list(topic):
         else:
             other_article_list.append(i[0])
 
-    sum_list = filter_when(main_article, topic)
+    sum_list = filter_where(main_article, topic)
     # sum_list = summary_by_comparing_articles(main_article,other_article_list)
     ner_list = main_art_tuple[0]
     summary_list = main_art_tuple[1]
@@ -1117,19 +1130,42 @@ def topic_to_tuple_list(topic):
     return result_tuple_list
 
 
+def filter_where(article, question):
+    ners = get_all_entities_by_nltk(question)
+    n1 = ''
+    n2 = ''
+    if ners:
+        n1 = ners[0]
+        if len(ners)>1:
+            n2 = ners[1]
+        else:
+            n2 = n1
+    summary_text_list = list()
+    main_art_sent_list = getSentencesFromPassageText(article)
+    for sent in main_art_sent_list:
+        if (n1 != '' and n1 in sent) or (n2 != '' and n2 in sent):
+            pnp = get_pnp(sent)
+            if pnp is not None and len(pnp)>=1:
+                pnp_string = pnp[0].string
+                if getAllProperEntities(get_tagged_sentence(pnp_string))\
+                        and len(getAllProperEntities(get_tagged_sentence(pnp_string))):
+                    summary_text_list.append(sent)
+    return summary_text_list
+
+
 def filter_when(article, question):
-    relations = getRelation(question)
+    # relations = getRelation(question)
     # pnp = get_pnp(question)
     # pnp_string = ''
     # if len(pnp) >= 1:
     #     pnp_string = pnp[0].string
     # print type(pnp)
-    values = None
-    if len(relations) > 0:
-        tDict = getRelationsFromDict(relations)
-        for k in tDict.keys():
-            values = (k, tDict[k].OBJ.lower(), tDict[k].VP.lower(), tDict[k].SBJ.lower())
-            # MySqlHelper.insert(db_list, values, "insert into relation values(%s,%s,%s,%s,%s)")
+    # values = None
+    # if len(relations) > 0:
+    #     tDict = getRelationsFromDict(relations)
+    #     for k in tDict.keys():
+    #         values = (k, tDict[k].OBJ.lower(), tDict[k].VP.lower(), tDict[k].SBJ.lower())
+    #         # MySqlHelper.insert(db_list, values, "insert into relation values(%s,%s,%s,%s,%s)")
     ners = get_all_entities_by_nltk(question)
     n1 = ''
     n2 = ''
@@ -1148,6 +1184,7 @@ def filter_when(article, question):
                 if pnp is not None and len(pnp)>=1:
                     summary_text_list.append(sent)
     return summary_text_list
+
 
 def summary_by_comparing_articles(article, other_article_list):
     summary_text_list = list()
@@ -1210,8 +1247,10 @@ if __name__ == "__main__":
     # InsertRelationsFromStrArticle(txt, db_list)
     # txt = html_to_plain_text('http://www.ehow.com/how_291_make-green-salad.html')
     # summary_over_article_text(txt)
-    question = 'when did Albert born'
-    summary_to_html(question)
+
+    # question = 'where USA was located'
+    # summary_to_html(question)
+
     # chunk_list = sentence_structure_finder(question, SENTENCES_STRUCT_2)
     # sentence_structure_finder(question, SENTENCES_STRUCT_4)
     # sentence_structure_finder(question, SENTENCES_STRUCT_5)
@@ -1220,6 +1259,6 @@ if __name__ == "__main__":
     # print tags
     # InputClassifier(question)
 
-    # raw_text_path_list = FileUtils.ReturnAllFileOnPath(1, "./text/sci.space")
-    # for rf in raw_text_path_list:
-    #     self_learn_by_question_answer(rf, 'self_learn_newphy_relations.txt', 0)
+    raw_text_path_list = FileUtils.ReturnAllFileOnPath(1, "./text/soc.religion.christian")
+    for rf in raw_text_path_list:
+        self_learn_by_question_answer(rf, 'self_learn_newphy_relations.txt', 0)
