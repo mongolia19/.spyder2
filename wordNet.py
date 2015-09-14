@@ -7,10 +7,17 @@ Created on Sat Jun 13 13:53:23 2015
 
 from nltk.corpus import wordnet as wn
 from nltk.stem import PorterStemmer
+from nltk.stem.wordnet import WordNetLemmatizer
 
 # To Do:
 # Just take lib Pattern for relation extraction
 # !!!
+
+#verb similarity find a sentences with n1 n2 and verb1 verb2
+#search "n1 verb1 n2" and "n1 verb2 n2" ,we get two results
+#r1 and r2
+#if we find in r2 : a sentence contains n1, verb2 and n2, we
+#thought verb1 and verb2 are of the same meaning
 
 
 # print keyA
@@ -271,6 +278,16 @@ def wordInSentStr(word, sentStr):
         return True
     else:
         return False
+
+
+def word_list_in_sentenceStr(word_str, sentStr):
+    sentStr = sentStr.decode('gbk', 'ignore')
+    wordsDisctInSent = PipLineTest.getWordDictInSentence(sentStr)
+    wordsList = wordsDisctInSent.keys()
+    for word in word_str:
+        if wordsDisctInSent.has_key(str(word)) or (str(word) in wordsList):
+            return True
+    return False
 
 
 def getMatchSentenceListFromSentenceList(keyWord, sentList):
@@ -612,6 +629,44 @@ def parse_sentence(sent):
     #     longVP = getLongestVP(nList)
     # tagsFromVP = longVP.strip().split(' ')
     # related_passage_sentence_ner_dict = listToDict(tagsFromVP)
+
+
+def sentence_parse(sent_str):
+    opt = sent_str.decode('gbk', 'ignore')
+    tokens = nltk.word_tokenize(removePunctuation(opt))
+    tags = nltk.pos_tag(tokens)
+    posTags = getPosTagList(tagTupleList=tags)
+    tempTrees = grammerParser(posTags)
+    if len(tempTrees)==0:
+        return False
+    else:
+        return True
+
+
+def get_synsets(noun_str):
+    syn_str_list = list()
+    syn_list = wn.synsets(noun_str)
+    for s in syn_list:
+        n_str = (s._name).split('.')[0].replace('_', ' ')
+        if n_str not in syn_str_list:
+            syn_str_list.append(n_str)
+    syn_str_list.append(noun_str)
+    return syn_str_list
+
+
+def get_verb_list_hit(verb_list, sent_verb_list):
+    hit = 0
+    verb_lemma = list()
+    lmtzr = WordNetLemmatizer()
+    sent_lemma = list()
+    for v in verb_list:
+        verb_lemma.append(lmtzr.lemmatize(v))
+    for sv in sent_verb_list:
+        sent_lemma.append(lmtzr.lemmatize(sv))
+    for vl in verb_lemma:
+        if vl in sent_lemma:
+            hit += 1
+    return hit
 
 
 # Answer steps

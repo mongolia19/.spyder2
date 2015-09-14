@@ -51,11 +51,15 @@ from wordNet import getNPListFromStr
 from wordNet import wordInSentStr
 from wordNet import getAllEntities, getAllVerbs, getSentenceDictMatchingPatternList, getTopScoredSentenceDict
 from wordNet import getAllNumbers, getAllProperEntities, getAllPronounEntities
+from wordNet import sentence_parse
+from wordNet import get_synsets
+from wordNet import get_verb_list_hit
 import PipLineTest
 from wordNet import listToDict
 from wordNet import getAllLinksFromPage
 from wordNet import html_to_plain_text
-from wordNet import parse_sentence
+from wordNet import word_list_in_sentenceStr
+
 import textblob
 
 db_list = ['', '8313040', 'python']
@@ -957,6 +961,10 @@ def self_learn_by_question_answer(local_text_seed_article, out_put_path, similar
                 if match_list is not None and len(match_list) > 0:
                     if len(filter_when(c_list[i], question_str))>0:
                         FileUtils.WriteToFile(out_put_path, c_list[i] + '\r\n')
+                        continue
+                    if sentence_parse(c_list[i]):
+                        FileUtils.WriteToFile(out_put_path, c_list[i] + '\r\n')
+                        continue
                     match_str_list = list()
                     for chunk in match_list:
                         match_str_list.append(chunk.string)
@@ -1132,6 +1140,7 @@ def topic_to_tuple_list(topic):
 
 def filter_where(article, question):
     ners = get_all_entities_by_nltk(question)
+    verbs = getAllVerbs(get_tagged_sentence(question))
     n1 = ''
     n2 = ''
     if ners:
@@ -1140,16 +1149,30 @@ def filter_where(article, question):
             n2 = ners[1]
         else:
             n2 = n1
+    n1_syn = list()
+    n2_syn = list()
+    if n1 != '':
+        n1_syn = get_synsets(n1)
+        n1_temp_list = list()
+        for n in n1_syn:
+            n1_temp_list.append(n.lower())
+        n1_syn = n1_temp_list
+    if n1 != n2:
+        n2_syn = get_synsets(n2)
+    else:
+        n2_syn = n1_syn
     summary_text_list = list()
     main_art_sent_list = getSentencesFromPassageText(article)
+    main_art_sent_list = secondSentenceSplitor(main_art_sent_list)
     for sent in main_art_sent_list:
-        if (n1 != '' and n1 in sent) or (n2 != '' and n2 in sent):
+        if (n1 != '' and word_list_in_sentenceStr(n1_syn, sent.lower())) or (n2 != '' and word_list_in_sentenceStr(n2_syn, sent.lower())):
             pnp = get_pnp(sent)
             if pnp is not None and len(pnp)>=1:
                 pnp_string = pnp[0].string
                 if getAllProperEntities(get_tagged_sentence(pnp_string))\
-                        and len(getAllProperEntities(get_tagged_sentence(pnp_string))):
+                        and len(getAllProperEntities(get_tagged_sentence(pnp_string)))>0:
                     summary_text_list.append(sent)
+    summary_text_list = sort_sentence_by_verb_hit(verbs,summary_text_list)
     return summary_text_list
 
 
@@ -1169,21 +1192,80 @@ def filter_when(article, question):
     ners = get_all_entities_by_nltk(question)
     n1 = ''
     n2 = ''
-    if ners:
+    if len(ners)>0:
         n1 = ners[0]
         if len(ners)>1:
             n2 = ners[1]
         else:
             n2 = n1
+    n1_syn = list()
+    n2_syn = list()
+    if n1 != '':
+        n1_syn = get_synsets(n1)
+    if n1 != n2:
+        n2_syn = get_synsets(n2)
+    else:
+        n2_syn = n1_syn
+
     summary_text_list = list()
     main_art_sent_list = getSentencesFromPassageText(article)
     for sent in main_art_sent_list:
-        if (n1 != '' and n1 in sent) or (n2 != '' and n2 in sent):
+        if (n1 != '' and word_list_in_sentenceStr(n1_syn, sent)) or (n2 != '' and word_list_in_sentenceStr(n2_syn, sent)):
             if len(getAllNumbers(get_tagged_sentence(sent)))>0:
                 pnp = get_pnp(sent)
                 if pnp is not None and len(pnp)>=1:
                     summary_text_list.append(sent)
     return summary_text_list
+
+
+def replace_verb_check_similarity(verb_to_replace, sent_string):
+    ner_list = get_all_entities_by_nltk(sent_string)
+    if len(ner_list)<=1:
+        return -1
+    else:
+        n1 = ner_list[0]
+        n2 = ner_list[1]
+        raw_sents = get_all_sentences_list_from_web(n1 + " " + verb_to_replace + " " + n2)
+        sents_with_n1 = list()
+        sents_with_both = list()
+        for s in raw_sents:
+            if wordInSentStr(n1,s):
+                sents_with_n1.append(s)
+        for s in sents_with_n1:
+            if wordInSentStr(n2,s):
+                sents_with_both.append(s)
+        n1_count = len(sents_with_n1)
+        both_count = len(sents_with_both)
+        if n1_count == 0:
+            return 0
+        else:
+            return float(both_count)/n1_count
+
+
+def str_list_to_string(str_list):
+    if str_list is None or len(str_list)==0:
+        return ''
+    else:
+        whole_str = ''
+        for s in str_list:
+            whole_str += s + " "
+        return whole_str
+
+def sort_sentence_by_verb_hit(verbs_list, sentence_list):
+    all_sent_dict = {}
+    all_verb_str = str_list_to_string(verbs_list)
+    for sent in sentence_list:
+        sent_verb_list = getAllVerbs(get_tagged_sentence(sent))
+        hit_count = get_verb_list_hit(verbs_list, sent_verb_list)
+        other_count = replace_verb_check_similarity(all_verb_str, sent)
+        if hit_count == 0 and other_count <=0:
+            continue
+        all_sent_dict[sent] = other_count
+    temp_dict = sorted(all_sent_dict.iteritems(), key=lambda d: d[1], reverse=True)
+    sentence_list = list()
+    for t in temp_dict:
+        sentence_list.append(t[0])
+    return sentence_list
 
 
 def summary_by_comparing_articles(article, other_article_list):
@@ -1247,9 +1329,12 @@ if __name__ == "__main__":
     # InsertRelationsFromStrArticle(txt, db_list)
     # txt = html_to_plain_text('http://www.ehow.com/how_291_make-green-salad.html')
     # summary_over_article_text(txt)
-
-    # question = 'where USA was located'
-    # summary_to_html(question)
+    n1_syn = ['united states', 'america']
+    sent = 'America, or the United States of America, is located in the Western hemisphere and makes up approximately 1/3 of North America.'
+    b = word_list_in_sentenceStr(n1_syn, sent.lower())
+    print b
+    question = 'where is UK located'
+    summary_to_html(question)
 
     # chunk_list = sentence_structure_finder(question, SENTENCES_STRUCT_2)
     # sentence_structure_finder(question, SENTENCES_STRUCT_4)
@@ -1259,6 +1344,8 @@ if __name__ == "__main__":
     # print tags
     # InputClassifier(question)
 
-    raw_text_path_list = FileUtils.ReturnAllFileOnPath(1, "./text/soc.religion.christian")
-    for rf in raw_text_path_list:
-        self_learn_by_question_answer(rf, 'self_learn_newphy_relations.txt', 0)
+
+    # print get_synsets('US')
+    # raw_text_path_list = FileUtils.ReturnAllFileOnPath(1, "./text/soc.religion.christian")
+    # for rf in raw_text_path_list:
+    #     self_learn_by_question_answer(rf, 'self_learn_newphy_relations.txt', 0)
