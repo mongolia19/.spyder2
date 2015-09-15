@@ -72,6 +72,7 @@ WHOSE = 'whose'
 WHERE = 'where'
 WHEN = 'when'
 WHY = 'why'
+HOWTO = 'how to'
 DEFAULT = 'default'
 LANGUAGE = "english"
 TELL_REASON = 0
@@ -247,6 +248,7 @@ def questionPatternLoader(key):
     pList = readStrToTuple(switchDict[key])
     return pList
 
+
 from pattern.search import match
 
 SENTENCES_STRUCT_1 = 'NP VP'
@@ -255,11 +257,13 @@ SENTENCES_STRUCT_3 = 'NP VP NP NP'
 SENTENCES_STRUCT_4 = 'NP VP ADJP|PP|VP (NP)'
 SENTENCES_STRUCT_5 = '{NP|WP} {VP} {NP} ADJP|VP|PP (NP)'
 from pattern.search import Pattern
-def sentence_structure_finder(sent_str, pattern_str ):
+
+
+def sentence_structure_finder(sent_str, pattern_str):
     s = parsetree(sent_str, lemmata=True)
     p = Pattern.fromstring(pattern_str)
     pattern_list = p.search(s)
-    if pattern_list is None or len(pattern_list)==0:
+    if pattern_list is None or len(pattern_list) == 0:
         return None
     if s is None:
         return None
@@ -276,6 +280,7 @@ def sentence_structure_finder(sent_str, pattern_str ):
     for w in m.words:
         print w, '\t =>', m.constraint(w)
     return m.constituents()
+
 
 def getRelation(SentStr):
     # get verb phrase
@@ -377,6 +382,7 @@ def get_tagged_sentence(sent_string):
     tokens = nltk.word_tokenize(sent_string)
     tags = nltk.pos_tag(tokens)
     return tags
+
 
 def getSentencesDictFromPassageByQuestion(question, passage_sentList):
     tokens = nltk.word_tokenize(question)
@@ -573,6 +579,7 @@ def conversation(inputSentence):
     inputSentence = processInputSentence(inputSentence, SearchExtraStr)
     questionMod(SearchExtraStr + inputSentence, DEFAULT)
 
+
 def muti_sentence_structure_finder(sentence_str):
     match_list = list()
     structlist = [SENTENCES_STRUCT_5,
@@ -584,7 +591,7 @@ def muti_sentence_structure_finder(sentence_str):
         match_list = sentence_structure_finder(sentence_str, struct)
         if match_list is not None and len(match_list) > 0:
             break
-    if match_list is not None and len(match_list)>0:
+    if match_list is not None and len(match_list) > 0:
         return match_list
     else:
         return None
@@ -602,7 +609,7 @@ def heuristic_sentence_breaker(sentence_str):
         if match_list is not None and len(match_list) > 0:
             break
     res_str = ''
-    if len(match_list)>=2:
+    if len(match_list) >= 2:
         match_list.pop()
         for chunk in match_list:
             res_str = res_str + " " + chunk.string
@@ -705,10 +712,10 @@ def summary_over_article_text(article_text):
     # print 'nouns ', ner_list
     for p in parser.document.sentences:
         sent_str = p._text.decode('gbk', 'ignore').encode('utf-8')
-        if len(sent_str.strip().split())>3:
+        if len(sent_str.strip().split()) > 3:
             total_list.append(sent_str)
             for key in key_named_entities:
-                if wordInSentStr(key,sent_str):
+                if wordInSentStr(key, sent_str):
                     sum_list.append(sent_str)
             s = parsetree(sent_str, relations=True, lemmata=True)
             # print 'subjects', s[0].subjects
@@ -716,7 +723,7 @@ def summary_over_article_text(article_text):
             # print 'objects', s[0].objects
             # print 'relations', s[0].relations
             #
-            if s[0].pnp is not None and len(s[0].pnp)>0:
+            if s[0].pnp is not None and len(s[0].pnp) > 0:
                 print 'pnp', s[0].pnp
                 pnp_str = s[0].pnp[0].string
                 tagged_pnp = get_tagged_sentence(pnp_str)
@@ -726,19 +733,19 @@ def summary_over_article_text(article_text):
                     place_sent_list.append(sent_str)
         print '-------------------------'
     result_tuple = [list(), sum_list, total_list, time_sent_list, place_sent_list]
-    return  result_tuple
-                # for sentence in s:
-                #     for chunk in sentence.chunks:
-                #         print chunk.type, [(w.string, w.type) for w in chunk.words]
-                # temp_dict = getRelation(sent_str)
-                # relation_dict = getRelationsFromDict(temp_dict)
-                # for k in relation_dict.keys():
-                #
-                #     print "OBJ ", relation_dict[k].OBJ.lower(), "VP", relation_dict[k].VP.lower(), "SBJ", relation_dict[k].SBJ.lower()
+    return result_tuple
+    # for sentence in s:
+    #     for chunk in sentence.chunks:
+    #         print chunk.type, [(w.string, w.type) for w in chunk.words]
+    # temp_dict = getRelation(sent_str)
+    # relation_dict = getRelationsFromDict(temp_dict)
+    # for k in relation_dict.keys():
+    #
+    #     print "OBJ ", relation_dict[k].OBJ.lower(), "VP", relation_dict[k].VP.lower(), "SBJ", relation_dict[k].SBJ.lower()
 
 
 def questionMod(inputSentence, qType):
-    #return a tuple list: tuple (str, score)
+    # return a tuple list: tuple (str, score)
     patternList = questionPatternLoader(qType)
     print '========== question mod entered ============'
     backupAnwsersDict = {}
@@ -790,9 +797,9 @@ def questionMod(inputSentence, qType):
     for s in back_sent_list:
         total_txt = total_txt + ' ' + s
     total_txt = total_txt.strip()
-    if len(back_sent_list)==0 or len(total_txt)<3:
+    if len(back_sent_list) == 0 or len(total_txt) < 3:
         return list()
-    simVal_list = similarity(back_sent_list,total_txt)
+    simVal_list = similarity(back_sent_list, total_txt)
     i = 0
     for k in backupAnwsersDict.keys():
         backupAnwsersDict[k] = simVal_list[i]
@@ -935,17 +942,17 @@ def self_learn_by_question_answer(local_text_seed_article, out_put_path, similar
     sent_str_list = getSentencesFromPassageText(raw_text)
     print '--------- after splitting, getSentencesFromPassageText'
     sent_str_list = secondSentenceSplitor(sent_str_list)
-    if len(sent_str_list) <=1:
+    if len(sent_str_list) <= 1:
         return
-    for n in range(0, len(sent_str_list)-1):
+    for n in range(0, len(sent_str_list) - 1):
         question_str = sent_str_list[n]
-        answer_str = sent_str_list[n+1]
-        candidate_sent_list = questionMod(question_str,DEFAULT)
+        answer_str = sent_str_list[n + 1]
+        candidate_sent_list = questionMod(question_str, DEFAULT)
         c_list = list()
         c_list.append(answer_str)
         for c in candidate_sent_list:
-            #remove the sentences with pronouns
-            if len(c[0])>0 and len(getAllPronounEntities(get_tagged_sentence(c[0])))==0:
+            # remove the sentences with pronouns
+            if len(c[0]) > 0 and len(getAllPronounEntities(get_tagged_sentence(c[0]))) == 0:
                 c_list.append(c[0])
             else:
                 continue
@@ -956,10 +963,10 @@ def self_learn_by_question_answer(local_text_seed_article, out_put_path, similar
         simVal_list = similarity(c_list, total_txt)
         # get the sentences that are most like the answer
         for i in range(1, len(c_list)):
-            if float(abs(simVal_list[i]-simVal_list[0]))/simVal_list[0] > similarity_tol:
+            if float(abs(simVal_list[i] - simVal_list[0])) / simVal_list[0] > similarity_tol:
                 match_list = muti_sentence_structure_finder(c_list[i])
                 if match_list is not None and len(match_list) > 0:
-                    if len(filter_when(c_list[i], question_str))>0:
+                    if len(filter_when(c_list[i], question_str)) > 0:
                         FileUtils.WriteToFile(out_put_path, c_list[i] + '\r\n')
                         continue
                     if sentence_parse(c_list[i]):
@@ -968,7 +975,7 @@ def self_learn_by_question_answer(local_text_seed_article, out_put_path, similar
                     match_str_list = list()
                     for chunk in match_list:
                         match_str_list.append(chunk.string)
-                    verb_string = evaluate_verb_in_relation_by_search_web(match_list,0)
+                    verb_string = evaluate_verb_in_relation_by_search_web(match_list, 0)
                     if verb_string is None:
                         continue
                     else:
@@ -981,8 +988,10 @@ def self_learn_by_question_answer(local_text_seed_article, out_put_path, similar
 
 
 from copy import deepcopy
+
+
 def evaluate_verb_in_relation_by_search_web(chunk_type_list, tol_val):
-    temp_chunk_list = deepcopy( chunk_type_list)
+    temp_chunk_list = deepcopy(chunk_type_list)
     verb_chunk = None
     sbj_chunk = None
     obj_chunk = None
@@ -991,25 +1000,25 @@ def evaluate_verb_in_relation_by_search_web(chunk_type_list, tol_val):
         if 'VP' in temp_chunk_list[n].tag:
             verb_chunk = temp_chunk_list.pop(n)
             break
-    if len(temp_chunk_list)<2:
+    if len(temp_chunk_list) < 2:
         return None
     for n in range(0, len(temp_chunk_list)):
-        if np_chunk_list is None or len(np_chunk_list)<2:
+        if np_chunk_list is None or len(np_chunk_list) < 2:
             if 'NP' in temp_chunk_list[n].tag:
                 np_chunk_list.append(temp_chunk_list[n])
         else:
             break
-    if len(np_chunk_list)<=1:
+    if len(np_chunk_list) <= 1:
         return None
-    verb_with_sbj = [np_chunk_list[0].string,verb_chunk.string,np_chunk_list[1].string]
-    if evaluate_relation_by_search_web(verb_with_sbj,0,0):
+    verb_with_sbj = [np_chunk_list[0].string, verb_chunk.string, np_chunk_list[1].string]
+    if evaluate_relation_by_search_web(verb_with_sbj, 0, 0):
         return verb_chunk.string
     else:
         return None
 
 
 def evaluate_relation_by_search_web(chunk_list, pop_index=-1, tol_val=0):
-    if len(chunk_list)<=2:
+    if len(chunk_list) <= 2:
         return False
     else:
         search_list = chunk_list
@@ -1025,16 +1034,16 @@ def evaluate_relation_by_search_web(chunk_list, pop_index=-1, tol_val=0):
         total_relation_list = list()
         for s in sent_list:
             for w in search_list:
-                if wordInSentStr(w,s) == False:
+                if wordInSentStr(w, s) == False:
                     continue
             half_relation_list.append(s)
         if len(half_relation_list) == 0:
             return False
         else:
             for s in half_relation_list:
-                if wordInSentStr(hidden_str,s):
+                if wordInSentStr(hidden_str, s):
                     total_relation_list.append(s)
-            if float(len(total_relation_list))/len(half_relation_list)>= tol_val:
+            if float(len(total_relation_list)) / len(half_relation_list) >= tol_val:
                 return True
             else:
                 return False
@@ -1051,17 +1060,17 @@ def discover_entity_relation_by_verb(verb_str, seed_sbj, seed_obj):
             continue
         else:
             length = len(match_list)
-            if length <=2:
+            if length <= 2:
                 continue
             else:
                 for n in range(0, length):
                     if (verb_str.lower() in match_list[n].string.lower()) and 'VP' in match_list[n].tag:
-                        if n >0 and 'NP' in match_list[n-1].tag:
-                            noun1 = match_list[n-1].string
-                        if n + 1 < length and 'NP' in match_list[n+1].tag:
-                            noun2 = match_list[n+1].string
-                        if (noun1 != '' and noun2 != '') and\
-                            not (noun1 == seed_sbj and noun2 == seed_obj):
+                        if n > 0 and 'NP' in match_list[n - 1].tag:
+                            noun1 = match_list[n - 1].string
+                        if n + 1 < length and 'NP' in match_list[n + 1].tag:
+                            noun2 = match_list[n + 1].string
+                        if (noun1 != '' and noun2 != '') and \
+                                not (noun1 == seed_sbj and noun2 == seed_obj):
                             chunks_list.append(match_list)
     return chunks_list
 
@@ -1082,10 +1091,10 @@ def get_articles_withURKL_from_websearch_query(query_string):
     for i in range(0, iif(len(urlList) > URLNum, URLNum, len(urlList))):
         passageSentences = html_to_plain_text(urlList[i][0])
         print 'html_to_plain_text called in get_articles_withURKL_from_websearch_query'
-        print 'the text is ' , passageSentences
-        if passageSentences is None or len(passageSentences)<=3:
+        print 'the text is ', passageSentences
+        if passageSentences is None or len(passageSentences) <= 3:
             continue
-        articleStrList.append((passageSentences,urlList[i][0]))
+        articleStrList.append((passageSentences, urlList[i][0]))
     return articleStrList
 
 
@@ -1099,12 +1108,11 @@ def topic_to_tuple_list(topic):
         art_total_str += " " + art[0]
     score_list = similarity(art_list, art_total_str)
     temp_dict = {}
-    for n in range(0,len(art_list)):
+    for n in range(0, len(art_list)):
         temp_dict[art_list[n]] = score_list[n]
     temp_dict = sorted(temp_dict.iteritems(), key=lambda d: d[1], reverse=True)
 
-
-    if len(art_tuple_str_list)>=3:
+    if len(art_tuple_str_list) >= 3:
         main_article = temp_dict[1][0]
     else:
         main_article = temp_dict[0][0]
@@ -1125,14 +1133,16 @@ def topic_to_tuple_list(topic):
     summary_list = sum_list
     result_tuple_list = list()
     # for ner in ner_list:
-        # t = (ner, True, False,'')#(content, if is ner , is key sentence, url string)
-        # result_tuple_list.append(t)
+    # t = (ner, True, False,'')#(content, if is ner , is key sentence, url string)
+    # result_tuple_list.append(t)
     for sent in all_sent_list:
         Is_key_sent = False
-        if sent in summary_list:
-                        # sent in time_sent_list or\
-                        # sent in place_sent_list:
-            Is_key_sent = True
+        for sum_sent in summary_list:
+            if sent in sum_sent:
+                # sent in time_sent_list or\
+                # sent in place_sent_list:
+                Is_key_sent = True
+                break
         t = (sent, False, Is_key_sent, '')
         result_tuple_list.append(t)
     return result_tuple_list
@@ -1145,7 +1155,7 @@ def filter_where(article, question):
     n2 = ''
     if ners:
         n1 = ners[0]
-        if len(ners)>1:
+        if len(ners) > 1:
             n2 = ners[1]
         else:
             n2 = n1
@@ -1165,14 +1175,15 @@ def filter_where(article, question):
     main_art_sent_list = getSentencesFromPassageText(article)
     main_art_sent_list = secondSentenceSplitor(main_art_sent_list)
     for sent in main_art_sent_list:
-        if (n1 != '' and word_list_in_sentenceStr(n1_syn, sent.lower())) or (n2 != '' and word_list_in_sentenceStr(n2_syn, sent.lower())):
+        if (n1 != '' and word_list_in_sentenceStr(n1_syn, sent.lower())) or (
+                n2 != '' and word_list_in_sentenceStr(n2_syn, sent.lower())):
             pnp = get_pnp(sent)
-            if pnp is not None and len(pnp)>=1:
+            if pnp is not None and len(pnp) >= 1:
                 pnp_string = pnp[0].string
-                if getAllProperEntities(get_tagged_sentence(pnp_string))\
-                        and len(getAllProperEntities(get_tagged_sentence(pnp_string)))>0:
+                if getAllProperEntities(get_tagged_sentence(pnp_string)) \
+                        and len(getAllProperEntities(get_tagged_sentence(pnp_string))) > 0:
                     summary_text_list.append(sent)
-    summary_text_list = sort_sentence_by_verb_hit(verbs,summary_text_list)
+    summary_text_list = sort_sentence_by_verb_hit(verbs, summary_text_list)
     return summary_text_list
 
 
@@ -1192,9 +1203,9 @@ def filter_when(article, question):
     ners = get_all_entities_by_nltk(question)
     n1 = ''
     n2 = ''
-    if len(ners)>0:
+    if len(ners) > 0:
         n1 = ners[0]
-        if len(ners)>1:
+        if len(ners) > 1:
             n2 = ners[1]
         else:
             n2 = n1
@@ -1210,17 +1221,18 @@ def filter_when(article, question):
     summary_text_list = list()
     main_art_sent_list = getSentencesFromPassageText(article)
     for sent in main_art_sent_list:
-        if (n1 != '' and word_list_in_sentenceStr(n1_syn, sent)) or (n2 != '' and word_list_in_sentenceStr(n2_syn, sent)):
-            if len(getAllNumbers(get_tagged_sentence(sent)))>0:
+        if (n1 != '' and word_list_in_sentenceStr(n1_syn, sent)) or (
+                n2 != '' and word_list_in_sentenceStr(n2_syn, sent)):
+            if len(getAllNumbers(get_tagged_sentence(sent))) > 0:
                 pnp = get_pnp(sent)
-                if pnp is not None and len(pnp)>=1:
+                if pnp is not None and len(pnp) >= 1:
                     summary_text_list.append(sent)
     return summary_text_list
 
 
 def replace_verb_check_similarity(verb_to_replace, sent_string):
     ner_list = get_all_entities_by_nltk(sent_string)
-    if len(ner_list)<=1:
+    if len(ner_list) <= 1:
         return -1
     else:
         n1 = ner_list[0]
@@ -1229,27 +1241,28 @@ def replace_verb_check_similarity(verb_to_replace, sent_string):
         sents_with_n1 = list()
         sents_with_both = list()
         for s in raw_sents:
-            if wordInSentStr(n1,s):
+            if wordInSentStr(n1, s):
                 sents_with_n1.append(s)
         for s in sents_with_n1:
-            if wordInSentStr(n2,s):
+            if wordInSentStr(n2, s):
                 sents_with_both.append(s)
         n1_count = len(sents_with_n1)
         both_count = len(sents_with_both)
         if n1_count == 0:
             return 0
         else:
-            return float(both_count)/n1_count
+            return float(both_count) / n1_count
 
 
 def str_list_to_string(str_list):
-    if str_list is None or len(str_list)==0:
+    if str_list is None or len(str_list) == 0:
         return ''
     else:
         whole_str = ''
         for s in str_list:
             whole_str += s + " "
         return whole_str
+
 
 def sort_sentence_by_verb_hit(verbs_list, sentence_list):
     all_sent_dict = {}
@@ -1258,7 +1271,7 @@ def sort_sentence_by_verb_hit(verbs_list, sentence_list):
         sent_verb_list = getAllVerbs(get_tagged_sentence(sent))
         hit_count = get_verb_list_hit(verbs_list, sent_verb_list)
         other_count = replace_verb_check_similarity(all_verb_str, sent)
-        if hit_count == 0 and other_count <=0:
+        if hit_count == 0 and other_count <= 0:
             continue
         all_sent_dict[sent] = other_count
     temp_dict = sorted(all_sent_dict.iteritems(), key=lambda d: d[1], reverse=True)
@@ -1286,38 +1299,99 @@ def summary_by_comparing_articles(article, other_article_list):
                 for other_sent in total_sent_list:
                     if wordInSentStr(ner, other_sent):
                         hit += 1
-                    if hit >=threshhold:
+                    if hit >= threshhold:
                         summary_text_list.append(main_sent)
                         break
-                if hit >=threshhold:
+                if hit >= threshhold:
                     break
     return summary_text_list
 
 
 from pyh import *
+
+
 def tuple_to_html_page(tuple_list, title='TestDoc', output_file='./testHtml.html'):
     ner_str = ''
     sent_list = list()
     for t in tuple_list:
-        if t[1] == True and len(t[0])< 30:
+        if t[1] == True and len(t[0]) < 30:
             ner_str = ner_str + " " + t[0]
         else:
             sent_list.append(t)
 
-
     page = PyH(title)
-    page<<h2('key words: ' + ner_str, c1 = 'center')
+    page << h2('key words: ' + ner_str, c1='center')
     for sent_tuple in sent_list:
         if not sent_tuple[2]:
             page << (h3(sent_tuple[0]))
         else:
-            page << (h2(sent_tuple[0], style = 'color:red'))
+            page << (h2(sent_tuple[0], style='color:red'))
     page.printOut(output_file)
 
 
 def summary_to_html(topic):
     tuple_list = topic_to_tuple_list(topic)
     tuple_to_html_page(tuple_list, topic)
+
+
+def answer_by_summary(question_string):
+    summary_to_html(question_string)
+    return
+
+
+def answer_by_a_few_sentence(question_string):
+    # first search the certain question by "silly" word-by-word strategy
+    # that is find a sentence hit all the name-entities and main-verbs in the question
+    # if the first "silly" strategy does not work, get a list of synsets of named entities in the question
+    # and the origin main verbs in the question
+    # then use the list to search in the corpus
+    # if the candidate sentences still does not contain the origin main verbs
+    # try the third strategy:
+    # in the candidate sentences, check if the verbs in candidate sentences are of the same
+    # meaning with the origin main verbs
+
+    return
+
+
+def question_classifier(input_string):
+    return HOW
+
+
+QUESTION = 0
+FUNCTION = 1
+CHAT = 2
+
+
+def function_classifier(input_string):
+    return QUESTION
+
+
+def raw_input_process(input_string):
+    function_type = function_classifier(input_string)
+    if function_type == QUESTION:
+        input_question_process(input_string)
+    elif function_type == FUNCTION:
+        FunctionMod(input_string)
+    elif function_type == CHAT:
+        conversation_with_sent_structure_ansys(input_string)
+
+def input_question_process(input_string):
+    question_type = question_classifier(input_string)
+    if question_type == HOW:
+        answer_by_a_few_sentence(input_string)
+    elif question_type == WHAT:
+        answer_by_a_few_sentence(input_string)
+    elif question_type == WHEN:
+        answer_by_a_few_sentence(input_string)
+    elif question_type == WHERE:
+        answer_by_a_few_sentence(input_string)
+    elif question_type == WHO:
+        answer_by_a_few_sentence(input_string)
+    elif question_type == WHY:
+        answer_by_summary(input_string)
+    elif question_type == HOWTO:
+        answer_by_summary(input_string)
+
 
 if __name__ == "__main__":
     txt = '''Jill is a nice name. Pick up fresh fruit from the farmer's market or your local grocery store
@@ -1334,7 +1408,7 @@ if __name__ == "__main__":
     b = word_list_in_sentenceStr(n1_syn, sent.lower())
     print b
     question = 'where is UK located'
-    summary_to_html(question)
+    raw_input_process(question)
 
     # chunk_list = sentence_structure_finder(question, SENTENCES_STRUCT_2)
     # sentence_structure_finder(question, SENTENCES_STRUCT_4)
