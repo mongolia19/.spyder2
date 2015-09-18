@@ -280,14 +280,26 @@ def wordInSentStr(word, sentStr):
         return False
 
 
-def word_list_in_sentenceStr(word_str, sentStr):
+def word_list_in_sentenceStr(word_str_list, sentStr):
     sentStr = sentStr.decode('gbk', 'ignore')
     wordsDisctInSent = PipLineTest.getWordDictInSentence(sentStr)
     wordsList = wordsDisctInSent.keys()
-    for word in word_str:
+    for word in word_str_list:
         if wordsDisctInSent.has_key(str(word)) or (str(word) in wordsList):
             return True
     return False
+
+
+def all_word_list_in_sentenceStr(word_str_list, sentStr):
+    sentStr = sentStr.decode('gbk', 'ignore')
+    wordsDisctInSent = PipLineTest.getWordDictInSentence(sentStr)
+    wordsList = wordsDisctInSent.keys()
+    for word in word_str_list:
+        if wordsDisctInSent.has_key(str(word)) or (str(word) in wordsList):
+            continue
+        else:
+            return False
+    return True
 
 
 def getMatchSentenceListFromSentenceList(keyWord, sentList):

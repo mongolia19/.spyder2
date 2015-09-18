@@ -30,6 +30,8 @@ Created on Sun Jul 05 14:22:06 2015
 # check how many relation r re-appears this time in all relations{ x }
 # the higher the percentage is the more reliable the relation r is.
 
+# before comparing word in sentences and word in question, we should turn them into
+# lower case as well as singular form
 
 import re
 
@@ -58,7 +60,7 @@ import PipLineTest
 from wordNet import listToDict
 from wordNet import getAllLinksFromPage
 from wordNet import html_to_plain_text
-from wordNet import word_list_in_sentenceStr
+from wordNet import word_list_in_sentenceStr ,all_word_list_in_sentenceStr
 
 import textblob
 
@@ -1148,6 +1150,27 @@ def topic_to_tuple_list(topic):
     return result_tuple_list
 
 
+def get_synsets_lists_from_sentence(question):
+    ners = get_all_entities_by_nltk(question)
+    n1 = ''
+    n2 = ''
+    if len(ners) > 0:
+        n1 = ners[0]
+        if len(ners) > 1:
+            n2 = ners[1]
+        else:
+            n2 = n1
+    n1_syn = list()
+    n2_syn = list()
+    if n1 != '':
+        n1_syn = get_synsets(n1)
+    if n1 != n2:
+        n2_syn = get_synsets(n2)
+    else:
+        n2_syn = n1_syn
+    return [n1_syn,n2_syn]
+
+
 def filter_where(article, question):
     ners = get_all_entities_by_nltk(question)
     verbs = getAllVerbs(get_tagged_sentence(question))
@@ -1339,7 +1362,16 @@ def answer_by_summary(question_string):
     return
 
 
-def answer_by_a_few_sentence(question_string):
+def interrogative_filter(sent_list):
+    # remove sentences with "?"
+    question_symbol = '?'
+    for sent in sent_list:
+        if question_symbol in sent:
+            sent_list.remove(sent)
+    return sent_list
+
+
+def answer_by_a_few_sentence(question_string, question_type):
     # first search the certain question by "silly" word-by-word strategy
     # that is find a sentence hit all the name-entities and main-verbs in the question
     # if the first "silly" strategy does not work, get a list of synsets of named entities in the question
@@ -1350,7 +1382,33 @@ def answer_by_a_few_sentence(question_string):
     # in the candidate sentences, check if the verbs in candidate sentences are of the same
     # meaning with the origin main verbs
 
-    return
+
+    sent_str_list = questionMod(question_string, DEFAULT)
+    temp_str_list = list()
+    for t in sent_str_list:
+        temp_str_list.append(t[0])
+    sent_str_list = secondSentenceSplitor(temp_str_list)
+    sent_str_list = interrogative_filter(sent_str_list)
+    ner_tuple = get_synsets_lists_from_sentence(question_string)
+    n1_list = ner_tuple[0]
+    n2_list = ner_tuple[1]
+    verbs = getAllVerbs(get_tagged_sentence(question_string))
+    candidate_noun_sentence_list = list()
+    for sent in sent_str_list:
+        if word_list_in_sentenceStr(n1_list, sent) and\
+            word_list_in_sentenceStr(n2_list, sent):
+            candidate_noun_sentence_list.append(sent)
+    candidate_verb_sentence_list = list()
+    for sent in candidate_noun_sentence_list:
+        if all_word_list_in_sentenceStr(verbs, sent):
+            candidate_verb_sentence_list.append(sent)
+    noun_verb_hit_sentences_list = list()
+    if len(candidate_verb_sentence_list)==0:
+        noun_verb_hit_sentences_list = sort_sentence_by_verb_hit(verbs, candidate_verb_sentence_list)
+    else:
+        noun_verb_hit_sentences_list = candidate_verb_sentence_list
+    #further filters which should be implemented in each kind of question filter
+    return noun_verb_hit_sentences_list
 
 
 def question_classifier(input_string):
@@ -1375,18 +1433,19 @@ def raw_input_process(input_string):
     elif function_type == CHAT:
         conversation_with_sent_structure_ansys(input_string)
 
+
 def input_question_process(input_string):
     question_type = question_classifier(input_string)
     if question_type == HOW:
-        answer_by_a_few_sentence(input_string)
+        answer_by_a_few_sentence(input_string, question_type)
     elif question_type == WHAT:
-        answer_by_a_few_sentence(input_string)
+        answer_by_a_few_sentence(input_string, question_type)
     elif question_type == WHEN:
-        answer_by_a_few_sentence(input_string)
+        answer_by_a_few_sentence(input_string, question_type)
     elif question_type == WHERE:
-        answer_by_a_few_sentence(input_string)
+        answer_by_a_few_sentence(input_string, question_type)
     elif question_type == WHO:
-        answer_by_a_few_sentence(input_string)
+        answer_by_a_few_sentence(input_string, question_type)
     elif question_type == WHY:
         answer_by_summary(input_string)
     elif question_type == HOWTO:
@@ -1407,8 +1466,8 @@ if __name__ == "__main__":
     sent = 'America, or the United States of America, is located in the Western hemisphere and makes up approximately 1/3 of North America.'
     b = word_list_in_sentenceStr(n1_syn, sent.lower())
     print b
-    question = 'where is UK located'
-    raw_input_process(question)
+    question = 'who is the father of USA'
+    print answer_by_a_few_sentence(question,0)
 
     # chunk_list = sentence_structure_finder(question, SENTENCES_STRUCT_2)
     # sentence_structure_finder(question, SENTENCES_STRUCT_4)
