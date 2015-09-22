@@ -280,21 +280,46 @@ def wordInSentStr(word, sentStr):
         return False
 
 
+def get_word_lemma_dict_in_sentence(sent_str):
+    word_dict = {}
+    wordList = nltk.word_tokenize(sent_str)
+    for word in wordList:
+        t_word = get_lemma_of_word(word)
+        word_dict[t_word] = t_word
+    return word_dict
+
+
 def word_list_in_sentenceStr(word_str_list, sentStr):
+    print "the sentence is", sentStr
     sentStr = sentStr.decode('gbk', 'ignore')
-    wordsDisctInSent = PipLineTest.getWordDictInSentence(sentStr)
-    wordsList = wordsDisctInSent.keys()
-    for word in word_str_list:
-        if wordsDisctInSent.has_key(str(word)) or (str(word) in wordsList):
+    wordsDictInSent = get_word_lemma_dict_in_sentence(sentStr)
+    wordsList = wordsDictInSent.keys()
+    word_str_lemma_list = list()
+    for word_str in word_str_list:
+        word_str_lemma_list.append(get_lemma_of_word(word_str))
+    print "question nouns ", word_str_lemma_list
+    print "sentence words ", wordsDictInSent
+    for word in word_str_lemma_list:
+        if wordsDictInSent.has_key(str(word)) or (str(word) in wordsList)\
+                or str(word) in sentStr:
+            print 'sentence hit!'
             return True
+        for k in wordsDictInSent.keys():
+            if k in word:
+                print 'sentence hit --- key in one synet !'
+                return True
+    print "sentence pass..."
     return False
 
 
 def all_word_list_in_sentenceStr(word_str_list, sentStr):
     sentStr = sentStr.decode('gbk', 'ignore')
-    wordsDisctInSent = PipLineTest.getWordDictInSentence(sentStr)
+    wordsDisctInSent = get_word_lemma_dict_in_sentence(sentStr)
     wordsList = wordsDisctInSent.keys()
-    for word in word_str_list:
+    word_str_lemma_list = list()
+    for word_str in word_str_list:
+        word_str_lemma_list.append(get_lemma_of_word(word_str))
+    for word in word_str_lemma_list:
         if wordsDisctInSent.has_key(str(word)) or (str(word) in wordsList):
             continue
         else:
@@ -680,6 +705,13 @@ def get_verb_list_hit(verb_list, sent_verb_list):
             hit += 1
     return hit
 
+
+def get_lemma_of_word(word_str):
+    if word_str is None or word_str == "":
+        return word_str
+    lmtzr = WordNetLemmatizer()
+    lemma = lmtzr.lemmatize(word_str)
+    return lemma
 
 # Answer steps
 # 1. Get key words in the question

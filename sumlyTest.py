@@ -61,7 +61,7 @@ from wordNet import listToDict
 from wordNet import getAllLinksFromPage
 from wordNet import html_to_plain_text
 from wordNet import word_list_in_sentenceStr ,all_word_list_in_sentenceStr
-
+from wordNet import get_lemma_of_word
 import textblob
 
 db_list = ['', '8313040', 'python']
@@ -692,6 +692,15 @@ def get_summary_sentences_from_article_text(article_text):
     return sum_list
 
 
+def get_chunks_in_sentence(sent_str):
+    s = parsetree(sent_str, relations=True, lemmata=True)
+    sent = s[0]
+    chunk_list = list()
+    for chunk in sent.chunks:
+        chunk_list.append(chunk)
+    return chunk_list
+
+
 def summary_over_article_text(article_text):
     # summary_sentences = get_summary_sentences_from_article_text(article_text)
     parser = PlaintextParser.from_string(article_text, Tokenizer(LANGUAGE))
@@ -853,6 +862,8 @@ def get_all_sentences_list_from_web(search_content):
 def getRelatedSentencesListFromWeb(searchedKeyWords):
     yahooHead = 'http://global.bing.com/search?q='
     yahooTail = '&intlF=1&setmkt=en-us&setlang=en-us&FORM=SECNEN'
+    local_search_engine = "http://192.168.0.7:8000/search?content=wikipedia_en_all_simple_nopic_2015-02&pattern="
+    # urlList = getAllLinksFromPage(local_search_engine + searchedKeyWords)
     urlList = getAllLinksFromPage(yahooHead + searchedKeyWords + yahooTail)
 
     URLNum = 10
@@ -1255,7 +1266,8 @@ def filter_when(article, question):
 
 def replace_verb_check_similarity(verb_to_replace, sent_string):
     ner_list = get_all_entities_by_nltk(sent_string)
-    if len(ner_list) <= 1:
+    v_list = getAllVerbs(get_tagged_sentence(sent_string))
+    if len(ner_list) <= 1 or len(v_list) <= 0:
         return -1
     else:
         n1 = ner_list[0]
@@ -1287,10 +1299,18 @@ def str_list_to_string(str_list):
         return whole_str
 
 
+def str_list_to_lower_case(str_list):
+    ret_list = list()
+    for s in str_list:
+        ret_list.append(s.lower())
+    return ret_list
+
+
 def sort_sentence_by_verb_hit(verbs_list, sentence_list):
     all_sent_dict = {}
     all_verb_str = str_list_to_string(verbs_list)
     for sent in sentence_list:
+        print "compare synsets of verbs in sentence ", sent
         sent_verb_list = getAllVerbs(get_tagged_sentence(sent))
         hit_count = get_verb_list_hit(verbs_list, sent_verb_list)
         other_count = replace_verb_check_similarity(all_verb_str, sent)
@@ -1371,6 +1391,23 @@ def interrogative_filter(sent_list):
     return sent_list
 
 
+def filter_proper_noun(sent_str_list, noun_list): # an answer should contain other proper nouns,
+    # if not, it means this one did not tell us anything useful
+    ret_list = list()
+    for s in sent_str_list:
+        print 'sentence is ', s
+        proper_list = getAllProperEntities(get_tagged_sentence(s))
+        print 'and the proper nouns are ', proper_list
+        noun_list_lower = str_list_to_lower_case(noun_list)
+        for pn in proper_list:
+            if pn.lower() not in noun_list_lower:
+                ret_list.append(s)
+                break
+            else:
+                continue
+    return ret_list
+
+
 def answer_by_a_few_sentence(question_string, question_type):
     # first search the certain question by "silly" word-by-word strategy
     # that is find a sentence hit all the name-entities and main-verbs in the question
@@ -1387,27 +1424,49 @@ def answer_by_a_few_sentence(question_string, question_type):
     temp_str_list = list()
     for t in sent_str_list:
         temp_str_list.append(t[0])
-    sent_str_list = secondSentenceSplitor(temp_str_list)
-    sent_str_list = interrogative_filter(sent_str_list)
+    # sent_str_list = secondSentenceSplitor(temp_str_list)
+    sent_str_list = interrogative_filter(temp_str_list)
     ner_tuple = get_synsets_lists_from_sentence(question_string)
     n1_list = ner_tuple[0]
     n2_list = ner_tuple[1]
-    verbs = getAllVerbs(get_tagged_sentence(question_string))
+    n1_list = str_list_to_lower_case(n1_list)
+    n2_list = str_list_to_lower_case(n2_list)
+    verbs = str_list_to_lower_case(getAllVerbs(get_tagged_sentence(question_string)))
     candidate_noun_sentence_list = list()
     for sent in sent_str_list:
-        if word_list_in_sentenceStr(n1_list, sent) and\
-            word_list_in_sentenceStr(n2_list, sent):
+        if word_list_in_sentenceStr(n1_list, sent.lower()) and\
+            word_list_in_sentenceStr(n2_list, sent.lower()):
             candidate_noun_sentence_list.append(sent)
+    print 'candidate_noun_sentence_list are ', candidate_noun_sentence_list
     candidate_verb_sentence_list = list()
+    candidate_only_noun_sentence_list = list() # sentences only hit noun but failed with verb match
     for sent in candidate_noun_sentence_list:
-        if all_word_list_in_sentenceStr(verbs, sent):
+        if all_word_list_in_sentenceStr(verbs, sent.lower()):
             candidate_verb_sentence_list.append(sent)
+        else:
+            candidate_only_noun_sentence_list.append(sent)
     noun_verb_hit_sentences_list = list()
+    sentences_with_different_verb = list()
+    # sentences_with_different_verb = sort_sentence_by_verb_hit(verbs, candidate_only_noun_sentence_list)
     if len(candidate_verb_sentence_list)==0:
-        noun_verb_hit_sentences_list = sort_sentence_by_verb_hit(verbs, candidate_verb_sentence_list)
+        noun_verb_hit_sentences_list = sort_sentence_by_verb_hit(verbs, candidate_only_noun_sentence_list)
     else:
         noun_verb_hit_sentences_list = candidate_verb_sentence_list
+    total_txt = ''
+    for s in sent_str_list:
+        total_txt = total_txt + ' ' + s
+    total_txt = total_txt.strip()
+    simVal_list = similarity(noun_verb_hit_sentences_list, total_txt)
+    score_list = list()
+    for i in range(0,len(noun_verb_hit_sentences_list)):
+        score_list.append((noun_verb_hit_sentences_list[i],simVal_list[i]))
+    print score_list
+    print 'The following only hit the nouns ', noun_verb_hit_sentences_list
     #further filters which should be implemented in each kind of question filter
+    # if question_type == WHO:
+    #     print "In branch who ..."
+    #     noun_verb_hit_sentences_list = filter_proper_noun((noun_verb_hit_sentences_list), n1_list)
+    #     sentences_with_different_verb = filter_proper_noun((sentences_with_different_verb), n1_list)
     return noun_verb_hit_sentences_list
 
 
@@ -1464,10 +1523,11 @@ if __name__ == "__main__":
     # summary_over_article_text(txt)
     n1_syn = ['united states', 'america']
     sent = 'America, or the United States of America, is located in the Western hemisphere and makes up approximately 1/3 of North America.'
-    b = word_list_in_sentenceStr(n1_syn, sent.lower())
-    print b
-    question = 'who is the father of USA'
-    print answer_by_a_few_sentence(question,0)
+    # b = word_list_in_sentenceStr(n1_syn, sent.lower())
+
+    question = 'who is the first man to get into space'
+    ch_list = get_chunks_in_sentence(sent)
+    print answer_by_a_few_sentence(question,WHO)
 
     # chunk_list = sentence_structure_finder(question, SENTENCES_STRUCT_2)
     # sentence_structure_finder(question, SENTENCES_STRUCT_4)
