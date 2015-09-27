@@ -63,6 +63,8 @@ from wordNet import html_to_plain_text
 from wordNet import word_list_in_sentenceStr ,all_word_list_in_sentenceStr
 from wordNet import get_lemma_of_word
 import textblob
+import copy
+
 
 db_list = ['', '8313040', 'python']
 HOW = 'how'
@@ -1408,6 +1410,161 @@ def filter_proper_noun(sent_str_list, noun_list): # an answer should contain oth
     return ret_list
 
 
+def nuggets_finder(sub_sent_string):
+    SCANNING_SBJ = 0
+    SCANNING_OBJ = 1
+    SCANNING_VP = 2
+    VP = 'VP'
+    NP = 'NP'
+    OBJ = 'OBJ'
+    SBJ = 'SBJ'
+    scan_state = SCANNING_SBJ
+
+    chunks = get_chunks_in_sentence(sub_sent_string)
+    sub_relation_list = list()
+    relation = list()
+    tempSBJ = ''
+    tempOBJ = ''
+    tempVP = ''
+    for i in range(0,len(chunks)):
+        if scan_state == SCANNING_SBJ:
+            #DO things
+            #Change state
+            if chunks[i].tag != VP:
+                tempSBJ += " " + chunks[i].string
+                #------
+                #no state change
+                continue
+            else:
+                relation.append((tempSBJ,SBJ))
+                tempVP += " " + chunks[i].string
+                #------
+                scan_state = SCANNING_VP
+                continue
+        if scan_state == SCANNING_VP:
+            if chunks[i].tag != NP:
+                tempVP += " " + chunks[i].string
+                continue
+            else:
+                relation.append((tempVP, VP))
+                tempOBJ += " " + chunks[i].string
+                #-------
+                scan_state = SCANNING_OBJ
+                continue
+        if scan_state == SCANNING_OBJ:
+            if chunks[i].tag != VP:
+                tempOBJ += " " + chunks[i].string
+                continue
+            else:
+                relation.append((tempOBJ,OBJ))
+                sub_relation_list.append(relation)
+                relation = list()
+                tempSBJ = copy.deepcopy(tempOBJ)
+                tempOBJ = ''
+                tempVP = ''
+                tempVP += " " + chunks[i].string
+                relation.append((tempSBJ,SBJ))
+                scan_state = SCANNING_VP
+                continue
+    if scan_state == SCANNING_OBJ:
+        relation.append((tempOBJ,OBJ))
+    if scan_state == SCANNING_SBJ:
+        relation.append((tempSBJ,SBJ))
+    if scan_state == SCANNING_VP:
+        relation.append((tempVP,VP))
+    if len(relation)>0:
+        sub_relation_list.append(relation)
+    return sub_relation_list
+
+
+def sub_relation_finder(sub_sent_string):
+    VP = 'VP'
+    NP = 'NP'
+    OBJ = 'OBJ'
+    SBJ = 'SBJ'
+    chunks = get_chunks_in_sentence(sub_sent_string)
+    sub_relation_list = list()
+    relation = list()
+    tempSBJ = ''
+    tempOBJ = ''
+    tempVP = ''
+    SEARCH_FOR_SBJ = -3
+    SEARCH_FOR_VP = -2
+    SEARCH_FOR_OBJ = -1
+    search_state = SEARCH_FOR_OBJ
+    for i in range(len(chunks)-1, -1, -1):
+        if chunks[i].tag == VP:
+            if search_state == SEARCH_FOR_OBJ:
+                tempVP = chunks[i].string + " " + tempVP
+                relation.append((tempVP,VP))
+                search_state = SEARCH_FOR_SBJ
+                continue
+            if search_state == SEARCH_FOR_VP:
+                tempVP = chunks[i].string + " " + tempVP
+                continue
+            if search_state == SEARCH_FOR_SBJ:
+                relation.append((tempSBJ,SBJ))
+                sub_relation_list.append(relation)
+                relation = list()
+                tempSBJ = ''
+                tempOBJ = ''
+                tempVP = ''
+                tempVP = chunks[i].string + " " + tempVP
+                search_state = SEARCH_FOR_OBJ
+                continue
+        if chunks[i].tag != VP:
+            if search_state == SEARCH_FOR_SBJ:
+                tempSBJ = chunks[i].string +  " " + tempSBJ
+                continue
+            if search_state == SEARCH_FOR_OBJ:
+                tempOBJ = chunks[i].string + " " + tempOBJ
+                continue
+            if search_state == SEARCH_FOR_VP:
+                relation.append((tempVP, VP))
+                search_state = SEARCH_FOR_SBJ
+                tempSBJ = chunks[i].string +  " " + tempSBJ
+                continue
+        if i == 0:
+            if search_state == SEARCH_FOR_OBJ:
+                relation.append((tempOBJ,OBJ))
+            if search_state == SEARCH_FOR_SBJ:
+                relation.append((tempSBJ,SBJ))
+            if search_state == SEARCH_FOR_VP:
+                relation.append((tempVP,VP))
+            if len(relation)>0:
+                sub_relation_list.append(relation)
+    return sub_relation_list
+
+
+def nugget_builder(tuple_list):
+    base_sbj = ''
+    base_vp = ''
+    base_obj = ''
+    for n in tuple_list:
+        if n[1] == 'SBJ':
+            base_sbj = n[0]
+        elif n[1] == 'OBJ':
+            base_obj = n[0]
+        elif n[1] == 'VP':
+            base_vp = n[0]
+    return (base_sbj, base_vp, base_obj)
+
+
+def compare_sentence_by_nuggets(sent1, sent2):
+    nuggets1_list = nuggets_finder(sent1)
+    nuggets2_list = nuggets_finder(sent2)
+    for nug in nuggets1_list:
+        base_sbj = ''
+        base_vp = ''
+        base_obj = ''
+        t = nugget_builder(nug)
+        base_sbj = t[0]
+        base_vp = t[1]
+        base_obj = t[2]
+        for nug_2 in nuggets2_list:
+            t2 = nugget_builder(nug_2)
+
+
 def answer_by_a_few_sentence(question_string, question_type):
     # first search the certain question by "silly" word-by-word strategy
     # that is find a sentence hit all the name-entities and main-verbs in the question
@@ -1419,14 +1576,14 @@ def answer_by_a_few_sentence(question_string, question_type):
     # in the candidate sentences, check if the verbs in candidate sentences are of the same
     # meaning with the origin main verbs
 
-
+    ner_tuple = get_synsets_lists_from_sentence(question_string)
     sent_str_list = questionMod(question_string, DEFAULT)
     temp_str_list = list()
     for t in sent_str_list:
         temp_str_list.append(t[0])
     # sent_str_list = secondSentenceSplitor(temp_str_list)
     sent_str_list = interrogative_filter(temp_str_list)
-    ner_tuple = get_synsets_lists_from_sentence(question_string)
+    # ner_tuple = get_synsets_lists_from_sentence(question_string)
     n1_list = ner_tuple[0]
     n2_list = ner_tuple[1]
     n1_list = str_list_to_lower_case(n1_list)
@@ -1512,21 +1669,22 @@ def input_question_process(input_string):
 
 
 if __name__ == "__main__":
-    txt = '''Jill is a nice name. Pick up fresh fruit from the farmer's market or your local grocery store
-    and make sure that they are nice and ripe and ready to be made into a salad.
-    If they are not ripe enough, then the salad will be a bit tough to chew.
-     It is better for them to be a bit overripe than unripe so that the flavors blend.
-     For this simple fruit salad, you'll need strawberries, cherries, blueberries, red apples, peaches, and a kiwi.'''
+    txt = '''For this simple fruit salad, you'll need strawberries, cherries, blueberries, red apples, peaches, and a kiwi.'''
     # entity_List = getNPListFromStr(txt)
     # InsertRelationsFromStrArticle(txt, db_list)
     # txt = html_to_plain_text('http://www.ehow.com/how_291_make-green-salad.html')
     # summary_over_article_text(txt)
     n1_syn = ['united states', 'america']
-    sent = 'America, or the United States of America, is located in the Western hemisphere and makes up approximately 1/3 of North America.'
+    sent = ' On behalf of all the course staff, I’d like to take this moment to thank all of you for your participation in this course and for all your constructive comments about how to further improve the course.'
     # b = word_list_in_sentenceStr(n1_syn, sent.lower())
 
-    question = 'who is the first man to get into space'
-    ch_list = get_chunks_in_sentence(sent)
+    question = 'Who invented the apple watch'
+
+    sub_rl = nuggets_finder(question)
+    for sr in sub_rl:
+        print sr
+
+    # ch_list = get_chunks_in_sentence(sent)
     print answer_by_a_few_sentence(question,WHO)
 
     # chunk_list = sentence_structure_finder(question, SENTENCES_STRUCT_2)

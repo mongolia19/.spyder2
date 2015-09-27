@@ -300,8 +300,7 @@ def word_list_in_sentenceStr(word_str_list, sentStr):
     print "question nouns ", word_str_lemma_list
     print "sentence words ", wordsDictInSent
     for word in word_str_lemma_list:
-        if wordsDictInSent.has_key(str(word)) or (str(word) in wordsList)\
-                or str(word) in sentStr:
+        if wordsDictInSent.has_key(str(word)) or (str(word) in wordsList):
             print 'sentence hit!'
             return True
         for k in wordsDictInSent.keys():
