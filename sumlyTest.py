@@ -64,7 +64,7 @@ from wordNet import word_list_in_sentenceStr ,all_word_list_in_sentenceStr
 from wordNet import get_lemma_of_word
 import textblob
 import copy
-
+import Levenshtein
 
 db_list = ['', '8313040', 'python']
 HOW = 'how'
@@ -1553,16 +1553,35 @@ def nugget_builder(tuple_list):
 def compare_sentence_by_nuggets(sent1, sent2):
     nuggets1_list = nuggets_finder(sent1)
     nuggets2_list = nuggets_finder(sent2)
+    score_list = list()
     for nug in nuggets1_list:
         base_sbj = ''
         base_vp = ''
         base_obj = ''
         t = nugget_builder(nug)
-        base_sbj = t[0]
-        base_vp = t[1]
-        base_obj = t[2]
+        base_sbj = str(t[0])
+        base_vp = str(t[1])
+        base_obj = str(t[2])
+        h_score = 0
         for nug_2 in nuggets2_list:
             t2 = nugget_builder(nug_2)
+            sbj = str(t2[0])
+            vp = str(t2[1])
+            obj = str(t2[2])
+            print "base_sbj is ", base_sbj," sbj is ", sbj
+            print "base_sbj type is ", type(base_sbj), " sbj type is ", type(sbj)
+            s = Levenshtein.ratio(base_sbj, sbj)
+            v = Levenshtein.ratio(base_vp, vp)
+            o = Levenshtein.ratio(base_obj, obj)
+            score = float(s + v + o)/3
+            if h_score < score:
+                h_score = score
+        score_list.append(h_score)
+    sum = 0
+    for s in score_list:
+        sum += s
+    avg = sum/len(score_list)
+    return avg
 
 
 def answer_by_a_few_sentence(question_string, question_type):
@@ -1624,7 +1643,12 @@ def answer_by_a_few_sentence(question_string, question_type):
     #     print "In branch who ..."
     #     noun_verb_hit_sentences_list = filter_proper_noun((noun_verb_hit_sentences_list), n1_list)
     #     sentences_with_different_verb = filter_proper_noun((sentences_with_different_verb), n1_list)
-    return noun_verb_hit_sentences_list
+    sent_eval = list()
+    for sent in noun_verb_hit_sentences_list:
+        sc = compare_sentence_by_nuggets(question_string, sent)
+        sent_eval.append((sent, sc))
+    sorted_l=sorted(sent_eval,key=lambda t:t[1],reverse=True)
+    return sorted_l
 
 
 def question_classifier(input_string):
@@ -1678,15 +1702,16 @@ if __name__ == "__main__":
     sent = ' On behalf of all the course staff, I’d like to take this moment to thank all of you for your participation in this course and for all your constructive comments about how to further improve the course.'
     # b = word_list_in_sentenceStr(n1_syn, sent.lower())
 
-    question = 'Who invented the apple watch'
+    question = 'Who is Albert Einstein'
 
     sub_rl = nuggets_finder(question)
     for sr in sub_rl:
         print sr
-
+    # compare_sentence_by_nuggets(question,question)
     # ch_list = get_chunks_in_sentence(sent)
-    print answer_by_a_few_sentence(question,WHO)
-
+    ansList = answer_by_a_few_sentence(question,WHO)
+    for ans in ansList:
+        print ans
     # chunk_list = sentence_structure_finder(question, SENTENCES_STRUCT_2)
     # sentence_structure_finder(question, SENTENCES_STRUCT_4)
     # sentence_structure_finder(question, SENTENCES_STRUCT_5)
