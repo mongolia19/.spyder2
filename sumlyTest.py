@@ -1549,6 +1549,15 @@ def nugget_builder(tuple_list):
             base_vp = n[0]
     return (base_sbj, base_vp, base_obj)
 
+def get_last_word(str_chunk):
+    count =  len(str_chunk)
+    if count>0:
+        str_list = str(str_chunk).split()
+        size = len(str_list)
+        return str_list[size-1]
+    else:
+        return str_chunk
+
 
 def compare_sentence_by_nuggets(sent1, sent2):
     nuggets1_list = nuggets_finder(sent1)
@@ -1562,18 +1571,42 @@ def compare_sentence_by_nuggets(sent1, sent2):
         base_sbj = str(t[0])
         base_vp = str(t[1])
         base_obj = str(t[2])
+        base_sbj_head = get_last_word(base_sbj)
+        base_obj_head = get_last_word(base_obj)
+        print 'the type of base_sbj_head is ', type(base_sbj_head)
+        print base_sbj_head
         h_score = 0
         for nug_2 in nuggets2_list:
             t2 = nugget_builder(nug_2)
             sbj = str(t2[0])
             vp = str(t2[1])
             obj = str(t2[2])
+            sbj_head = get_last_word(sbj)
+            obj_head = get_last_word(obj)
             print "base_sbj is ", base_sbj," sbj is ", sbj
             print "base_sbj type is ", type(base_sbj), " sbj type is ", type(sbj)
-            s = Levenshtein.ratio(base_sbj, sbj)
-            v = Levenshtein.ratio(base_vp, vp)
-            o = Levenshtein.ratio(base_obj, obj)
-            score = float(s + v + o)/3
+            if base_sbj == '' and sbj == '':
+                s = 0
+            else:
+                s = Levenshtein.ratio(base_sbj, sbj)
+            if base_vp == '' and vp == '':
+                v = 0
+            else:
+                v = Levenshtein.ratio(base_vp, vp)
+            if base_obj == '' and obj == '':
+                o = 0
+            else:
+                o = Levenshtein.ratio(base_obj, obj)
+            if s == 0:
+                s1 = 0
+            else:
+                s1 = Levenshtein.ratio(base_sbj_head, sbj_head)
+            if o == 0:
+                o1 = 0
+            else:
+                o1 = Levenshtein.ratio(base_obj_head, obj_head)
+            score = float(0.5*s + v + 0.5*o + 0.5*s1 + 0.5*o1)/3
+
             if h_score < score:
                 h_score = score
         score_list.append(h_score)
@@ -1644,7 +1677,7 @@ def answer_by_a_few_sentence(question_string, question_type):
     #     noun_verb_hit_sentences_list = filter_proper_noun((noun_verb_hit_sentences_list), n1_list)
     #     sentences_with_different_verb = filter_proper_noun((sentences_with_different_verb), n1_list)
     sent_eval = list()
-    for sent in noun_verb_hit_sentences_list:
+    for sent in candidate_only_noun_sentence_list:
         sc = compare_sentence_by_nuggets(question_string, sent)
         sent_eval.append((sent, sc))
     sorted_l=sorted(sent_eval,key=lambda t:t[1],reverse=True)
@@ -1702,12 +1735,12 @@ if __name__ == "__main__":
     sent = ' On behalf of all the course staff, I’d like to take this moment to thank all of you for your participation in this course and for all your constructive comments about how to further improve the course.'
     # b = word_list_in_sentenceStr(n1_syn, sent.lower())
 
-    question = 'Who is Albert Einstein'
-
-    sub_rl = nuggets_finder(question)
+    question = 'Who is the father of America'
+    print 'the empty ratio is ', Levenshtein.ratio('', '')
+    sub_rl = nuggets_finder('The resulting turbulence would have sent the MiG into an uncontrolled spin')
     for sr in sub_rl:
         print sr
-    # compare_sentence_by_nuggets(question,question)
+    # compare_sentence_by_nuggets(sent, question)
     # ch_list = get_chunks_in_sentence(sent)
     ansList = answer_by_a_few_sentence(question,WHO)
     for ans in ansList:
