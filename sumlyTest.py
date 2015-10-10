@@ -1681,7 +1681,36 @@ def answer_by_a_few_sentence(question_string, question_type):
         sc = compare_sentence_by_nuggets(question_string, sent)
         sent_eval.append((sent, sc))
     sorted_l=sorted(sent_eval,key=lambda t:t[1],reverse=True)
-    return sorted_l
+    complete_l = []
+    for s in sorted_l:
+        sent = s[0]
+        nuggets = nuggets_finder(sent)
+        if len(nuggets)>1:
+            complete_l.append(s)
+        else:
+            nugget = nuggets[0]
+            t = nugget_builder(nugget)
+            sbj = str(t[0])
+            vp = str(t[1])
+            obj = str(t[2])
+            if sbj == '' or vp == '' or obj == '':
+                print 'Nugget is ' , s
+                print 'Nugget is not complete, skip this sentence.'
+                continue
+            else:
+                complete_l.append(s)
+    total_txt = ''
+    only_text_list = []
+    for s in complete_l:
+        total_txt = total_txt + ' ' + s[0]
+        only_text_list.append(s[0])
+    total_txt = total_txt.strip()
+    simVal_list = similarity(only_text_list, total_txt)
+    last_list = []
+    for n in range(0,len(only_text_list)):
+        last_list.append((only_text_list[n],simVal_list[n]))
+    last_list = sorted(last_list,key=lambda t:t[1],reverse=True)
+    return last_list
 
 
 def question_classifier(input_string):
@@ -1737,7 +1766,7 @@ if __name__ == "__main__":
 
     question = 'Who is the father of America'
     print 'the empty ratio is ', Levenshtein.ratio('', '')
-    sub_rl = nuggets_finder('The resulting turbulence would have sent the MiG into an uncontrolled spin')
+    sub_rl = nuggets_finder('Coming to America Father')
     for sr in sub_rl:
         print sr
     # compare_sentence_by_nuggets(sent, question)
