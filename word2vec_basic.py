@@ -220,6 +220,7 @@ def full_cycle(words_list):
 
       average_loss = 0
       for step in xrange(num_steps):
+        print('Training at step ', step)
         batch_inputs, batch_labels = generate_batch(
             batch_size, num_skips, skip_window, data=data)
         feed_dict = {train_inputs : batch_inputs, train_labels : batch_labels}
@@ -249,17 +250,17 @@ def full_cycle(words_list):
               log_str = "%s %s," % (log_str, close_word)
             print(log_str)
       final_embeddings = normalized_embeddings.eval()
-
+    return final_embeddings, dictionary
     # step 7
-    try:
-      from sklearn.manifold import TSNE
-      import matplotlib.pyplot as plt
-
-      tsne = TSNE(perplexity=30, n_components=2, init='pca', n_iter=5000)
-      plot_only = 500
-      low_dim_embs = tsne.fit_transform(final_embeddings[:plot_only,:])
-      labels = [reverse_dictionary.get(i) for i in xrange(plot_only)]
-      plot_with_labels(low_dim_embs, labels)
-
-    except ImportError:
-      print("Please install sklearn and matplotlib to visualize embeddings.")
+    # try:
+    #   from sklearn.manifold import TSNE
+    #   import matplotlib.pyplot as plt
+    #
+    #   tsne = TSNE(perplexity=30, n_components=2, init='pca', n_iter=5000)
+    #   plot_only = 500
+    #   low_dim_embs = tsne.fit_transform(final_embeddings[:plot_only,:])
+    #   labels = [reverse_dictionary.get(i) for i in xrange(plot_only)]
+    #   plot_with_labels(low_dim_embs, labels)
+    #
+    # except ImportError:
+    #   print("Please install sklearn and matplotlib to visualize embeddings.")

@@ -86,7 +86,7 @@ TELL_RESULT = 3
 GIVE_REMARKS = 4
 
 articlesFromHtmls = list()  # used to store each article from one search
-
+embeddings = None
 
 # Use movie script to talk with human
 class slot:
@@ -757,6 +757,7 @@ def summary_over_article_text(article_text):
     #     print "OBJ ", relation_dict[k].OBJ.lower(), "VP", relation_dict[k].VP.lower(), "SBJ", relation_dict[k].SBJ.lower()
 
 
+
 def questionMod(inputSentence, qType):
     # return a tuple list: tuple (str, score)
     patternList = questionPatternLoader(qType)
@@ -967,7 +968,7 @@ def self_learn_by_question_answer(local_text_seed_article, out_put_path, similar
         c_list.append(answer_str)
         for c in candidate_sent_list:
             # remove the sentences with pronouns
-            if len(c[0]) > 0 and len(getAllPronounEntities(get_tagged_sentence(c[0]))) == 0:
+            if len(c[0]) > 0 and len(getAllPronounEntities(get_tagged_sentence(c[0]))) == 0 and is_sentence_complete(c[0]):
                 c_list.append(c[0])
             else:
                 continue
@@ -984,9 +985,7 @@ def self_learn_by_question_answer(local_text_seed_article, out_put_path, similar
                     if len(filter_when(c_list[i], question_str)) > 0:
                         FileUtils.WriteToFile(out_put_path, c_list[i] + '\r\n')
                         continue
-                    if sentence_parse(c_list[i]):
-                        FileUtils.WriteToFile(out_put_path, c_list[i] + '\r\n')
-                        continue
+
                     match_str_list = list()
                     for chunk in match_list:
                         match_str_list.append(chunk.string)
@@ -1099,7 +1098,7 @@ def get_articles_withURKL_from_websearch_query(query_string):
     real_yahoo_search_url = real_yahoo_head + query_string + real_yahoo_tail
 
     urlList = getAllLinksFromPage(real_yahoo_search_url)
-
+    print "get_articles_withURKL_from_websearch_query called........."
     URLNum = 10
     keySentencesText = ''
     articleStrList = list()
@@ -1573,6 +1572,7 @@ def compare_sentence_by_nuggets(sent1, sent2):
         base_obj = str(t[2])
         base_sbj_head = get_last_word(base_sbj)
         base_obj_head = get_last_word(base_obj)
+        base_vp_head = get_last_word(base_vp)
         print 'the type of base_sbj_head is ', type(base_sbj_head)
         print base_sbj_head
         h_score = 0
@@ -1583,28 +1583,32 @@ def compare_sentence_by_nuggets(sent1, sent2):
             obj = str(t2[2])
             sbj_head = get_last_word(sbj)
             obj_head = get_last_word(obj)
+            vp_head = get_last_word(vp)
             print "base_sbj is ", base_sbj," sbj is ", sbj
             print "base_sbj type is ", type(base_sbj), " sbj type is ", type(sbj)
-            if base_sbj == '' and sbj == '':
+            if base_sbj == '' or sbj == '' or len(base_sbj)<1 or len(sbj)<1:
                 s = 0
             else:
-                s = Levenshtein.ratio(base_sbj, sbj)
-            if base_vp == '' and vp == '':
+                # s = Levenshtein.ratio(base_sbj, sbj)
+                s = similarityByEmbedding(base_sbj_head,sbj_head)
+            if base_vp == '' or vp == '' or  len(base_vp) <1 or len(vp) <1:
                 v = 0
             else:
-                v = Levenshtein.ratio(base_vp, vp)
-            if base_obj == '' and obj == '':
+                # v = Levenshtein.ratio(base_vp, vp)
+                v = similarityByEmbedding(base_vp_head, vp_head)
+            if base_obj == '' or obj == '' or len(base_obj) <1 or len(obj) <1:
                 o = 0
             else:
-                o = Levenshtein.ratio(base_obj, obj)
+                # o = Levenshtein.ratio(base_obj, obj)
+                o = similarityByEmbedding(base_obj_head, obj_head)
             if s == 0:
                 s1 = 0
             else:
-                s1 = Levenshtein.ratio(base_sbj_head, sbj_head)
+                s1 = similarityByEmbedding(base_sbj_head, sbj_head)
             if o == 0:
                 o1 = 0
             else:
-                o1 = Levenshtein.ratio(base_obj_head, obj_head)
+                o1 = similarityByEmbedding(base_obj_head, obj_head)
             score = float(0.5*s + v + 0.5*o + 0.5*s1 + 0.5*o1)/3
 
             if h_score < score:
@@ -1617,7 +1621,24 @@ def compare_sentence_by_nuggets(sent1, sent2):
     return avg
 
 
+def is_sentence_complete(sent):
+    nuggets = nuggets_finder(sent)
+    if len(nuggets)>1:
+        return True
+    else:
+        nugget = nuggets[0]
+        t = nugget_builder(nugget)
+        sbj = str(t[0])
+        vp = str(t[1])
+        obj = str(t[2])
+        if sbj == '' or vp == '' or obj == '':
+            print 'Nugget is not complete, return false'
+            return False
+        else:
+            return True
+
 def answer_by_a_few_sentence(question_string, question_type):
+    # This is only suitable for "what is" and "who is " questions
     # first search the certain question by "silly" word-by-word strategy
     # that is find a sentence hit all the name-entities and main-verbs in the question
     # if the first "silly" strategy does not work, get a list of synsets of named entities in the question
@@ -1627,12 +1648,13 @@ def answer_by_a_few_sentence(question_string, question_type):
     # try the third strategy:
     # in the candidate sentences, check if the verbs in candidate sentences are of the same
     # meaning with the origin main verbs
-
+    print "answer_by_a_few_sentence called"
     ner_tuple = get_synsets_lists_from_sentence(question_string)
-    sent_str_list = questionMod(question_string, DEFAULT)
+    sent_str_list = getRelatedSentencesListFromWeb(question_string)
+    # sent_str_list = questionMod(question_string, DEFAULT)
     temp_str_list = list()
     for t in sent_str_list:
-        temp_str_list.append(t[0])
+        temp_str_list.append(t)
     # sent_str_list = secondSentenceSplitor(temp_str_list)
     sent_str_list = interrogative_filter(temp_str_list)
     # ner_tuple = get_synsets_lists_from_sentence(question_string)
@@ -1657,29 +1679,35 @@ def answer_by_a_few_sentence(question_string, question_type):
     noun_verb_hit_sentences_list = list()
     sentences_with_different_verb = list()
     # sentences_with_different_verb = sort_sentence_by_verb_hit(verbs, candidate_only_noun_sentence_list)
-    if len(candidate_verb_sentence_list)==0:
-        noun_verb_hit_sentences_list = sort_sentence_by_verb_hit(verbs, candidate_only_noun_sentence_list)
-    else:
-        noun_verb_hit_sentences_list = candidate_verb_sentence_list
-    total_txt = ''
-    for s in sent_str_list:
-        total_txt = total_txt + ' ' + s
-    total_txt = total_txt.strip()
-    simVal_list = similarity(noun_verb_hit_sentences_list, total_txt)
-    score_list = list()
-    for i in range(0,len(noun_verb_hit_sentences_list)):
-        score_list.append((noun_verb_hit_sentences_list[i],simVal_list[i]))
-    print score_list
-    print 'The following only hit the nouns ', noun_verb_hit_sentences_list
+    # if len(candidate_verb_sentence_list)==0:
+    #     noun_verb_hit_sentences_list = sort_sentence_by_verb_hit(verbs, candidate_only_noun_sentence_list)
+    # else:
+    #     noun_verb_hit_sentences_list = candidate_verb_sentence_list
+    # total_txt = ''
+    # for s in sent_str_list:
+    #     total_txt = total_txt + ' ' + s
+    # total_txt = total_txt.strip()
+    # simVal_list = similarity(noun_verb_hit_sentences_list, total_txt)
+    # score_list = list()
+    # for i in range(0,len(noun_verb_hit_sentences_list)):
+    #     score_list.append((noun_verb_hit_sentences_list[i],simVal_list[i]))
+    # print score_list
+    # print 'The following only hit the nouns ', noun_verb_hit_sentences_list
+
     #further filters which should be implemented in each kind of question filter
     # if question_type == WHO:
     #     print "In branch who ..."
     #     noun_verb_hit_sentences_list = filter_proper_noun((noun_verb_hit_sentences_list), n1_list)
     #     sentences_with_different_verb = filter_proper_noun((sentences_with_different_verb), n1_list)
     sent_eval = list()
-    for sent in candidate_only_noun_sentence_list:
+    if len(candidate_verb_sentence_list)>0:
+        scored_list = candidate_verb_sentence_list
+    else:
+        scored_list = candidate_only_noun_sentence_list
+    for sent in scored_list:
         sc = compare_sentence_by_nuggets(question_string, sent)
         sent_eval.append((sent, sc))
+    print "Now will do the sorting length is ", len(sent_eval)
     sorted_l=sorted(sent_eval,key=lambda t:t[1],reverse=True)
     complete_l = []
     for s in sorted_l:
@@ -1699,18 +1727,18 @@ def answer_by_a_few_sentence(question_string, question_type):
                 continue
             else:
                 complete_l.append(s)
-    total_txt = ''
-    only_text_list = []
-    for s in complete_l:
-        total_txt = total_txt + ' ' + s[0]
-        only_text_list.append(s[0])
-    total_txt = total_txt.strip()
-    simVal_list = similarity(only_text_list, total_txt)
-    last_list = []
-    for n in range(0,len(only_text_list)):
-        last_list.append((only_text_list[n],simVal_list[n]))
-    last_list = sorted(last_list,key=lambda t:t[1],reverse=True)
-    return last_list
+    # total_txt = ''
+    # only_text_list = []
+    # for s in complete_l:
+    #     total_txt = total_txt + ' ' + s[0]
+    #     only_text_list.append(s[0])
+    # total_txt = total_txt.strip()
+    # simVal_list = similarity(only_text_list, total_txt)
+    # last_list = []
+    # for n in range(0,len(only_text_list)):
+    #     last_list.append((only_text_list[n],simVal_list[n]))
+    # last_list = sorted(last_list,key=lambda t:t[1],reverse=True)
+    return sorted_l
 
 
 def question_classifier(input_string):
@@ -1754,6 +1782,44 @@ def input_question_process(input_string):
         answer_by_summary(input_string)
 
 
+def getDistance(v1_index,v2_index):
+    import math
+    if v1_index is None or v2_index is None:
+        return -10000000
+    if len(v1_index.shape)!=len(v2_index.shape):
+        return -10000000
+    else:
+        print " Indexs are ", (v1_index.shape), " ", (v2_index.shape)
+
+        sum = 0
+        for i in range(len(v1_index)-1):
+            v1_i = v1_index[i]
+            v2_i = v2_index[i]
+            sum += (v1_i-v2_i)*(v1_i-v2_i)
+            # sum += (v1[i]-v2[i])*(v1[i]-v2[i])
+        dist = math.sqrt(sum)
+        return dist
+
+def Distance2Similarity(value):
+    if value <0:
+        return 0
+    elif value == 0:
+        return 1
+    else:
+        return (value/(1+value))
+
+def similarityByEmbedding(w1,w2):
+    global embeddings
+    v1index = sim_dict.get(w1)
+    v2index = sim_dict.get(w2)
+    print "v1index is ", v1index
+    print "v2index is ", v2index
+    embeds1 = embeddings[v1index,:]
+    embeds2 = embeddings[v2index,:]
+    dis = getDistance(embeds1, embeds2)
+    return Distance2Similarity(dis)
+
+from word2vec_basic import full_cycle
 if __name__ == "__main__":
     txt = '''For this simple fruit salad, you'll need strawberries, cherries, blueberries, red apples, peaches, and a kiwi.'''
     # entity_List = getNPListFromStr(txt)
@@ -1764,16 +1830,16 @@ if __name__ == "__main__":
     sent = ' On behalf of all the course staff, I’d like to take this moment to thank all of you for your participation in this course and for all your constructive comments about how to further improve the course.'
     # b = word_list_in_sentenceStr(n1_syn, sent.lower())
 
-    question = 'Who is the father of America'
-    print 'the empty ratio is ', Levenshtein.ratio('', '')
-    sub_rl = nuggets_finder('Coming to America Father')
-    for sr in sub_rl:
-        print sr
+    # question = 'what is the definition of Maths'
+    # print 'the empty ratio is ', Levenshtein.ratio('', '')
+    # sub_rl = nuggets_finder('Coming to America Father')
+    # for sr in sub_rl:
+    #     print sr
     # compare_sentence_by_nuggets(sent, question)
     # ch_list = get_chunks_in_sentence(sent)
-    ansList = answer_by_a_few_sentence(question,WHO)
-    for ans in ansList:
-        print ans
+    # ansList = answer_by_a_few_sentence(question,WHO)
+    # for ans in ansList:
+    #     print ans
     # chunk_list = sentence_structure_finder(question, SENTENCES_STRUCT_2)
     # sentence_structure_finder(question, SENTENCES_STRUCT_4)
     # sentence_structure_finder(question, SENTENCES_STRUCT_5)
@@ -1787,3 +1853,39 @@ if __name__ == "__main__":
     # raw_text_path_list = FileUtils.ReturnAllFileOnPath(1, "./text/soc.religion.christian")
     # for rf in raw_text_path_list:
     #     self_learn_by_question_answer(rf, 'self_learn_newphy_relations.txt', 0)
+    question = "what has caused the big bang"
+    art_list = get_articles_withURKL_from_websearch_query(question)
+    str_word = ''
+    for art in art_list:
+        str_word += art[0]
+    # f = open("self_learn_newphy_relations.txt",'r')
+    # str_word += (f.read())
+    # f.close()
+    str_word = str_word.split()
+    word_list = list()
+    for w in str_word:
+        post_w = str(w).strip().lower()
+        word_list.append(post_w)
+    global embeddings
+    print "Will now call full_cycle()"
+    embeddings, sim_dict = full_cycle(word_list)
+    print "full_cycle() end"
+    # vectorIndex = sim_dict.get("shines")
+    # vectorIndex1 = sim_dict.get("shine")
+    # vectorIndex2 = sim_dict.get("atoms")
+    # vectorIndex3 = sim_dict.get("Bing")
+    # low_dim_embs = (embeddings[vectorIndex,:])
+    # low_dim_embs1 = embeddings[vectorIndex1,:]
+    # low_dim_embs2 = embeddings[vectorIndex2,:]
+    # low_dim_embs3 = embeddings[vectorIndex3,:]
+    # dist1 = getDistance(low_dim_embs,low_dim_embs1)
+    # dist2 = getDistance(low_dim_embs,low_dim_embs2)
+    # dist3 = getDistance(low_dim_embs,low_dim_embs3)
+    # print "between shine(s) ", dist1, " between shine and atom ", dist2
+    # print "between shine(s) ", dist1, " between shine and Bing ", dist3
+    # print "vector for ", "shines", " is ", low_dim_embs
+    ansList = answer_by_a_few_sentence(question,WHO)
+    print 'The last anwsers are: '
+    for ans in ansList:
+        print ans
+        print "\r\n"
