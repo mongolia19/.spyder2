@@ -1557,6 +1557,39 @@ def get_last_word(str_chunk):
     else:
         return str_chunk
 
+def compare_sentence_by_nugget_with_all_words(sent1, sent2):
+    nuggets1_list = nuggets_finder(sent1)
+    words_list = sent2.split()
+    score_list = list()
+    for nug in nuggets1_list:
+        base_sbj = ''
+        base_vp = ''
+        base_obj = ''
+        t = nugget_builder(nug)
+        base_sbj = str(t[0])
+        base_vp = str(t[1])
+        base_obj = str(t[2])
+        base_sbj_head = get_last_word(base_sbj)
+        base_obj_head = get_last_word(base_obj)
+        base_vp_head = get_last_word(base_vp)
+        # print 'the type of base_sbj_head is ', type(base_sbj_head)
+        # print base_sbj_head
+        h_score = 0
+        for word in words_list:
+            s = similarityByEmbedding(base_sbj_head, word)
+            v = similarityByEmbedding(base_vp_head, word)
+            # o = Levenshtein.ratio(base_obj, obj)
+            o = similarityByEmbedding(base_obj_head, word)
+            score = float(s + v + o)/3
+
+            if h_score < score:
+                h_score = score
+        score_list.append(h_score)
+    sum = 0
+    for s in score_list:
+        sum += s
+    avg = sum/len(score_list)
+    return avg
 
 def compare_sentence_by_nuggets(sent1, sent2):
     nuggets1_list = nuggets_finder(sent1)
@@ -1700,12 +1733,17 @@ def answer_by_a_few_sentence(question_string, question_type):
     #     noun_verb_hit_sentences_list = filter_proper_noun((noun_verb_hit_sentences_list), n1_list)
     #     sentences_with_different_verb = filter_proper_noun((sentences_with_different_verb), n1_list)
     sent_eval = list()
-    if len(candidate_verb_sentence_list)>0:
-        scored_list = candidate_verb_sentence_list
-    else:
-        scored_list = candidate_only_noun_sentence_list
+    similar_level = 0.8
+    # if len(candidate_verb_sentence_list)>0:
+    #     scored_list = candidate_verb_sentence_list
+    # else:
+    #     scored_list = candidate_only_noun_sentence_list
+    scored_list = candidate_noun_sentence_list
     for sent in scored_list:
-        sc = compare_sentence_by_nuggets(question_string, sent)
+
+        if (Levenshtein.ratio(str(question_string.lower()), str(sent.lower()))>similar_level):
+            continue
+        sc = compare_sentence_by_nugget_with_all_words(question_string, sent)
         sent_eval.append((sent, sc))
     print "Now will do the sorting length is ", len(sent_eval)
     sorted_l=sorted(sent_eval,key=lambda t:t[1],reverse=True)
@@ -1810,14 +1848,23 @@ def Distance2Similarity(value):
 
 def similarityByEmbedding(w1,w2):
     global embeddings
-    v1index = sim_dict.get(w1)
-    v2index = sim_dict.get(w2)
+    v1index = sim_dict.get(w1.lower())
+    v2index = sim_dict.get(w2.lower())
     print "v1index is ", v1index
     print "v2index is ", v2index
     embeds1 = embeddings[v1index,:]
     embeds2 = embeddings[v2index,:]
     dis = getDistance(embeds1, embeds2)
     return Distance2Similarity(dis)
+
+def Sentiment(article_str):
+    from pattern.en import sentiment
+    sent_list = getSentencesFromPassageText(article_str)
+    scoreList = list()
+    for sent in sent_list:
+        polar = sentiment(str(sent))
+        scoreList.append((sent, polar[0]))
+    return scoreList
 
 from word2vec_basic import full_cycle
 if __name__ == "__main__":
@@ -1853,14 +1900,16 @@ if __name__ == "__main__":
     # raw_text_path_list = FileUtils.ReturnAllFileOnPath(1, "./text/soc.religion.christian")
     # for rf in raw_text_path_list:
     #     self_learn_by_question_answer(rf, 'self_learn_newphy_relations.txt', 0)
-    question = "what has caused the big bang"
+    #
+    # we should take each word in the back-up sentence into consideration to see if the
+    # sentence is relevant to the question
+
+    question = "when was the computer invented"
     art_list = get_articles_withURKL_from_websearch_query(question)
     str_word = ''
     for art in art_list:
         str_word += art[0]
-    # f = open("self_learn_newphy_relations.txt",'r')
-    # str_word += (f.read())
-    # f.close()
+
     str_word = str_word.split()
     word_list = list()
     for w in str_word:
@@ -1870,22 +1919,11 @@ if __name__ == "__main__":
     print "Will now call full_cycle()"
     embeddings, sim_dict = full_cycle(word_list)
     print "full_cycle() end"
-    # vectorIndex = sim_dict.get("shines")
-    # vectorIndex1 = sim_dict.get("shine")
-    # vectorIndex2 = sim_dict.get("atoms")
-    # vectorIndex3 = sim_dict.get("Bing")
-    # low_dim_embs = (embeddings[vectorIndex,:])
-    # low_dim_embs1 = embeddings[vectorIndex1,:]
-    # low_dim_embs2 = embeddings[vectorIndex2,:]
-    # low_dim_embs3 = embeddings[vectorIndex3,:]
-    # dist1 = getDistance(low_dim_embs,low_dim_embs1)
-    # dist2 = getDistance(low_dim_embs,low_dim_embs2)
-    # dist3 = getDistance(low_dim_embs,low_dim_embs3)
-    # print "between shine(s) ", dist1, " between shine and atom ", dist2
-    # print "between shine(s) ", dist1, " between shine and Bing ", dist3
-    # print "vector for ", "shines", " is ", low_dim_embs
     ansList = answer_by_a_few_sentence(question,WHO)
     print 'The last anwsers are: '
     for ans in ansList:
         print ans
         print "\r\n"
+    for i in range(0,4):
+        s = parsetree( str(ansList[i]), relations=True, lemmata=True)
+        print repr(s)

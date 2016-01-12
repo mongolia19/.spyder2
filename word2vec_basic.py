@@ -211,7 +211,7 @@ def full_cycle(words_list):
 
 
     # step 6
-    num_steps = 100001
+    num_steps = 10001
 
     with tf.Session(graph=graph) as session:
       # We must initialize all variables before we use them.
