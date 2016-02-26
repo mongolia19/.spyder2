@@ -40,7 +40,10 @@ import random
 from sumy.parsers.html import HtmlParser
 from sumy.parsers.plaintext import PlaintextParser
 from sumy.nlp.tokenizers import Tokenizer
-from sumy.summarizers.lsa import LsaSummarizer as Summarizer
+from sumy.summarizers.lsa import LsaSummarizer as Summarizer_lsa
+from sumy.summarizers.lex_rank import LexRankSummarizer as Summarizer_lex
+from sumy.summarizers.text_rank import TextRankSummarizer as Summarizer_text
+from sumy.summarizers.luhn import LuhnSummarizer as Summarizer_luhn
 from sumy.nlp.stemmers import Stemmer
 from sumy.utils import get_stop_words
 import nltk
@@ -129,7 +132,7 @@ class RelationTuple:
         return 'SBJ:' + self.SBJ + ' VP: ' + self.VP + ' OBJ: ' + self.OBJ
 
 
-SENTENCES_COUNT = 4
+SENTENCES_COUNT = 10
 lessthan = lambda x, y: x < y;
 greaterthan = lambda x, y: x > y;
 
@@ -476,7 +479,7 @@ def questionPatternMining(firstHalf, secondHalf, var, fileName):
         passageSentences = getSentencesFromPassage(urlList[i][0])
         parser = PlaintextParser.from_string(passageSentences, Tokenizer(LANGUAGE))
         stemmer = Stemmer(LANGUAGE)
-        summarizer = Summarizer(stemmer)
+        summarizer = Summarizer_lex(stemmer)
         summarizer.stop_words = get_stop_words(LANGUAGE)
         for sentence in summarizer(parser.document, SENTENCES_COUNT):
             #            print(type(sentence))
@@ -685,13 +688,75 @@ def filter_sentences_containing_string(sentence_str, filter_str):
 def get_summary_sentences_from_article_text(article_text):
     parser = PlaintextParser.from_string(article_text, Tokenizer(LANGUAGE))
     stemmer = Stemmer(LANGUAGE)
-    summarizer = Summarizer(stemmer)
+    summarizer = Summarizer_lex(stemmer)
     summarizer.stop_words = get_stop_words(LANGUAGE)
     sum_list = list()
     for sentence in summarizer(parser.document, SENTENCES_COUNT):
         ks = sentence._text.decode('gbk', 'ignore').encode('utf-8')
         sum_list.append(ks)
     return sum_list
+
+def get_summary_sentences_from_article_text_with_summarizer(article_text, summarizer_f):
+    parser = PlaintextParser.from_string(article_text, Tokenizer(LANGUAGE))
+    stemmer = Stemmer(LANGUAGE)
+    summarizer = summarizer_f(stemmer)
+    summarizer.stop_words = get_stop_words(LANGUAGE)
+    sum_list = list()
+    for sentence in summarizer(parser.document, SENTENCES_COUNT):
+        ks = sentence._text.decode('gbk', 'ignore').encode('utf-8')
+        sum_list.append(ks)
+    return sum_list
+
+def get_summary_sentences_by_summarizer_voting(article_text):
+    lex_sum_list = (get_summary_sentences_from_article_text_with_summarizer(article_text,Summarizer_lex))
+    lsa_sum_list = get_summary_sentences_from_article_text_with_summarizer(article_text, Summarizer_lsa)
+    text_sum_list = get_summary_sentences_from_article_text_with_summarizer(article_text, Summarizer_text)
+    luhn_sum_list = get_summary_sentences_from_article_text_with_summarizer(article_text, Summarizer_luhn)
+    parser = PlaintextParser.from_string(article_text, Tokenizer(LANGUAGE))
+    sum_list = list()
+    for p in parser.document.sentences:
+        sent_str = p._text.decode('gbk', 'ignore').encode('utf-8')
+        vote_count = 0
+        if sent_str in lex_sum_list:
+            vote_count = vote_count + 1
+        if sent_str in text_sum_list:
+            vote_count = vote_count + 1
+        if sent_str in lsa_sum_list:
+            vote_count = vote_count + 1
+        if sent_str in luhn_sum_list:
+            vote_count = vote_count + 1
+        if vote_count >=2:
+            sum_list.append((sent_str, vote_count))
+    return sum_list
+
+def get_summary_sentences_from_article_text_sentiment(article_text):
+    import math
+    parser = PlaintextParser.from_string(article_text, Tokenizer(LANGUAGE))
+    stemmer = Stemmer(LANGUAGE)
+    summarizer = Summarizer_lex(stemmer)
+    summarizer.stop_words = get_stop_words(LANGUAGE)
+    sum_list = list()
+    sent_list = parser.document.sentences
+    last_sent = sent_list[len(sent_list)-1]
+    last_sent =last_sent._text.decode('gbk', 'ignore').encode('utf-8')
+    for paragraph in parser.document.paragraphs:
+        for sent in paragraph.sentences:
+            print sent._text.decode('gbk', 'ignore').encode('utf-8')
+    # for sentence in summarizer(parser.document, SENTENCES_COUNT):
+    #     ks = sentence._text.decode('gbk', 'ignore').encode('utf-8')
+    #     sum_list.append(ks)
+    sent_with_sentiment = Sentiment(article_text)
+    sent_score_list = list()
+    for i in range(0,len(sent_with_sentiment)-1):
+        sent_score_list.append(math.fabs(sent_with_sentiment[i][1]-sent_with_sentiment[i+1][1]))
+    max_index = sent_score_list.index( max(sent_score_list))
+    print sent_score_list
+    sent_with_sentiment = sorted(sent_with_sentiment, key=lambda d: d[1], reverse=True)
+    keySentences= [sent_with_sentiment[0],sent_with_sentiment[len(sent_with_sentiment)-1], sent_with_sentiment[max_index+1],last_sent]
+
+    return keySentences
+
+
 
 
 def get_chunks_in_sentence(sent_str):
@@ -707,7 +772,7 @@ def summary_over_article_text(article_text):
     # summary_sentences = get_summary_sentences_from_article_text(article_text)
     parser = PlaintextParser.from_string(article_text, Tokenizer(LANGUAGE))
     stemmer = Stemmer(LANGUAGE)
-    summarizer = Summarizer(stemmer)
+    summarizer = Summarizer_lex(stemmer)
     summarizer.stop_words = get_stop_words(LANGUAGE)
     sum_list = list()
     total_list = list()
@@ -851,7 +916,7 @@ def get_all_sentences_list_from_web(search_content):
 
         parser = PlaintextParser.from_string(passageSentences, Tokenizer(LANGUAGE))
         stemmer = Stemmer(LANGUAGE)
-        summarizer = Summarizer(stemmer)
+        summarizer = Summarizer_lex(stemmer)
         summarizer.stop_words = get_stop_words(LANGUAGE)
         if len(parser.document.sentences) == 0:
             continue
@@ -879,7 +944,7 @@ def getRelatedSentencesListFromWeb(searchedKeyWords):
 
         parser = PlaintextParser.from_string(passageSentences, Tokenizer(LANGUAGE))
         stemmer = Stemmer(LANGUAGE)
-        summarizer = Summarizer(stemmer)
+        summarizer = Summarizer_lex(stemmer)
         summarizer.stop_words = get_stop_words(LANGUAGE)
         if len(parser.document.sentences) == 0:
             break
@@ -1743,7 +1808,8 @@ def answer_by_a_few_sentence(question_string, question_type):
 
         if (Levenshtein.ratio(str(question_string.lower()), str(sent.lower()))>similar_level):
             continue
-        sc = compare_sentence_by_nugget_with_all_words(question_string, sent)
+        sc = (compare_sentence_by_nugget_with_all_words(question_string, sent)*0.9\
+            + compare_sentence_by_nugget_with_all_words(sent, question_string)*0.1)
         sent_eval.append((sent, sc))
     print "Now will do the sorting length is ", len(sent_eval)
     sorted_l=sorted(sent_eval,key=lambda t:t[1],reverse=True)
@@ -1904,12 +1970,17 @@ if __name__ == "__main__":
     # we should take each word in the back-up sentence into consideration to see if the
     # sentence is relevant to the question
 
-    question = "when was the computer invented"
+    question = "Who is the father of America"
     art_list = get_articles_withURKL_from_websearch_query(question)
     str_word = ''
+    print "finish getting all the articles"
     for art in art_list:
         str_word += art[0]
-
+        # out = get_summary_sentences_by_summarizer_voting(art[0])
+        # print 'Results are '
+        # for sent in out :
+        #     print sent
+        #     print "\r\n"
     str_word = str_word.split()
     word_list = list()
     for w in str_word:
@@ -1920,10 +1991,16 @@ if __name__ == "__main__":
     embeddings, sim_dict = full_cycle(word_list)
     print "full_cycle() end"
     ansList = answer_by_a_few_sentence(question,WHO)
+    ner_list = list()
     print 'The last anwsers are: '
     for ans in ansList:
         print ans
+        ner_list = ner_list + get_all_entities_by_nltk(ans[0])
         print "\r\n"
-    for i in range(0,4):
-        s = parsetree( str(ansList[i]), relations=True, lemmata=True)
-        print repr(s)
+    ner_list = list(set(ner_list))
+    print "the related nouns are "
+    for ner in ner_list:
+        print ner, "\r\n"
+    # for i in range(0,4):
+    #     s = parsetree( str(ansList[i]), relations=True, lemmata=True)
+    #     print repr(s)
