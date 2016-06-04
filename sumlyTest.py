@@ -69,6 +69,9 @@ import textblob
 import copy
 import Levenshtein
 
+import threading
+from time import ctime,sleep
+
 db_list = ['', '8313040', 'python']
 HOW = 'how'
 WHAT = 'what'
@@ -760,6 +763,8 @@ def get_summary_sentences_from_article_text_sentiment(article_text):
 
 
 def get_chunks_in_sentence(sent_str):
+    if (not sent_str) or (len(sent_str) <=1) or (sent_str == ""):
+        return []
     s = parsetree(sent_str, relations=True, lemmata=True)
     sent = s[0]
     chunk_list = list()
@@ -1450,10 +1455,15 @@ def answer_by_summary(question_string):
 
 def interrogative_filter(sent_list):
     # remove sentences with "?"
-    question_symbol = '?'
-    for sent in sent_list:
-        if question_symbol in sent:
-            sent_list.remove(sent)
+    question_symbol_list = ['when','how','what','which','?']
+    temp_sent_list = sent_list[:]
+    
+    for sent in temp_sent_list:
+        for question_symbol in question_symbol_list:
+            if question_symbol in str(sent).lower():
+                sent_list.remove(sent)
+                break
+    del temp_sent_list
     return sent_list
 
 
@@ -1766,6 +1776,8 @@ def answer_by_a_few_sentence(question_string, question_type):
         if word_list_in_sentenceStr(n1_list, sent.lower()) and\
             word_list_in_sentenceStr(n2_list, sent.lower()):
             candidate_noun_sentence_list.append(sent)
+    if len(candidate_noun_sentence_list) <=0:
+        candidate_noun_sentence_list = sent_str_list
     print 'candidate_noun_sentence_list are ', candidate_noun_sentence_list
     candidate_verb_sentence_list = list()
     candidate_only_noun_sentence_list = list() # sentences only hit noun but failed with verb match
@@ -1932,8 +1944,45 @@ def Sentiment(article_str):
         scoreList.append((sent, polar[0]))
     return scoreList
 
+
+def answerQuestion(question):
+    # question = "how big is an atom"
+    art_list = get_articles_withURKL_from_websearch_query(question)
+    str_word = ''
+    print "finish getting all the articles"
+    for art in art_list:
+        str_word += art[0]
+        # out = get_summary_sentences_by_summarizer_voting(art[0])
+        # print 'Results are '
+        # for sent in out :
+        #     print sent
+        #     print "\r\n"
+    str_word = str_word.split()
+    word_list = list()
+    for w in str_word:
+        post_w = str(w).strip().lower()
+        word_list.append(post_w)
+    global embeddings
+    print "Will now call full_cycle()"
+    embeddings, sim_dict = full_cycle(word_list)
+    print "full_cycle() end"
+    ansList = answer_by_a_few_sentence(question, WHO)
+    ansList = list(set(ansList))
+    # ansList = sorted(ansList, key=lambda t: (-t[1], t[0]))
+    ner_list = list()
+    print 'The last anwsers are: '
+    for ans in ansList:
+        print ans, type(ans)
+        ner_list = ner_list + get_all_entities_by_nltk(ans[0])
+        print "\r\n"
+    ner_list = list(set(ner_list))
+    print "the related nouns are "
+    for ner in ner_list:
+        print ner, "\r\n"
+
 from word2vec_basic import full_cycle
 if __name__ == "__main__":
+
     txt = '''For this simple fruit salad, you'll need strawberries, cherries, blueberries, red apples, peaches, and a kiwi.'''
     # entity_List = getNPListFromStr(txt)
     # InsertRelationsFromStrArticle(txt, db_list)
@@ -1969,8 +2018,7 @@ if __name__ == "__main__":
     #
     # we should take each word in the back-up sentence into consideration to see if the
     # sentence is relevant to the question
-
-    question = "Who is the father of America"
+    question = "why birds can fly"
     art_list = get_articles_withURKL_from_websearch_query(question)
     str_word = ''
     print "finish getting all the articles"
@@ -1990,17 +2038,84 @@ if __name__ == "__main__":
     print "Will now call full_cycle()"
     embeddings, sim_dict = full_cycle(word_list)
     print "full_cycle() end"
-    ansList = answer_by_a_few_sentence(question,WHO)
+    ansList = answer_by_a_few_sentence(question, WHO)
+    ansList = list(set(ansList))
+    ansList = sorted(ansList, key=lambda t: (-t[1], t[0]))
     ner_list = list()
-    print 'The last anwsers are: '
+    selected_sentences_string = ""
+    print 'The last answers are: '
     for ans in ansList:
-        print ans
+        print ans, type(ans)
         ner_list = ner_list + get_all_entities_by_nltk(ans[0])
+        selected_sentences_string = selected_sentences_string + ans[0] + "."
         print "\r\n"
+
+    # get summary sentences from the last selected sentences
+    summarized_sentences = get_summary_sentences_by_summarizer_voting(selected_sentences_string)
+    print " summarized answers are: "
+    for sent in summarized_sentences:
+        print sent, "\r\n"
+        print get_tagged_sentence(sent[0])
+        print "====================="
+    #Score the last extracted backup sentences by its presence in summarized_sentences
+    Voting_summarier_number = 4
+    backupAnswerAfterScoreBySummary = []
+    for str_score_pair in ansList:
+        ans_str = str_score_pair[0]
+        if not is_sentence_complete(ans_str):
+            continue
+        mean_score = str_score_pair[1]
+        summaryScore = 0.0
+        for summaryStr_score_pair in summarized_sentences:
+            if str_score_pair[0] in summaryStr_score_pair[0]:
+                summaryScore = summaryStr_score_pair[1] / float(Voting_summarier_number)
+                break
+        # length factor: we tend to extract longer sentences, they describes more clearly
+        # sent_length = len(ans_str)
+        # lengthFactor = sent_length/float(1+sent_length)
+        mean_score = 0.5 * summaryScore + \
+                     0.5 * mean_score
+                     # 0.01 * lengthFactor
+                     # + 0.35 * compare_sentence_by_nuggets(question, ans_str)
+        # mean_score = mean_score/2
+        backupAnswerAfterScoreBySummary.append((ans_str, mean_score))
+    backupAnswerAfterScoreBySummary = sorted(backupAnswerAfterScoreBySummary, key=lambda t: (-t[1], t[0]))
+    print "Scored by both word relation and summary answers are: "
+    for sent_pair in backupAnswerAfterScoreBySummary:
+        print sent_pair, "\r\n"
+        # print nuggets_finder(sent_pair[0])
+        print "+++++++++++++++++++++++++++++"
+    # Comparing with summary method, here just compare how similar center words in question are with
+    # the ones in answers
+    # ScoredSentencesByCenterWordComparing = []
+    # for str_score_pair in ansList:
+    #     ans_str = str_score_pair[0]
+    #     sent_length = len(ans_str)
+    #     lengthFactor = sent_length/float(1+sent_length)
+    #     mean_score = 0.95*compare_sentence_by_nugget_with_all_words(question, ans_str) + 0.05*lengthFactor
+    #     ScoredSentencesByCenterWordComparing.append((ans_str, mean_score))
+    # ScoredSentencesByCenterWordComparing = sorted(ScoredSentencesByCenterWordComparing, key=lambda t: (-t[1], t[0]))
+    # print "Scored by center words comparing"
+    # for sent_pair in ScoredSentencesByCenterWordComparing:
+    #     print sent_pair, "\r\n"
+    #     print "============================"
+    # get keywords
     ner_list = list(set(ner_list))
     print "the related nouns are "
     for ner in ner_list:
         print ner, "\r\n"
-    # for i in range(0,4):
-    #     s = parsetree( str(ansList[i]), relations=True, lemmata=True)
-    #     print repr(s)
+    # threads = []
+    # t1 = threading.Thread(target=answerQuestion, args=(u'how big is an atom',))
+    # threads.append(t1)
+    #
+    # for t in threads:
+    #     t.setDaemon(True)
+    #     t.start()
+    #
+    # t.join()
+    # print 'threads ended!'
+
+#@ToDO
+#Check a sentence by its center word of NPs
+#if the center words match the center words in question,
+#the answer should be scored high

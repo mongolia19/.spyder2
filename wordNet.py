@@ -174,7 +174,8 @@ def MeasureWordSimilarity(wordA, wordB):
 
 
 def IsNamedEntity(TagStr):
-    p = re.compile('NNP|NN|NNS|NE|PRP|NNPS')
+    # p = re.compile('NNP|NN|NNS|NE|PRP|NNPS')
+    p = re.compile('NNP|NN|NNS|NE|NNPS')
     m = p.match(TagStr)
     if m:
 
