@@ -33,6 +33,13 @@ Created on Sun Jul 05 14:22:06 2015
 # before comparing word in sentences and word in question, we should turn them into
 # lower case as well as singular form
 
+
+#Extract answer patterns for each kind of questions
+#First we set a group of patterns for each kind of questions
+#We use this set of patterns to extract answers
+#From the newly extracted answers we get the most frequently
+#appeared patterns. Then use the new patterns to update the patterns used in last search
+
 import re
 
 import random
@@ -49,7 +56,7 @@ from sumy.utils import get_stop_words
 import nltk
 
 from pattern.en import parsetree
-import MySqlHelper
+# import MySqlHelper
 from wordNet import wordDictRelation
 from wordNet import getVPListFromStr
 from wordNet import getNPListFromStr
@@ -68,7 +75,7 @@ from wordNet import get_lemma_of_word
 import textblob
 import copy
 import Levenshtein
-
+import FileUtils
 import threading
 from time import ctime,sleep
 
@@ -266,6 +273,25 @@ SENTENCES_STRUCT_2 = 'NP VP NP (VP) (NP)'
 SENTENCES_STRUCT_3 = 'NP VP NP NP'
 SENTENCES_STRUCT_4 = 'NP VP ADJP|PP|VP (NP)'
 SENTENCES_STRUCT_5 = '{NP|WP} {VP} {NP} ADJP|VP|PP (NP)'
+#boolean
+YESNO_QUESTION = ['is','are','or not']
+SELECTION_QUESTION = ['or']
+#short questions
+PERSON_QUESTION = ['who']
+LOCATION_QUESTION = ['where']
+TIME_QUESTION = ['when','what time']
+QUANTITY_QUESTION = ['how much', 'how many', 'how long', 'how far', 'how small', 'how near']
+OBJECT_QUESTION  = ['what']
+#long questions
+METHOD_QUESTION = ['how to']
+DEFINITION_QUESTION = ['what is','DEFINITION']
+PERSONDEF_QUESTION = ['where']
+REASON_QUESTION = ['why']
+
+Loc_Pattern = 'IN (.*)NNP'
+Time_Pattern = 'IN (.*)CD'
+QUANTITY_Pattern = 'CD (.*)N*'
+
 from pattern.search import Pattern
 
 
@@ -393,6 +419,12 @@ def get_tagged_sentence(sent_string):
     tags = nltk.pos_tag(tokens)
     return tags
 
+def tagString_of_sentence(sent_string):
+    word_tag_pair_list = get_tagged_sentence(sent_string)
+    tag_str = ''
+    for pair in word_tag_pair_list:
+        tag_str = tag_str + " " + pair[1]
+    return tag_str
 
 def getSentencesDictFromPassageByQuestion(question, passage_sentList):
     tokens = nltk.word_tokenize(question)
@@ -535,26 +567,26 @@ def talkMod(inputSentence):
     return ''
 
 
-def InsertRelationsFromStrArticle(article_str, db_info_list):
-    """
-
-    :param article_str: string
-    :param db_info_list: database connection info
-    """
-    sentenceslist = getSentencesFromPassageText(article_str)
-    sentenceslist = secondSentenceSplitor(sentenceslist)
-    for sent in sentenceslist:
-        relations = getRelation(sent)
-        pnp = get_pnp(sent)
-        pnp_string = ''
-        if len(pnp) >= 1:
-            pnp_string = pnp[0].string
-        if len(relations) > 0:
-            tDict = getRelationsFromDict(relations)
-            for k in tDict.keys():
-                values = [(k, tDict[k].OBJ.lower(), tDict[k].VP.lower(), tDict[k].SBJ.lower(), pnp_string)]
-                MySqlHelper.insert(db_info_list, values, "insert into relation values(%s,%s,%s,%s,%s)")
-    MySqlHelper.select(db_info_list, "select * from relation")
+# def InsertRelationsFromStrArticle(article_str, db_info_list):
+#     """
+#
+#     :param article_str: string
+#     :param db_info_list: database connection info
+#     """
+#     sentenceslist = getSentencesFromPassageText(article_str)
+#     sentenceslist = secondSentenceSplitor(sentenceslist)
+#     for sent in sentenceslist:
+#         relations = getRelation(sent)
+#         pnp = get_pnp(sent)
+#         pnp_string = ''
+#         if len(pnp) >= 1:
+#             pnp_string = pnp[0].string
+#         if len(relations) > 0:
+#             tDict = getRelationsFromDict(relations)
+#             for k in tDict.keys():
+#                 values = [(k, tDict[k].OBJ.lower(), tDict[k].VP.lower(), tDict[k].SBJ.lower(), pnp_string)]
+#                 MySqlHelper.insert(db_info_list, values, "insert into relation values(%s,%s,%s,%s,%s)")
+#     MySqlHelper.select(db_info_list, "select * from relation")
 
 
 def LocalSearch():
@@ -906,7 +938,24 @@ def InputClassifier(InputStr):
         talkMod(InputStr)
     else:
         questionMod(InputStr, questionType)
+def wordListInString(wordList, String):
+    for word in wordList:
+        if word in String:
+            return True
+    return False
 
+def questionPatternSelector(questionStr):
+    # word_list_in_sentenceStr(TIME_QUESTION, questionStr)
+    if wordListInString(TIME_QUESTION, questionStr.lower()):
+        print 'question about time'
+        return Time_Pattern
+    if wordListInString(LOCATION_QUESTION, questionStr.lower()):
+        print 'question about location'
+        return Loc_Pattern
+    if wordListInString(QUANTITY_QUESTION, questionStr.lower()):
+        print 'question about quantity'
+        return QUANTITY_Pattern
+    return ' '
 
 def get_all_sentences_list_from_web(search_content):
     yahooHead = 'http://global.bing.com/search?q='
@@ -1632,7 +1681,7 @@ def get_last_word(str_chunk):
     else:
         return str_chunk
 
-def compare_sentence_by_nugget_with_all_words(sent1, sent2):
+def compare_sentence_by_nugget_with_all_words(sent1, sent2, embeddings):
     nuggets1_list = nuggets_finder(sent1)
     words_list = sent2.split()
     score_list = list()
@@ -1651,10 +1700,10 @@ def compare_sentence_by_nugget_with_all_words(sent1, sent2):
         # print base_sbj_head
         h_score = 0
         for word in words_list:
-            s = similarityByEmbedding(base_sbj_head, word)
-            v = similarityByEmbedding(base_vp_head, word)
+            s = similarityByEmbedding(base_sbj_head, word, embeddings)
+            v = similarityByEmbedding(base_vp_head, word, embeddings)
             # o = Levenshtein.ratio(base_obj, obj)
-            o = similarityByEmbedding(base_obj_head, word)
+            o = similarityByEmbedding(base_obj_head, word, embeddings)
             score = float(s + v + o)/3
 
             if h_score < score:
@@ -1663,7 +1712,8 @@ def compare_sentence_by_nugget_with_all_words(sent1, sent2):
     sum = 0
     for s in score_list:
         sum += s
-    avg = sum/len(score_list)
+    # avg = sum/len(score_list)
+    avg = max(score_list)
     return avg
 
 def compare_sentence_by_nuggets(sent1, sent2):
@@ -1770,24 +1820,24 @@ def answer_by_a_few_sentence(question_string, question_type):
     n2_list = ner_tuple[1]
     n1_list = str_list_to_lower_case(n1_list)
     n2_list = str_list_to_lower_case(n2_list)
-    verbs = str_list_to_lower_case(getAllVerbs(get_tagged_sentence(question_string)))
+    # verbs = str_list_to_lower_case(getAllVerbs(get_tagged_sentence(question_string)))
     candidate_noun_sentence_list = list()
-    for sent in sent_str_list:
-        if word_list_in_sentenceStr(n1_list, sent.lower()) and\
-            word_list_in_sentenceStr(n2_list, sent.lower()):
-            candidate_noun_sentence_list.append(sent)
-    if len(candidate_noun_sentence_list) <=0:
-        candidate_noun_sentence_list = sent_str_list
+    # for sent in sent_str_list:
+    #     if word_list_in_sentenceStr(n1_list, sent.lower()) and\
+    #         word_list_in_sentenceStr(n2_list, sent.lower()):
+    #         candidate_noun_sentence_list.append(sent)
+    # if len(candidate_noun_sentence_list) <=0:
+    #     candidate_noun_sentence_list = sent_str_list
+    candidate_noun_sentence_list = sent_str_list
     print 'candidate_noun_sentence_list are ', candidate_noun_sentence_list
     candidate_verb_sentence_list = list()
     candidate_only_noun_sentence_list = list() # sentences only hit noun but failed with verb match
-    for sent in candidate_noun_sentence_list:
-        if all_word_list_in_sentenceStr(verbs, sent.lower()):
-            candidate_verb_sentence_list.append(sent)
-        else:
-            candidate_only_noun_sentence_list.append(sent)
-    noun_verb_hit_sentences_list = list()
-    sentences_with_different_verb = list()
+    # for sent in candidate_noun_sentence_list:
+    #     if all_word_list_in_sentenceStr(verbs, sent.lower()):
+    #         candidate_verb_sentence_list.append(sent)
+    #     else:
+    #         candidate_only_noun_sentence_list.append(sent)
+
     # sentences_with_different_verb = sort_sentence_by_verb_hit(verbs, candidate_only_noun_sentence_list)
     # if len(candidate_verb_sentence_list)==0:
     #     noun_verb_hit_sentences_list = sort_sentence_by_verb_hit(verbs, candidate_only_noun_sentence_list)
@@ -1820,8 +1870,8 @@ def answer_by_a_few_sentence(question_string, question_type):
 
         if (Levenshtein.ratio(str(question_string.lower()), str(sent.lower()))>similar_level):
             continue
-        sc = (compare_sentence_by_nugget_with_all_words(question_string, sent)*0.9\
-            + compare_sentence_by_nugget_with_all_words(sent, question_string)*0.1)
+        sc = (compare_sentence_by_nugget_with_all_words(question_string, sent, embeddings)*0.9\
+            + compare_sentence_by_nugget_with_all_words(sent, question_string, embeddings)*0.1)
         sent_eval.append((sent, sc))
     print "Now will do the sorting length is ", len(sent_eval)
     sorted_l=sorted(sent_eval,key=lambda t:t[1],reverse=True)
@@ -1924,8 +1974,8 @@ def Distance2Similarity(value):
     else:
         return (value/(1+value))
 
-def similarityByEmbedding(w1,w2):
-    global embeddings
+def similarityByEmbedding(w1,w2, embeddings):
+    # global embeddings
     v1index = sim_dict.get(w1.lower())
     v2index = sim_dict.get(w2.lower())
     print "v1index is ", v1index
@@ -1980,6 +2030,15 @@ def answerQuestion(question):
     for ner in ner_list:
         print ner, "\r\n"
 
+def checkPatternByRe(search_str, pattern_str):
+    p = re.compile(pattern_str)
+    m = p.search(search_str)
+    # print m.group()
+    if m:
+        return True
+    else:
+        return False
+
 from word2vec_basic import full_cycle
 if __name__ == "__main__":
 
@@ -1990,6 +2049,7 @@ if __name__ == "__main__":
     # summary_over_article_text(txt)
     n1_syn = ['united states', 'america']
     sent = ' On behalf of all the course staff, I’d like to take this moment to thank all of you for your participation in this course and for all your constructive comments about how to further improve the course.'
+    # checkPatternByRe(tag_str, question_pattern)
     # b = word_list_in_sentenceStr(n1_syn, sent.lower())
 
     # question = 'what is the definition of Maths'
@@ -2018,22 +2078,41 @@ if __name__ == "__main__":
     #
     # we should take each word in the back-up sentence into consideration to see if the
     # sentence is relevant to the question
-    question = "why birds can fly"
+    question = "how long can a tree live?"
     art_list = get_articles_withURKL_from_websearch_query(question)
+
     str_word = ''
     print "finish getting all the articles"
     for art in art_list:
         str_word += art[0]
+        # Write raw contents to file
+        FileUtils.WriteToFile('data.text', art[0] + '\r\n' + '======')
         # out = get_summary_sentences_by_summarizer_voting(art[0])
         # print 'Results are '
         # for sent in out :
         #     print sent
         #     print "\r\n"
+    word_str_buff = ""
     str_word = str_word.split()
     word_list = list()
     for w in str_word:
+        # if len(str(w).strip())<3:
+        #     continue
         post_w = str(w).strip().lower()
         word_list.append(post_w)
+        word_str_buff = word_str_buff + " " + post_w
+    # Write to the bag of words file
+    # FileUtils.WriteToFile('bag_of_words.txt', word_str_buff)
+    # Read words out from bag of words
+    # str_word = FileUtils.OpenFileUnicode('bag_of_words.txt')
+
+    # word_list = list()
+    # for w in str_word:
+        # if len(str(w).strip())<3:
+            # continue
+        # post_w = str(w).strip().lower()
+        # word_list.append(post_w)
+        # word_str_buff = word_str_buff + " " + post_w
     global embeddings
     print "Will now call full_cycle()"
     embeddings, sim_dict = full_cycle(word_list)
@@ -2057,12 +2136,15 @@ if __name__ == "__main__":
         print sent, "\r\n"
         print get_tagged_sentence(sent[0])
         print "====================="
+    question_pattern = questionPatternSelector(question)
     #Score the last extracted backup sentences by its presence in summarized_sentences
     Voting_summarier_number = 4
+    word_black_list = ['when', 'how', 'what', 'which', 'where','?','html', 'ocols and Formats Working Group (PFWG'\
+                       , 'Semantic Web Deployment Working Group']
     backupAnswerAfterScoreBySummary = []
     for str_score_pair in ansList:
         ans_str = str_score_pair[0]
-        if not is_sentence_complete(ans_str):
+        if (not is_sentence_complete(ans_str)) or wordListInString(word_black_list,ans_str.lower()):
             continue
         mean_score = str_score_pair[1]
         summaryScore = 0.0
@@ -2073,8 +2155,16 @@ if __name__ == "__main__":
         # length factor: we tend to extract longer sentences, they describes more clearly
         # sent_length = len(ans_str)
         # lengthFactor = sent_length/float(1+sent_length)
-        mean_score = 0.5 * summaryScore + \
-                     0.5 * mean_score
+        tag_str = tagString_of_sentence(ans_str)
+        print '-----------', tag_str
+        questionPatternScore = float(0)
+        if checkPatternByRe(tag_str, question_pattern):
+            questionPatternScore = 1
+        else:
+            questionPatternScore = 0
+        mean_score = 0.020 * summaryScore + \
+                     0.88 * mean_score + \
+                     0.1 * questionPatternScore
                      # 0.01 * lengthFactor
                      # + 0.35 * compare_sentence_by_nuggets(question, ans_str)
         # mean_score = mean_score/2
@@ -2085,6 +2175,9 @@ if __name__ == "__main__":
         print sent_pair, "\r\n"
         # print nuggets_finder(sent_pair[0])
         print "+++++++++++++++++++++++++++++"
+    #Check the scores of sentences by nuggets comparing again
+    # see why unrelated sentences have very high scores
+
     # Comparing with summary method, here just compare how similar center words in question are with
     # the ones in answers
     # ScoredSentencesByCenterWordComparing = []

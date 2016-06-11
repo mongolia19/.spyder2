@@ -211,7 +211,7 @@ def full_cycle(words_list):
 
 
     # step 6
-    num_steps = 10001
+    num_steps = 30001
 
     with tf.Session(graph=graph) as session:
       # We must initialize all variables before we use them.
@@ -220,7 +220,7 @@ def full_cycle(words_list):
 
       average_loss = 0
       for step in xrange(num_steps):
-        print('Training at step ', step)
+        # print('Training at step ', step)
         batch_inputs, batch_labels = generate_batch(
             batch_size, num_skips, skip_window, data=data)
         feed_dict = {train_inputs : batch_inputs, train_labels : batch_labels}
