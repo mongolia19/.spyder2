@@ -103,6 +103,8 @@ def generate_batch(batch_size, num_skips, skip_window, data):
   span = 2 * skip_window + 1 # [ skip_window target skip_window ]
   buffer = collections.deque(maxlen=span)
   for _ in range(span):
+    if data_index>=len(data):
+        continue
     buffer.append(data[data_index])
     data_index = (data_index + 1) % len(data)
   for i in range(batch_size // num_skips):
@@ -211,7 +213,7 @@ def full_cycle(words_list):
 
 
     # step 6
-    num_steps = 30001
+    num_steps = 20001
 
     with tf.Session(graph=graph) as session:
       # We must initialize all variables before we use them.

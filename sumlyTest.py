@@ -979,7 +979,60 @@ def get_all_sentences_list_from_web(search_content):
             print ks
             all_sentence_List.append(ks)
     return all_sentence_List
+ENGLISH_STOP_WORDS = frozenset([
+    "a", "about", "above", "across", "after", "afterwards", "again", "against",
+    "all", "almost", "alone", "along", "already", "also", "although", "always",
+    "am", "among", "amongst", "amoungst", "amount", "an", "and", "another",
+    "any", "anyhow", "anyone", "anything", "anyway", "anywhere", "are",
+    "around", "as", "at", "back", "be", "became", "because", "become",
+    "becomes", "becoming", "been", "before", "beforehand", "behind", "being",
+    "below", "beside", "besides", "between", "beyond", "bill", "both",
+    "bottom", "but", "by", "call", "can", "cannot", "cant", "co", "con",
+    "could", "couldnt", "cry", "de", "describe", "detail", "do", "done",
+    "down", "due", "during", "each", "eg", "eight", "either", "eleven", "else",
+    "elsewhere", "empty", "enough", "etc", "even", "ever", "every", "everyone",
+    "everything", "everywhere", "except", "few", "fifteen", "fify", "fill",
+    "find", "fire", "first", "five", "for", "former", "formerly", "forty",
+    "found", "four", "from", "front", "full", "further", "get", "give", "go",
+    "had", "has", "hasnt", "have", "he", "hence", "her", "here", "hereafter",
+    "hereby", "herein", "hereupon", "hers", "herself", "him", "himself", "his",
+    "how", "however", "hundred", "i", "ie", "if", "in", "inc", "indeed",
+    "interest", "into", "is", "it", "its", "itself", "keep", "last", "latter",
+    "latterly", "least", "less", "ltd", "made", "many", "may", "me",
+    "meanwhile", "might", "mill", "mine", "more", "moreover", "most", "mostly",
+    "move", "much", "must", "my", "myself", "name", "namely", "neither",
+    "never", "nevertheless", "next", "nine", "no", "nobody", "none", "noone",
+    "nor", "not", "nothing", "now", "nowhere", "of", "off", "often", "on",
+    "once", "one", "only", "onto", "or", "other", "others", "otherwise", "our",
+    "ours", "ourselves", "out", "over", "own", "part", "per", "perhaps",
+    "please", "put", "rather", "re", "same", "see", "seem", "seemed",
+    "seeming", "seems", "serious", "several", "she", "should", "show", "side",
+    "since", "sincere", "six", "sixty", "so", "some", "somehow", "someone",
+    "something", "sometime", "sometimes", "somewhere", "still", "such",
+    "system", "take", "ten", "than", "that", "the", "their", "them",
+    "themselves", "then", "thence", "there", "thereafter", "thereby",
+    "therefore", "therein", "thereupon", "these", "they", "thick", "thin",
+    "third", "this", "those", "though", "three", "through", "throughout",
+    "thru", "thus", "to", "together", "too", "top", "toward", "towards",
+    "twelve", "twenty", "two", "un", "under", "until", "up", "upon", "us",
+    "very", "via", "was", "we", "well", "were", "what", "whatever", "when",
+    "whence", "whenever", "where", "whereafter", "whereas", "whereby",
+    "wherein", "whereupon", "wherever", "whether", "which", "while", "whither",
+    "who", "whoever", "whole", "whom", "whose", "why", "will", "with",
+    "within", "without", "would", "yet", "you", "your", "yours", "yourself",
+    "yourselves"])
+def sentence2wordStr_removeStopWords(sentStr,stopWordList):
+    tokens = nltk.word_tokenize(sentStr)
+    wordStr = ''
+    if len(tokens)<=3:
+        return ""
+    for token in tokens:
+        if token.lower().strip() in stopWordList:
+            continue
+        wordStr = wordStr + token + ','
+    return wordStr
 
+# import sklearn.feature_extraction.ENGLISH_STOP_WORDS as stop_words_list
 
 def getRelatedSentencesListFromWeb(searchedKeyWords):
     yahooHead = 'http://global.bing.com/search?q='
@@ -1010,7 +1063,18 @@ def getRelatedSentencesListFromWeb(searchedKeyWords):
             keySentencesText = keySentencesText + ' ' + ks
     MainSearchResultSentencesList = getSentencesFromPassageText(keySentencesText)
     MainSearchResultSentencesList = secondSentenceSplitor(MainSearchResultSentencesList)
-    # for a single article remove the summary sentences,leaving only the details.
+    # write sentences in format w,w,w, to file
+    read = file('data.txt', 'a+')
+    for s in MainSearchResultSentencesList:
+
+        lineStr = sentence2wordStr_removeStopWords(s, ENGLISH_STOP_WORDS)
+        if len(lineStr)<=1:
+            continue
+        read.write("\r\n")
+        read.write(lineStr)
+    read.close
+
+        # for a single article remove the summary sentences,leaving only the details.
     # then extract patterns from only the details
     return MainSearchResultSentencesList
 
@@ -1068,7 +1132,20 @@ def similarity(sent_list, total_corp):
     similarity_list = list(sims)
 
     return similarity_list
+import apriori
+def self_learn_by_apriori(folder_path, out_put_path, stopWordList):
+    sent_word_list = list()
+    articleStringList = FileUtils.getContentStrListFromRawTextPath(folder_path)
 
+    for article in articleStringList:
+        sentenceList = getSentencesFromPassageText(article)
+        for sent in sentenceList:
+            sent_word_list.append(sentence2wordStr_removeStopWords(sent, stopWordList))
+    print "finish loading words"
+    # apriori.
+    items, rules = apriori.runApriori(sent_word_list, 0.03, 0.3)
+    print rules
+    return rules
 
 def self_learn_by_question_answer(local_text_seed_article, out_put_path, similarity_tol):
     f = open(local_text_seed_article, 'r')
@@ -2078,103 +2155,126 @@ if __name__ == "__main__":
     #
     # we should take each word in the back-up sentence into consideration to see if the
     # sentence is relevant to the question
-    question = "how long can a tree live?"
-    art_list = get_articles_withURKL_from_websearch_query(question)
+    filehandler = open('result.txt', 'r')
+    # what does ... mean
+    question_sentence_part_start = 'Why does '
+    question_sentence_part_end = ''
 
-    str_word = ''
-    print "finish getting all the articles"
-    for art in art_list:
-        str_word += art[0]
-        # Write raw contents to file
-        FileUtils.WriteToFile('data.text', art[0] + '\r\n' + '======')
-        # out = get_summary_sentences_by_summarizer_voting(art[0])
-        # print 'Results are '
-        # for sent in out :
-        #     print sent
-        #     print "\r\n"
-    word_str_buff = ""
-    str_word = str_word.split()
-    word_list = list()
-    for w in str_word:
-        # if len(str(w).strip())<3:
-        #     continue
-        post_w = str(w).strip().lower()
-        word_list.append(post_w)
-        word_str_buff = word_str_buff + " " + post_w
-    # Write to the bag of words file
-    # FileUtils.WriteToFile('bag_of_words.txt', word_str_buff)
-    # Read words out from bag of words
-    # str_word = FileUtils.OpenFileUnicode('bag_of_words.txt')
-
-    # word_list = list()
-    # for w in str_word:
-        # if len(str(w).strip())<3:
-            # continue
-        # post_w = str(w).strip().lower()
-        # word_list.append(post_w)
-        # word_str_buff = word_str_buff + " " + post_w
-    global embeddings
-    print "Will now call full_cycle()"
-    embeddings, sim_dict = full_cycle(word_list)
-    print "full_cycle() end"
-    ansList = answer_by_a_few_sentence(question, WHO)
-    ansList = list(set(ansList))
-    ansList = sorted(ansList, key=lambda t: (-t[1], t[0]))
+    SHORT_SENT = 15
+    questionList = filehandler.readlines()
     ner_list = list()
-    selected_sentences_string = ""
-    print 'The last answers are: '
-    for ans in ansList:
-        print ans, type(ans)
-        ner_list = ner_list + get_all_entities_by_nltk(ans[0])
-        selected_sentences_string = selected_sentences_string + ans[0] + "."
-        print "\r\n"
-
-    # get summary sentences from the last selected sentences
-    summarized_sentences = get_summary_sentences_by_summarizer_voting(selected_sentences_string)
-    print " summarized answers are: "
-    for sent in summarized_sentences:
-        print sent, "\r\n"
-        print get_tagged_sentence(sent[0])
-        print "====================="
-    question_pattern = questionPatternSelector(question)
-    #Score the last extracted backup sentences by its presence in summarized_sentences
-    Voting_summarier_number = 4
-    word_black_list = ['when', 'how', 'what', 'which', 'where','?','html', 'ocols and Formats Working Group (PFWG'\
-                       , 'Semantic Web Deployment Working Group']
-    backupAnswerAfterScoreBySummary = []
-    for str_score_pair in ansList:
-        ans_str = str_score_pair[0]
-        if (not is_sentence_complete(ans_str)) or wordListInString(word_black_list,ans_str.lower()):
+    for q in questionList:
+        ner = get_all_entities_by_nltk(q)
+        if len(ner) ==0:
             continue
-        mean_score = str_score_pair[1]
-        summaryScore = 0.0
-        for summaryStr_score_pair in summarized_sentences:
-            if str_score_pair[0] in summaryStr_score_pair[0]:
-                summaryScore = summaryStr_score_pair[1] / float(Voting_summarier_number)
-                break
-        # length factor: we tend to extract longer sentences, they describes more clearly
-        # sent_length = len(ans_str)
-        # lengthFactor = sent_length/float(1+sent_length)
-        tag_str = tagString_of_sentence(ans_str)
-        print '-----------', tag_str
-        questionPatternScore = float(0)
-        if checkPatternByRe(tag_str, question_pattern):
-            questionPatternScore = 1
         else:
-            questionPatternScore = 0
-        mean_score = 0.020 * summaryScore + \
-                     0.88 * mean_score + \
-                     0.1 * questionPatternScore
-                     # 0.01 * lengthFactor
-                     # + 0.35 * compare_sentence_by_nuggets(question, ans_str)
-        # mean_score = mean_score/2
-        backupAnswerAfterScoreBySummary.append((ans_str, mean_score))
-    backupAnswerAfterScoreBySummary = sorted(backupAnswerAfterScoreBySummary, key=lambda t: (-t[1], t[0]))
-    print "Scored by both word relation and summary answers are: "
-    for sent_pair in backupAnswerAfterScoreBySummary:
-        print sent_pair, "\r\n"
-        # print nuggets_finder(sent_pair[0])
-        print "+++++++++++++++++++++++++++++"
+            if ner[0] not in ner_list:
+                ner_list.append(ner[0])
+        if len(q)<SHORT_SENT:
+            continue
+        question = question_sentence_part_start + ner[0] + question_sentence_part_end
+        print "Question is: ", question
+        art_list = get_articles_withURKL_from_websearch_query(question)
+
+        str_word = ''
+        print "finish getting all the articles"
+        for art in art_list:
+            str_word += art[0]
+            # Write raw contents to file
+            # FileUtils.WriteToFile('data.text', art[0] + '\r\n' + '======')
+            # out = get_summary_sentences_by_summarizer_voting(art[0])
+            # print 'Results are '
+            # for sent in out :
+            #     print sent
+            #     print "\r\n"
+        word_str_buff = ""
+        str_word = str_word.split()
+        word_list = list()
+        for w in str_word:
+            # if len(str(w).strip())<3:
+            #     continue
+            post_w = str(w).strip().lower()
+            word_list.append(post_w)
+            word_str_buff = word_str_buff + " " + post_w
+        # Write to the bag of words file
+        # FileUtils.WriteToFile('bag_of_words.txt', word_str_buff)
+        # Read words out from bag of words
+        # str_word = FileUtils.OpenFileUnicode('bag_of_words.txt')
+
+        # word_list = list()
+        # for w in str_word:
+            # if len(str(w).strip())<3:
+                # continue
+            # post_w = str(w).strip().lower()
+            # word_list.append(post_w)
+            # word_str_buff = word_str_buff + " " + post_w
+        # global embeddings
+        embeddings = None
+        sim_dict = {}
+        print "Will now call full_cycle()"
+        try:
+            embeddings, sim_dict = full_cycle(word_list)
+        except:
+            continue
+        print "full_cycle() end"
+        ansList = answer_by_a_few_sentence(question, WHO)
+        ansList = list(set(ansList))
+        ansList = sorted(ansList, key=lambda t: (-t[1], t[0]))
+        ner_list = list()
+        selected_sentences_string = ""
+        print 'The last answers are: '
+        for ans in ansList:
+            print ans, type(ans)
+            ner_list = ner_list + get_all_entities_by_nltk(ans[0])
+            selected_sentences_string = selected_sentences_string + ans[0] + "."
+            print "\r\n"
+
+        # get summary sentences from the last selected sentences
+        summarized_sentences = get_summary_sentences_by_summarizer_voting(selected_sentences_string)
+        print " summarized answers are: "
+        for sent in summarized_sentences:
+            print sent, "\r\n"
+            print get_tagged_sentence(sent[0])
+            print "====================="
+        question_pattern = questionPatternSelector(question)
+        #Score the last extracted backup sentences by its presence in summarized_sentences
+        Voting_summarier_number = 4
+        word_black_list = ['when', 'how', 'what', 'which', 'where','?','html', 'ocols and Formats Working Group (PFWG'\
+                           , 'Semantic Web Deployment Working Group', 'Microsoft', 'your browser']
+        backupAnswerAfterScoreBySummary = []
+        for str_score_pair in ansList:
+            ans_str = str_score_pair[0]
+            if (not is_sentence_complete(ans_str)) or wordListInString(word_black_list,ans_str.lower()):
+                continue
+            mean_score = str_score_pair[1]
+            summaryScore = 0.0
+            for summaryStr_score_pair in summarized_sentences:
+                if str_score_pair[0] in summaryStr_score_pair[0]:
+                    summaryScore = summaryStr_score_pair[1] / float(Voting_summarier_number)
+                    break
+            # length factor: we tend to extract longer sentences, they describes more clearly
+            # sent_length = len(ans_str)
+            # lengthFactor = sent_length/float(1+sent_length)
+            tag_str = tagString_of_sentence(ans_str)
+            print '-----------', tag_str
+            questionPatternScore = float(0)
+            if checkPatternByRe(tag_str, question_pattern):
+                questionPatternScore = 1
+            else:
+                questionPatternScore = 0
+            mean_score = 0.020 * summaryScore + \
+                         0.88 * mean_score + \
+                         0.1 * questionPatternScore
+                         # 0.01 * lengthFactor
+                         # + 0.35 * compare_sentence_by_nuggets(question, ans_str)
+            # mean_score = mean_score/2
+            backupAnswerAfterScoreBySummary.append((ans_str, mean_score))
+        backupAnswerAfterScoreBySummary = sorted(backupAnswerAfterScoreBySummary, key=lambda t: (-t[1], t[0]))
+        print "Scored by both word relation and summary answers are: "
+        for sent_pair in backupAnswerAfterScoreBySummary:
+            print sent_pair, "\r\n"
+            # print nuggets_finder(sent_pair[0])
+            print "+++++++++++++++++++++++++++++"
     #Check the scores of sentences by nuggets comparing again
     # see why unrelated sentences have very high scores
 
@@ -2193,10 +2293,10 @@ if __name__ == "__main__":
     #     print sent_pair, "\r\n"
     #     print "============================"
     # get keywords
-    ner_list = list(set(ner_list))
-    print "the related nouns are "
-    for ner in ner_list:
-        print ner, "\r\n"
+    # ner_list = list(set(ner_list))
+    # print "the related nouns are "
+    # for ner in ner_list:
+    #     print ner, "\r\n"
     # threads = []
     # t1 = threading.Thread(target=answerQuestion, args=(u'how big is an atom',))
     # threads.append(t1)

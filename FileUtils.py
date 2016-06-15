@@ -88,6 +88,22 @@ def getContentStrListFromHTMLPath(path='htmls'):
         contentStrList.append(soup.text)
         fileOBJ.close()
     return contentStrList
+
+def getContentStrListFromRawTextPath(path='text'):
+    contentStrList=list()
+    fileList = ReturnAllFileOnPath(1,path)
+    print "files are :"
+    print  fileList
+    #print soup.text
+    for Onefile in fileList:
+        fileOBJ = open(Onefile)
+        doc = fileOBJ.read().decode('gbk', 'ignore')
+        #html_doc = fileOBJ.read().decode('utf-8', 'ignore').encode('gbk')
+        # soup = BeautifulSoup.BeautifulSoup(html_doc)
+        contentStrList.append(doc)
+        fileOBJ.close()
+    return contentStrList
+
 def OpenFileGBK(OnefilePath):
     fileOBJ = open(OnefilePath)
     html_doc = fileOBJ.read().decode('gbk', 'ignore')
