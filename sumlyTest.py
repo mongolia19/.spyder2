@@ -492,7 +492,7 @@ def secondSentenceSplitor(sentenceList):
     resList = list()
     for sentence in sentenceList:
         # tList = re.split('(\.\.\.|\', \')|(\|)|(\*)', sentence)
-        tList = re.split("(\|)|(\*)|(-+)|(\.)|(\n)", sentence)
+        tList = re.split("(\|)|(\*)|(-+)|(\.)|(\n)|(\?)|(\r\n)", sentence)
         resList = resList + tList
     rlist = list()
     for s in range(0, len(resList)):
@@ -1132,20 +1132,122 @@ def similarity(sent_list, total_corp):
     similarity_list = list(sims)
 
     return similarity_list
-import apriori
+import apriori_norule
+
+
+def dataFromFile(fname):
+    """Function which reads from the file and yields a generator"""
+    file_iter = open(fname, 'rU')
+    for line in file_iter:
+        line = line.strip().rstrip(',')  # Remove trailing comma
+        record = frozenset(line.split(','))
+        yield record
+def sent_word_list_generator(sentenceList, stopWordList):
+    for sent in sentenceList:
+        sent = sent.rstrip(',')  # Remove trailing comma
+        # '\s'
+        wordlist = list()
+        for w in sent.split(' '):
+            if w == '' or len(w)<=1:
+                continue
+            else:
+                wordlist.append(w)
+        record = frozenset(wordlist)
+        yield record
+
+def sent_word_list_generator_blank(sentenceList, stopWordList):
+    recorList = list()
+    for sent in sentenceList:
+        sent = sent.rstrip(',')  # Remove trailing comma
+        # '\s'
+        wordlist = list()
+        for w in sent.split(' '):
+            if w == '' or len(w)<=1:
+                continue
+            else:
+                wordlist.append(w)
+        record = (wordlist)
+        if len(record)>0:
+            recorList.append(record)
+    return recorList
+def sent_word_list_generator_comma(sentenceList, stopWordList):
+    recorList = list()
+    for sent in sentenceList:
+        sent = sent.rstrip(',')  # Remove trailing comma
+        # '\s'
+        wordlist = list()
+        for w in sent.split(','):
+            if w == '' or len(w)<=1:
+                continue
+            else:
+                wordlist.append(w)
+        record = (wordlist)
+        if len(record) > 0:
+            recorList.append(record)
+    return recorList
+
 def self_learn_by_apriori(folder_path, out_put_path, stopWordList):
     sent_word_list = list()
     articleStringList = FileUtils.getContentStrListFromRawTextPath(folder_path)
 
     for article in articleStringList:
-        sentenceList = getSentencesFromPassageText(article)
-        for sent in sentenceList:
-            sent_word_list.append(sentence2wordStr_removeStopWords(sent, stopWordList))
+        sentenceList = secondSentenceSplitor( getSentencesFromPassageText(article))
+        f_set =  sent_word_list_generator_blank(sentenceList, stopWordList)
+        if len(f_set)<=0:
+            continue
+        sent_word_list = sent_word_list + f_set
+        # sent_word_list = apriori.dataFromFile()
+        # for sent in sentenceList:
+        #     sent = sent.strip().rstrip(',')  # Remove trailing comma
+        #     record = frozenset(sent.split(','))
+        #     yield record
+            # sent_word_list.append(frozenset(sentence2wordStr_removeStopWords(sent, stopWordList).split(',')))
     print "finish loading words"
     # apriori.
-    items, rules = apriori.runApriori(sent_word_list, 0.03, 0.3)
-    print rules
+    # rules = apriori(sent_word_list, 0.07)
+    rules = apriori_norule.apriori(sent_word_list, 0.8)
+
+    print "rules:"
+    for rule in rules:
+        print rule
     return rules
+import fp_Growth
+
+def self_learn_by_fp_growth(folder_path, out_put_path, stopWordList):
+    sent_word_list = list()
+    articleStringList = FileUtils.getContentStrListFromRawTextPath(folder_path)
+
+    for article in articleStringList:
+        sentenceList = secondSentenceSplitor( getSentencesFromPassageText(article))
+        f_set =  sent_word_list_generator_blank(sentenceList, stopWordList)
+        if len(f_set)<=0:
+            continue
+        sent_word_list = sent_word_list + f_set
+        # sent_word_list = apriori.dataFromFile()
+        # for sent in sentenceList:
+        #     sent = sent.strip().rstrip(',')  # Remove trailing comma
+        #     record = frozenset(sent.split(','))
+        #     yield record
+            # sent_word_list.append(frozenset(sentence2wordStr_removeStopWords(sent, stopWordList).split(',')))
+    print "finish loading words"
+    # apriori.
+    # rules = apriori(sent_word_list, 0.07)
+    rules = fp_Growth.tree_builder.tree_builder(sent_word_list, len(sent_word_list)*0.1)
+
+    return rules.SortedRoutines
+
+
+def if_rules_repeated(rule_setA, rule_setB):
+    setA = (rule_setA)
+    setB = (rule_setB)
+    setLen = len(setA)
+    if setLen != len(setB):
+        return False
+    else:
+        if len(setA.intersection(setB)) == setLen:
+            return True
+        else:
+            return False
 
 def self_learn_by_question_answer(local_text_seed_article, out_put_path, similarity_tol):
     f = open(local_text_seed_article, 'r')
@@ -2115,6 +2217,41 @@ def checkPatternByRe(search_str, pattern_str):
         return True
     else:
         return False
+def getRulesByApriori(RawFilePath, stopWordsList):
+    # sentences = read_file('data.text')
+    # assrules = associationRule(sentences)
+    # assrules.apriori()
+    # assrules.generateRules()
+    rules = self_learn_by_apriori(RawFilePath, '', stopWordsList)
+    ruleSetList = list()
+    for rule in rules:
+        rule_set = set(list(rule[0][0]) +list(rule[0][1]))
+        ruleSetList.append(rule_set)
+    print '======rule sets===='
+
+    # ruleSetList = set(ruleSetList)
+    ruleSetList = removeSameSet(ruleSetList)
+    for r in ruleSetList:
+        print r,'\r\n'
+    return ruleSetList
+    # print (ruleSetList[0] == ruleSetList[1])
+
+
+def removeSameSet(setList):
+    for i in range(len(setList)):
+        for j in range(len(setList)):
+            if (i<len(setList)) and (j<len(setList))and (i != j):
+                print "i = " ,i , "j = " ,j
+                if if_rules_repeated(setList[i],setList[j]):
+                    setList.pop(j)
+    return setList
+
+def scoreSentenceByFreqRules(ruleList,sent):
+    score = 0
+    for rule in ruleList:
+        if all_word_list_in_sentenceStr(rule, sent):
+            score = score + 1
+    return score
 
 from word2vec_basic import full_cycle
 if __name__ == "__main__":
@@ -2157,8 +2294,8 @@ if __name__ == "__main__":
     # sentence is relevant to the question
     filehandler = open('result.txt', 'r')
     # what does ... mean
-    question_sentence_part_start = 'Why does '
-    question_sentence_part_end = ''
+    question_sentence_part_start = 'what does '
+    question_sentence_part_end = ' mean'
 
     SHORT_SENT = 15
     questionList = filehandler.readlines()
@@ -2187,7 +2324,7 @@ if __name__ == "__main__":
             # for sent in out :
             #     print sent
             #     print "\r\n"
-        word_str_buff = ""
+
         str_word = str_word.split()
         word_list = list()
         for w in str_word:
@@ -2195,7 +2332,7 @@ if __name__ == "__main__":
             #     continue
             post_w = str(w).strip().lower()
             word_list.append(post_w)
-            word_str_buff = word_str_buff + " " + post_w
+
         # Write to the bag of words file
         # FileUtils.WriteToFile('bag_of_words.txt', word_str_buff)
         # Read words out from bag of words
@@ -2218,6 +2355,8 @@ if __name__ == "__main__":
             continue
         print "full_cycle() end"
         ansList = answer_by_a_few_sentence(question, WHO)
+        # extract freq words combinations
+        rules = getRulesByApriori('data.txt', ENGLISH_STOP_WORDS)
         ansList = list(set(ansList))
         ansList = sorted(ansList, key=lambda t: (-t[1], t[0]))
         ner_list = list()
@@ -2257,11 +2396,13 @@ if __name__ == "__main__":
             # lengthFactor = sent_length/float(1+sent_length)
             tag_str = tagString_of_sentence(ans_str)
             print '-----------', tag_str
+            #check if sentence meets question pattern
             questionPatternScore = float(0)
             if checkPatternByRe(tag_str, question_pattern):
                 questionPatternScore = 1
             else:
                 questionPatternScore = 0
+
             mean_score = 0.020 * summaryScore + \
                          0.88 * mean_score + \
                          0.1 * questionPatternScore
