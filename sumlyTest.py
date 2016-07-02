@@ -57,7 +57,7 @@ import nltk
 
 from pattern.en import parsetree
 # import MySqlHelper
-from wordNet import wordDictRelation
+from wordNet import wordDictRelation, hit_percent_in_sentenceStr
 from wordNet import getVPListFromStr
 from wordNet import getNPListFromStr
 from wordNet import wordInSentStr
@@ -1029,7 +1029,7 @@ def sentence2wordStr_removeStopWords(sentStr,stopWordList):
     for token in tokens:
         if token.lower().strip() in stopWordList:
             continue
-        wordStr = wordStr + token + ','
+        wordStr = wordStr + token + ' '
     return wordStr
 
 # import sklearn.feature_extraction.ENGLISH_STOP_WORDS as stop_words_list
@@ -1059,16 +1059,22 @@ def getRelatedSentencesListFromWeb(searchedKeyWords):
             #            print(type(sentence))
             #            print(sentence)
             ks = sentence._text.decode('gbk', 'ignore').encode('utf-8')
-            print ks
+            # print ks
             keySentencesText = keySentencesText + ' ' + ks
     MainSearchResultSentencesList = getSentencesFromPassageText(keySentencesText)
     MainSearchResultSentencesList = secondSentenceSplitor(MainSearchResultSentencesList)
     # write sentences in format w,w,w, to file
-    read = file('data.txt', 'a+')
+    global question_countor
+    if question_countor >5:
+        question_countor = 0
+        writeEmpty = file('./text/rawtext/data.txt', 'w')
+        writeEmpty.write('')
+        writeEmpty.close()
+    read = file('./text/rawtext/data.txt', 'a+')
     for s in MainSearchResultSentencesList:
 
         lineStr = sentence2wordStr_removeStopWords(s, ENGLISH_STOP_WORDS)
-        if len(lineStr)<=1:
+        if len(lineStr)<=1 or len(lineStr)>15:
             continue
         read.write("\r\n")
         read.write(lineStr)
@@ -1232,9 +1238,14 @@ def self_learn_by_fp_growth(folder_path, out_put_path, stopWordList):
     print "finish loading words"
     # apriori.
     # rules = apriori(sent_word_list, 0.07)
-    rules = fp_Growth.tree_builder.tree_builder(sent_word_list, len(sent_word_list)*0.1)
-
-    return rules.SortedRoutines
+    rules = fp_Growth.tree_builder.tree_builder(sent_word_list, len(sent_word_list)*0.006)
+    ruleList = list()
+    for r in rules.SortedRoutines:
+        ruleList.append(r.strip().split(' '))
+    print 'rules are :'
+    for r in ruleList:
+        print r
+    return ruleList
 
 
 def if_rules_repeated(rule_setA, rule_setB):
@@ -1403,7 +1414,7 @@ def get_articles_withURKL_from_websearch_query(query_string):
     for i in range(0, iif(len(urlList) > URLNum, URLNum, len(urlList))):
         passageSentences = html_to_plain_text(urlList[i][0])
         print 'html_to_plain_text called in get_articles_withURKL_from_websearch_query'
-        print 'the text is ', passageSentences
+        # print 'the text is ', passageSentences
         if passageSentences is None or len(passageSentences) <= 3:
             continue
         articleStrList.append((passageSentences, urlList[i][0]))
@@ -1969,7 +1980,7 @@ def is_sentence_complete(sent):
         vp = str(t[1])
         obj = str(t[2])
         if sbj == '' or vp == '' or obj == '':
-            print 'Nugget is not complete, return false'
+            # print 'Nugget is not complete, return false'
             return False
         else:
             return True
@@ -2067,8 +2078,8 @@ def answer_by_a_few_sentence(question_string, question_type):
             vp = str(t[1])
             obj = str(t[2])
             if sbj == '' or vp == '' or obj == '':
-                print 'Nugget is ' , s
-                print 'Nugget is not complete, skip this sentence.'
+                # print 'Nugget is ' , s
+                # print 'Nugget is not complete, skip this sentence.'
                 continue
             else:
                 complete_l.append(s)
@@ -2134,7 +2145,7 @@ def getDistance(v1_index,v2_index):
     if len(v1_index.shape)!=len(v2_index.shape):
         return -10000000
     else:
-        print " Indexs are ", (v1_index.shape), " ", (v2_index.shape)
+        # print " Indexs are ", (v1_index.shape), " ", (v2_index.shape)
 
         sum = 0
         for i in range(len(v1_index)-1):
@@ -2151,17 +2162,19 @@ def Distance2Similarity(value):
     elif value == 0:
         return 1
     else:
+        # print 'Distance2Similarity is ',(value/(1+value))
         return (value/(1+value))
 
 def similarityByEmbedding(w1,w2, embeddings):
     # global embeddings
     v1index = sim_dict.get(w1.lower())
     v2index = sim_dict.get(w2.lower())
-    print "v1index is ", v1index
-    print "v2index is ", v2index
+    # print "v1index is ", v1index
+    # print "v2index is ", v2index
     embeds1 = embeddings[v1index,:]
     embeds2 = embeddings[v2index,:]
     dis = getDistance(embeds1, embeds2)
+    # print 'distance is ', dis
     return Distance2Similarity(dis)
 
 def Sentiment(article_str):
@@ -2249,10 +2262,13 @@ def removeSameSet(setList):
 def scoreSentenceByFreqRules(ruleList,sent):
     score = 0
     for rule in ruleList:
-        if all_word_list_in_sentenceStr(rule, sent):
-            score = score + 1
+        percent = hit_percent_in_sentenceStr(rule, sent)
+        # if all_word_list_in_sentenceStr(rule, sent):
+        score = percent + score
     return score
 
+
+question_countor = 0
 from word2vec_basic import full_cycle
 if __name__ == "__main__":
 
@@ -2297,11 +2313,13 @@ if __name__ == "__main__":
     question_sentence_part_start = 'what does '
     question_sentence_part_end = ' mean'
 
-    SHORT_SENT = 15
+    SHORT_SENT = 3
+
     questionList = filehandler.readlines()
     ner_list = list()
     for q in questionList:
         ner = get_all_entities_by_nltk(q)
+        print "NERs are ", ner
         if len(ner) ==0:
             continue
         else:
@@ -2310,7 +2328,8 @@ if __name__ == "__main__":
         if len(q)<SHORT_SENT:
             continue
         question = question_sentence_part_start + ner[0] + question_sentence_part_end
-        print "Question is: ", question
+        question_countor = question_countor + 1
+        print 'will search question ', question
         art_list = get_articles_withURKL_from_websearch_query(question)
 
         str_word = ''
@@ -2356,7 +2375,8 @@ if __name__ == "__main__":
         print "full_cycle() end"
         ansList = answer_by_a_few_sentence(question, WHO)
         # extract freq words combinations
-        rules = getRulesByApriori('data.txt', ENGLISH_STOP_WORDS)
+        common_combination_rules = self_learn_by_fp_growth('./text/rawtext', '.', ENGLISH_STOP_WORDS)
+        # rules = getRulesByApriori('data.txt', ENGLISH_STOP_WORDS)
         ansList = list(set(ansList))
         ansList = sorted(ansList, key=lambda t: (-t[1], t[0]))
         ner_list = list()
@@ -2375,11 +2395,11 @@ if __name__ == "__main__":
             print sent, "\r\n"
             print get_tagged_sentence(sent[0])
             print "====================="
-        question_pattern = questionPatternSelector(question)
+        # question_pattern = questionPatternSelector(question)
         #Score the last extracted backup sentences by its presence in summarized_sentences
         Voting_summarier_number = 4
-        word_black_list = ['when', 'how', 'what', 'which', 'where','?','html', 'ocols and Formats Working Group (PFWG'\
-                           , 'Semantic Web Deployment Working Group', 'Microsoft', 'your browser']
+        word_black_list = ['when', 'how', 'what', 'which','who', 'where','?','html', 'ocols and Formats Working Group (PFWG'.lower()\
+                           , 'Semantic Web Deployment Working Group'.lower(), 'Microsoft'.lower(), 'your browser', 'JavaScript'.lower()]
         backupAnswerAfterScoreBySummary = []
         for str_score_pair in ansList:
             ans_str = str_score_pair[0]
@@ -2397,20 +2417,26 @@ if __name__ == "__main__":
             tag_str = tagString_of_sentence(ans_str)
             print '-----------', tag_str
             #check if sentence meets question pattern
-            questionPatternScore = float(0)
-            if checkPatternByRe(tag_str, question_pattern):
-                questionPatternScore = 1
-            else:
-                questionPatternScore = 0
-
+            # questionPatternScore = float(0)
+            # if checkPatternByRe(tag_str, question_pattern):
+            #     questionPatternScore = 1
+            # else:
+            #     questionPatternScore = 0
+            common_combination_score = scoreSentenceByFreqRules(common_combination_rules,ans_str)\
+                                       /(len(common_combination_rules) + 1)
+            print "Common_combination_score is ", common_combination_score
+            print 'summaryScore is ', summaryScore
+            print 'mean_score is ', mean_score
             mean_score = 0.020 * summaryScore + \
                          0.88 * mean_score + \
-                         0.1 * questionPatternScore
+                         0.1 * common_combination_score
+                         # 0.1 * questionPatternScore
                          # 0.01 * lengthFactor
                          # + 0.35 * compare_sentence_by_nuggets(question, ans_str)
             # mean_score = mean_score/2
             backupAnswerAfterScoreBySummary.append((ans_str, mean_score))
         backupAnswerAfterScoreBySummary = sorted(backupAnswerAfterScoreBySummary, key=lambda t: (-t[1], t[0]))
+        print "For Question : ", question
         print "Scored by both word relation and summary answers are: "
         for sent_pair in backupAnswerAfterScoreBySummary:
             print sent_pair, "\r\n"

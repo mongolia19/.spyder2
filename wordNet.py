@@ -325,7 +325,16 @@ def all_word_list_in_sentenceStr(word_str_list, sentStr):
         else:
             return False
     return True
-
+def hit_percent_in_sentenceStr(word_str_list, sentStr):
+    wordList = nltk.word_tokenize(sentStr)
+    print 'type of wordlist is ',type(wordList[0])
+    wordSet = set(wordList)
+    count = 0
+    for w in wordSet:
+        if unicode(w) in word_str_list:
+            print 'one hit'
+            count = count + 1
+    return count/float(len(word_str_list)+1)
 
 def getMatchSentenceListFromSentenceList(keyWord, sentList):
     RetList = list()
