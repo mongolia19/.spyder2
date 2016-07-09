@@ -732,12 +732,15 @@ def get_summary_sentences_from_article_text(article_text):
     return sum_list
 
 def get_summary_sentences_from_article_text_with_summarizer(article_text, summarizer_f):
+    if len(article_text)<10:
+        return None
     parser = PlaintextParser.from_string(article_text, Tokenizer(LANGUAGE))
     stemmer = Stemmer(LANGUAGE)
     summarizer = summarizer_f(stemmer)
     summarizer.stop_words = get_stop_words(LANGUAGE)
     sum_list = list()
-    for sentence in summarizer(parser.document, SENTENCES_COUNT):
+# to do
+    for sentence in summarizer(parser.document, SENTENCES_COUNT+1):
         ks = sentence._text.decode('gbk', 'ignore').encode('utf-8')
         sum_list.append(ks)
     return sum_list
@@ -1238,7 +1241,7 @@ def self_learn_by_fp_growth(folder_path, out_put_path, stopWordList):
     print "finish loading words"
     # apriori.
     # rules = apriori(sent_word_list, 0.07)
-    rules = fp_Growth.tree_builder.tree_builder(sent_word_list, len(sent_word_list)*0.006)
+    rules = fp_Growth.tree_builder.tree_builder(sent_word_list, len(sent_word_list)*0.1)
     ruleList = list()
     for r in rules.SortedRoutines:
         ruleList.append(r.strip().split(' '))
@@ -2064,25 +2067,25 @@ def answer_by_a_few_sentence(question_string, question_type):
             + compare_sentence_by_nugget_with_all_words(sent, question_string, embeddings)*0.1)
         sent_eval.append((sent, sc))
     print "Now will do the sorting length is ", len(sent_eval)
-    sorted_l=sorted(sent_eval,key=lambda t:t[1],reverse=True)
-    complete_l = []
-    for s in sorted_l:
-        sent = s[0]
-        nuggets = nuggets_finder(sent)
-        if len(nuggets)>1:
-            complete_l.append(s)
-        else:
-            nugget = nuggets[0]
-            t = nugget_builder(nugget)
-            sbj = str(t[0])
-            vp = str(t[1])
-            obj = str(t[2])
-            if sbj == '' or vp == '' or obj == '':
-                # print 'Nugget is ' , s
-                # print 'Nugget is not complete, skip this sentence.'
-                continue
-            else:
-                complete_l.append(s)
+    # sorted_l=sorted(sent_eval,key=lambda t:t[1],reverse=True)
+    sorted_l = sent_eval
+    # complete_l = []
+    # for s in sorted_l:
+    #     sent = s[0]
+    #     nuggets = nuggets_finder(sent)
+    #     if len(nuggets)>1:
+    #         complete_l.append(s)
+    #     else:
+    #         nugget = nuggets[0]
+    #         t = nugget_builder(nugget)
+    #         sbj = str(t[0])
+    #         vp = str(t[1])
+    #         obj = str(t[2])
+    #         if sbj == '' or vp == '' or obj == '':
+    #
+    #             continue
+    #         else:
+    #             complete_l.append(s)
     # total_txt = ''
     # only_text_list = []
     # for s in complete_l:
@@ -2310,25 +2313,30 @@ if __name__ == "__main__":
     # sentence is relevant to the question
     filehandler = open('result.txt', 'r')
     # what does ... mean
-    question_sentence_part_start = 'what does '
-    question_sentence_part_end = ' mean'
+    question_sentence_part_start = 'what is '
+    question_sentence_part_end = ' '
 
     SHORT_SENT = 3
 
     questionList = filehandler.readlines()
     ner_list = list()
+    question_ner = 'Maths'
     for q in questionList:
         ner = get_all_entities_by_nltk(q)
         print "NERs are ", ner
         if len(ner) ==0:
             continue
         else:
-            if ner[0] not in ner_list:
-                ner_list.append(ner[0])
+            index = len(ner)-1
+            if ner[index] not in ner_list:
+                ner_list.append(ner[index])
         if len(q)<SHORT_SENT:
             continue
-        question = question_sentence_part_start + ner[0] + question_sentence_part_end
+        question = question_sentence_part_start + question_ner + question_sentence_part_end
         question_countor = question_countor + 1
+        if question_countor>=5:
+            question_ner = ner[index]
+        question = 'What did you have for breakfast'
         print 'will search question ', question
         art_list = get_articles_withURKL_from_websearch_query(question)
 
@@ -2398,7 +2406,7 @@ if __name__ == "__main__":
         # question_pattern = questionPatternSelector(question)
         #Score the last extracted backup sentences by its presence in summarized_sentences
         Voting_summarier_number = 4
-        word_black_list = ['when', 'how', 'what', 'which','who', 'where','?','html', 'ocols and Formats Working Group (PFWG'.lower()\
+        word_black_list = ['do', 'does', 'why', 'when', 'how', 'what', 'which','who', 'where','?','html', 'ocols and Formats Working Group (PFWG'.lower()\
                            , 'Semantic Web Deployment Working Group'.lower(), 'Microsoft'.lower(), 'your browser', 'JavaScript'.lower()]
         backupAnswerAfterScoreBySummary = []
         for str_score_pair in ansList:
@@ -2415,7 +2423,7 @@ if __name__ == "__main__":
             # sent_length = len(ans_str)
             # lengthFactor = sent_length/float(1+sent_length)
             tag_str = tagString_of_sentence(ans_str)
-            print '-----------', tag_str
+            # print '-----------', tag_str
             #check if sentence meets question pattern
             # questionPatternScore = float(0)
             # if checkPatternByRe(tag_str, question_pattern):
@@ -2424,9 +2432,9 @@ if __name__ == "__main__":
             #     questionPatternScore = 0
             common_combination_score = scoreSentenceByFreqRules(common_combination_rules,ans_str)\
                                        /(len(common_combination_rules) + 1)
-            print "Common_combination_score is ", common_combination_score
-            print 'summaryScore is ', summaryScore
-            print 'mean_score is ', mean_score
+            # print "Common_combination_score is ", common_combination_score
+            # print 'summaryScore is ', summaryScore
+            # print 'mean_score is ', mean_score
             mean_score = 0.020 * summaryScore + \
                          0.88 * mean_score + \
                          0.1 * common_combination_score
@@ -2438,10 +2446,15 @@ if __name__ == "__main__":
         backupAnswerAfterScoreBySummary = sorted(backupAnswerAfterScoreBySummary, key=lambda t: (-t[1], t[0]))
         print "For Question : ", question
         print "Scored by both word relation and summary answers are: "
+        writeAnswers = file('./text/answers.txt', 'a+')
+        writeAnswers.write("\r\n")
+        writeAnswers.write(question + "?")
         for sent_pair in backupAnswerAfterScoreBySummary:
             print sent_pair, "\r\n"
-            # print nuggets_finder(sent_pair[0])
             print "+++++++++++++++++++++++++++++"
+            writeAnswers.write(sent_pair[0])
+            writeAnswers.write('\r\n')
+        writeAnswers.close()
     #Check the scores of sentences by nuggets comparing again
     # see why unrelated sentences have very high scores
 
