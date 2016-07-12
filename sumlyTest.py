@@ -794,8 +794,14 @@ def get_summary_sentences_from_article_text_sentiment(article_text):
 
     return keySentences
 
-
-
+def summary_article(article_str):
+    key_sents = get_summary_sentences_by_summarizer_voting(article_str)
+    nerList = list()
+    for k_sent in key_sents:
+        ners = get_all_entities_by_nltk(k_sent[0])
+        nerList = nerList + ners
+    nerlist = list(set(nerList))
+    return [key_sents,nerlist]
 
 def get_chunks_in_sentence(sent_str):
     if (not sent_str) or (len(sent_str) <=1) or (sent_str == ""):
@@ -1874,7 +1880,7 @@ def get_last_word(str_chunk):
     else:
         return str_chunk
 
-def compare_sentence_by_nugget_with_all_words(sent1, sent2, embeddings):
+def compare_sentence_by_nugget_with_all_words(sent1, sent2, embeddings, sim_dict):
     nuggets1_list = nuggets_finder(sent1)
     words_list = sent2.split()
     score_list = list()
@@ -1893,10 +1899,10 @@ def compare_sentence_by_nugget_with_all_words(sent1, sent2, embeddings):
         # print base_sbj_head
         h_score = 0
         for word in words_list:
-            s = similarityByEmbedding(base_sbj_head, word, embeddings)
-            v = similarityByEmbedding(base_vp_head, word, embeddings)
+            s = similarityByEmbedding(base_sbj_head, word, embeddings, sim_dict)
+            v = similarityByEmbedding(base_vp_head, word, embeddings, sim_dict)
             # o = Levenshtein.ratio(base_obj, obj)
-            o = similarityByEmbedding(base_obj_head, word, embeddings)
+            o = similarityByEmbedding(base_obj_head, word, embeddings, sim_dict)
             score = float(s + v + o)/3
 
             if h_score < score:
@@ -1988,7 +1994,7 @@ def is_sentence_complete(sent):
         else:
             return True
 
-def answer_by_a_few_sentence(question_string, question_type):
+def answer_by_a_few_sentence(question_string, question_type, embeddings,sim_dict):
     # This is only suitable for "what is" and "who is " questions
     # first search the certain question by "silly" word-by-word strategy
     # that is find a sentence hit all the name-entities and main-verbs in the question
@@ -2063,8 +2069,8 @@ def answer_by_a_few_sentence(question_string, question_type):
 
         if (Levenshtein.ratio(str(question_string.lower()), str(sent.lower()))>similar_level):
             continue
-        sc = (compare_sentence_by_nugget_with_all_words(question_string, sent, embeddings)*0.9\
-            + compare_sentence_by_nugget_with_all_words(sent, question_string, embeddings)*0.1)
+        sc = (compare_sentence_by_nugget_with_all_words(question_string, sent, embeddings, sim_dict)*0.9\
+            + compare_sentence_by_nugget_with_all_words(sent, question_string, embeddings, sim_dict)*0.1)
         sent_eval.append((sent, sc))
     print "Now will do the sorting length is ", len(sent_eval)
     # sorted_l=sorted(sent_eval,key=lambda t:t[1],reverse=True)
@@ -2168,7 +2174,7 @@ def Distance2Similarity(value):
         # print 'Distance2Similarity is ',(value/(1+value))
         return (value/(1+value))
 
-def similarityByEmbedding(w1,w2, embeddings):
+def similarityByEmbedding(w1,w2, embeddings, sim_dict):
     # global embeddings
     v1index = sim_dict.get(w1.lower())
     v2index = sim_dict.get(w2.lower())
@@ -2270,6 +2276,253 @@ def scoreSentenceByFreqRules(ruleList,sent):
         score = percent + score
     return score
 
+def summary_by_wordEmbedding():
+    filehandler = open('./text/tosummary/text', 'r')
+    # what does ... mean
+    question_sentence_part_start = 'what is '
+    question_sentence_part_end = ' '
+
+    SHORT_SENT = 3
+    rawtext = filehandler.read()
+    keysent_NERs = summary_article(rawtext)
+    writeSummaries = file('./text/summaries.txt', 'a+')
+    keysents = keysent_NERs[0]
+    nerList = keysent_NERs[1]
+
+    for keysent in keysents:
+        writeSummaries.write(str(keysent))
+        writeSummaries.write('\r\n')
+        NERs = get_all_entities_by_nltk(keysent[0])
+
+    writeSummaries.write('-------------key words------\r\n')
+    for ner in nerList:
+        writeSummaries.write(ner + ': \r\n')
+        keyword_explation = answer_by_a_few_sentences_by_embedding(ner + " " + keysents[0][0],1)
+        if keyword_explation is None:
+            continue
+        writeSummaries.write(str(keyword_explation[0]) + '\r\n')
+    writeSummaries.write('\r\n===================\r\n')
+    writeSummaries.close()
+    # questionList = filehandler.readlines()
+    questionList = keysent_NERs[1]
+    ner_list = list()
+
+    for q in questionList:
+
+        question = keysents[0][0]
+        print 'will search question ', question
+        art_list = get_articles_withURKL_from_websearch_query(question)
+
+        str_word = ''
+        print "finish getting all the articles"
+        for art in art_list:
+            str_word += art[0]
+
+        str_word = str_word.split()
+        word_list = list()
+        for w in str_word:
+            # if len(str(w).strip())<3:
+            #     continue
+            post_w = str(w).strip().lower()
+            word_list.append(post_w)
+
+            # Write to the bag of words file
+            # FileUtils.WriteToFile('bag_of_words.txt', word_str_buff)
+            # Read words out from bag of words
+            # str_word = FileUtils.OpenFileUnicode('bag_of_words.txt')
+
+            # word_list = list()
+            # for w in str_word:
+            # if len(str(w).strip())<3:
+            # continue
+            # post_w = str(w).strip().lower()
+            # word_list.append(post_w)
+            # word_str_buff = word_str_buff + " " + post_w
+        # global embeddings
+        embeddings = None
+        sim_dict = {}
+        print "Will now call full_cycle()"
+        try:
+            embeddings, sim_dict = full_cycle(word_list)
+        except:
+            print 'failed to get embeddings'
+            return
+        print "full_cycle() end"
+        ansList = answer_by_a_few_sentence(question, WHO, embeddings, sim_dict)
+        # extract freq words combinations
+        common_combination_rules = self_learn_by_fp_growth('./text/rawtext', '.', ENGLISH_STOP_WORDS)
+        # rules = getRulesByApriori('data.txt', ENGLISH_STOP_WORDS)
+        ansList = list(set(ansList))
+        ansList = sorted(ansList, key=lambda t: (-t[1], t[0]))
+        ner_list = list()
+        selected_sentences_string = ""
+        print 'The last answers are: '
+        for ans in ansList:
+            print ans, type(ans)
+            ner_list = ner_list + get_all_entities_by_nltk(ans[0])
+            selected_sentences_string = selected_sentences_string + ans[0] + "."
+            print "\r\n"
+
+        # get summary sentences from the last selected sentences
+        summarized_sentences = get_summary_sentences_by_summarizer_voting(selected_sentences_string)
+        print " summarized answers are: "
+        for sent in summarized_sentences:
+            print sent, "\r\n"
+            print get_tagged_sentence(sent[0])
+            print "====================="
+        # question_pattern = questionPatternSelector(question)
+        # Score the last extracted backup sentences by its presence in summarized_sentences
+        Voting_summarier_number = 4
+        word_black_list = ['do', 'does', 'why', 'when', 'how', 'what', 'which', 'who', 'where', '?', 'html',
+                           'ocols and Formats Working Group (PFWG'.lower() \
+            , 'Semantic Web Deployment Working Group'.lower(), 'Microsoft'.lower(), 'your browser',
+                           'JavaScript'.lower()]
+        backupAnswerAfterScoreBySummary = []
+        # ansList =getSentencesFromPassageText()
+        # envaluate the article
+        ansList = getSentencesFromPassageText(rawtext)
+        ansList = secondSentenceSplitor(ansList)
+        for str_score_pair in ansList:
+            ans_str = str_score_pair
+            if (not is_sentence_complete(ans_str)) or wordListInString(word_black_list, ans_str.lower()):
+                continue
+            mean_score = compare_sentence_by_nugget_with_all_words(question, ans_str, embeddings, sim_dict)
+            summaryScore = 0.0
+            # length factor: we tend to extract longer sentences, they describes more clearly
+            # sent_length = len(ans_str)
+            # lengthFactor = sent_length/float(1+sent_length)
+            tag_str = tagString_of_sentence(ans_str)
+            # print '-----------', tag_str
+            # check if sentence meets question pattern
+            # questionPatternScore = float(0)
+            # if checkPatternByRe(tag_str, question_pattern):
+            #     questionPatternScore = 1
+            # else:
+            #     questionPatternScore = 0
+            common_combination_score = scoreSentenceByFreqRules(common_combination_rules, ans_str) \
+                                       / (len(common_combination_rules) + 1)
+            # print "Common_combination_score is ", common_combination_score
+            # print 'summaryScore is ', summaryScore
+            # print 'mean_score is ', mean_score
+            mean_score = 0.020 * summaryScore + \
+                         0.88 * mean_score + \
+                         0.1 * common_combination_score
+            # 0.1 * questionPatternScore
+            # 0.01 * lengthFactor
+            # + 0.35 * compare_sentence_by_nuggets(question, ans_str)
+            # mean_score = mean_score/2
+            backupAnswerAfterScoreBySummary.append((ans_str, mean_score))
+        backupAnswerAfterScoreBySummary = sorted(backupAnswerAfterScoreBySummary, key=lambda t: (-t[1], t[0]))
+        TopScoredSentences = list()
+        sent_num = len(backupAnswerAfterScoreBySummary)
+        percent = 0.05
+        for i in range(sent_num):
+            if i<= sent_num*percent:
+                TopScoredSentences.append(backupAnswerAfterScoreBySummary[i])
+            else:
+                break
+        print 'passage total num: ', sent_num
+        print 'summary num: ', len(TopScoredSentences)
+        backupAnswerAfterScoreBySummary = TopScoredSentences
+        print "For Question : ", question
+        print "Scored by both word relation "
+        writeAnswers = file('./text/summaries.txt', 'a+')
+        writeAnswers.write("\r\n")
+        writeAnswers.write(question + "?")
+        for sent_pair in backupAnswerAfterScoreBySummary:
+            print sent_pair, "\r\n"
+            print "+++++++++++++++++++++++++++++"
+            writeAnswers.write(sent_pair[0])
+            writeAnswers.write('\r\n')
+        writeAnswers.close()
+
+def answer_by_a_few_sentences_by_embedding(question_str, ans_num=1):
+    question = question_str
+
+    print 'will search question in function answer_by_a_few_sentences_by_embedding ', question
+    art_list = get_articles_withURKL_from_websearch_query(question)
+
+    str_word = ''
+    print "finish getting all the articles"
+    for art in art_list:
+        str_word += art[0]
+
+    str_word = str_word.split()
+    word_list = list()
+    for w in str_word:
+        post_w = str(w).strip().lower()
+        word_list.append(post_w)
+
+    # embeddings = None
+    # sim_dict = {}
+    print "Will now call full_cycle()"
+    try:
+        embeddings, sim_dict = full_cycle(word_list)
+    except:
+        return None
+    print "full_cycle() end"
+    ansList = answer_by_a_few_sentence(question, WHO, embeddings, sim_dict)
+    # extract freq words combinations
+    common_combination_rules = self_learn_by_fp_growth('./text/rawtext', '.', ENGLISH_STOP_WORDS)
+
+    ansList = list(set(ansList))
+
+    ner_list = list()
+    selected_sentences_string = ""
+    print 'The last answers are: '
+    for ans in ansList:
+        print ans, type(ans)
+        # ner_list = ner_list + get_all_entities_by_nltk(ans[0])
+        selected_sentences_string = selected_sentences_string + ans[0] + "."
+        print "\r\n"
+
+    summarized_sentences = get_summary_sentences_by_summarizer_voting(selected_sentences_string)
+
+
+    Voting_summarier_number = 4
+    word_black_list = ['do', 'does', 'why', 'when', 'how', 'what', 'which', 'who', 'where', '?', 'html',
+                       'ocols and Formats Working Group (PFWG'.lower() \
+        , 'Semantic Web Deployment Working Group'.lower(), 'Microsoft'.lower(), 'your browser',
+                       'JavaScript'.lower()]
+    backupAnswerAfterScoreBySummary = []
+    for str_score_pair in ansList:
+        ans_str = str_score_pair[0]
+        if (not is_sentence_complete(ans_str)) or wordListInString(word_black_list, ans_str.lower()):
+            continue
+        mean_score = str_score_pair[1]
+        summaryScore = 0.0
+        for summaryStr_score_pair in summarized_sentences:
+            if str_score_pair[0] in summaryStr_score_pair[0]:
+                summaryScore = summaryStr_score_pair[1] / float(Voting_summarier_number)
+                break
+
+        common_combination_score = scoreSentenceByFreqRules(common_combination_rules, ans_str) \
+                                   / (len(common_combination_rules) + 1)
+
+        mean_score = 0.020 * summaryScore + \
+                     0.88 * mean_score + \
+                     0.1 * common_combination_score
+
+        backupAnswerAfterScoreBySummary.append((ans_str, mean_score))
+    backupAnswerAfterScoreBySummary = sorted(backupAnswerAfterScoreBySummary, key=lambda t: (-t[1], t[0]))
+    print "For Question : ", question
+    print "Scored by both word relation and summary answers are: "
+
+    length = len(backupAnswerAfterScoreBySummary)
+    if ans_num>= length:
+        return backupAnswerAfterScoreBySummary
+    else:
+        retList = list()
+        i = 0
+        for sent_pair in backupAnswerAfterScoreBySummary:
+            print sent_pair, "\r\n"
+            retList.append(sent_pair)
+            i = i + 1
+            if i >=ans_num:
+                break
+            print "+++++++++++++++++++++++++++++"
+        return retList
+
 
 question_countor = 0
 from word2vec_basic import full_cycle
@@ -2311,150 +2564,142 @@ if __name__ == "__main__":
     #
     # we should take each word in the back-up sentence into consideration to see if the
     # sentence is relevant to the question
-    filehandler = open('result.txt', 'r')
-    # what does ... mean
-    question_sentence_part_start = 'what is '
-    question_sentence_part_end = ' '
+    summary_by_wordEmbedding()
 
-    SHORT_SENT = 3
+    print '----------summary ends-------'
 
-    questionList = filehandler.readlines()
-    ner_list = list()
-    question_ner = 'Maths'
-    for q in questionList:
-        ner = get_all_entities_by_nltk(q)
-        print "NERs are ", ner
-        if len(ner) ==0:
-            continue
-        else:
-            index = len(ner)-1
-            if ner[index] not in ner_list:
-                ner_list.append(ner[index])
-        if len(q)<SHORT_SENT:
-            continue
-        question = question_sentence_part_start + question_ner + question_sentence_part_end
-        question_countor = question_countor + 1
-        if question_countor>=5:
-            question_ner = ner[index]
-        question = 'What did you have for breakfast'
-        print 'will search question ', question
-        art_list = get_articles_withURKL_from_websearch_query(question)
+    # ans_pair = answer_by_a_few_sentences_by_embedding('what is atom', 5)
+    # print '----------test answer by embedding -------'
+    # for p in ans_pair:
+    #     print p
+################ qusestion and answer system ##################################################
+    # filehandler = open('./text/tosummary/text', 'r')
+    #
+    # question_sentence_part_start = 'what is '
+    # question_sentence_part_end = ' '
+    #
+    # SHORT_SENT = 3
+    # rawtext = filehandler.read()
+    # keysent_NERs = summary_article(rawtext)
+    # writeSummaries = file('./text/summaries.txt', 'a+')
+    # keysents = keysent_NERs[0]
+    # nerList = keysent_NERs[1]
+    # for keysent in keysents:
+    #     writeSummaries.write(str(keysent))
+    #     writeSummaries.write('\r\n')
+    # writeSummaries.write('-------------key words------\r\n')
+    # for ner in nerList:
+    #     writeSummaries.write(ner + ' ')
+    # writeSummaries.write('\r\n===================\r\n')
+    # writeSummaries.close()
+    #
+    # questionList = keysent_NERs[1]
+    # ner_list = list()
+    # question_ner = 'Maths'
+    # for q in questionList:
+    #     ner = get_all_entities_by_nltk(q)
+    #     print "NERs are ", ner
+    #     if len(ner) ==0:
+    #         continue
+    #     else:
+    #         index = len(ner)-1
+    #         if ner[index] not in ner_list:
+    #             ner_list.append(ner[index])
+    #     if len(q)<SHORT_SENT:
+    #         continue
+    #     question = question_sentence_part_start + ner[index] + question_sentence_part_end
+    #     question_countor = question_countor + 1
+    #     if question_countor>=5:
+    #         question_ner = ner[index]
+    #     question = keysents[0][0]
+    #     question = 'What are the main tasks of Text Mining'
+    #     print 'will search question ', question
+    #     art_list = get_articles_withURKL_from_websearch_query(question)
+    #
+    #     str_word = ''
+    #     print "finish getting all the articles"
+    #     for art in art_list:
+    #         str_word += art[0]
+    #
+    #
+    #     str_word = str_word.split()
+    #     word_list = list()
+    #     for w in str_word:
+    #
+    #         post_w = str(w).strip().lower()
+    #         word_list.append(post_w)
+    #
+    #
+    #     embeddings = None
+    #     sim_dict = {}
+    #     print "Will now call full_cycle()"
+    #     try:
+    #         embeddings, sim_dict = full_cycle(word_list)
+    #     except:
+    #         continue
+    #     print "full_cycle() end"
+    #     ansList = answer_by_a_few_sentence(question, WHO,embeddings,sim_dict)
+    #     # extract freq words combinations
+    #     common_combination_rules = self_learn_by_fp_growth('./text/rawtext', '.', ENGLISH_STOP_WORDS)
+    #
+    #     ansList = list(set(ansList))
+    #     ansList = sorted(ansList, key=lambda t: (-t[1], t[0]))
+    #     ner_list = list()
+    #     selected_sentences_string = ""
+    #     print 'The last answers are: '
+    #     for ans in ansList:
+    #         print ans, type(ans)
+    #         ner_list = ner_list + get_all_entities_by_nltk(ans[0])
+    #         selected_sentences_string = selected_sentences_string + ans[0] + "."
+    #         print "\r\n"
+    #
+    #
+    #     summarized_sentences = get_summary_sentences_by_summarizer_voting(selected_sentences_string)
+    #     print " summarized answers are: "
+    #     for sent in summarized_sentences:
+    #         print sent, "\r\n"
+    #         print get_tagged_sentence(sent[0])
+    #         print "====================="
+    #
+    #     Voting_summarier_number = 4
+    #     word_black_list = ['do', 'does', 'why', 'when', 'how', 'what', 'which','who', 'where','?','html', 'ocols and Formats Working Group (PFWG'.lower()\
+    #                        , 'Semantic Web Deployment Working Group'.lower(), 'Microsoft'.lower(), 'your browser', 'JavaScript'.lower()]
+    #     backupAnswerAfterScoreBySummary = []
+    #     for str_score_pair in ansList:
+    #         ans_str = str_score_pair[0]
+    #         if (not is_sentence_complete(ans_str)) or wordListInString(word_black_list,ans_str.lower()):
+    #             continue
+    #         mean_score = str_score_pair[1]
+    #         summaryScore = 0.0
+    #         for summaryStr_score_pair in summarized_sentences:
+    #             if str_score_pair[0] in summaryStr_score_pair[0]:
+    #                 summaryScore = summaryStr_score_pair[1] / float(Voting_summarier_number)
+    #                 break
+    #
+    #         tag_str = tagString_of_sentence(ans_str)
+    #
+    #         common_combination_score = scoreSentenceByFreqRules(common_combination_rules,ans_str)\
+    #                                    /(len(common_combination_rules) + 1)
+    #
+    #         mean_score = 0.020 * summaryScore + \
+    #                      0.88 * mean_score + \
+    #                      0.1 * common_combination_score
+    #
+    #         backupAnswerAfterScoreBySummary.append((ans_str, mean_score))
+    #     backupAnswerAfterScoreBySummary = sorted(backupAnswerAfterScoreBySummary, key=lambda t: (-t[1], t[0]))
+    #     print "For Question : ", question
+    #     print "Scored by both word relation and summary answers are: "
+    #     writeAnswers = file('./text/answers.txt', 'a+')
+    #     writeAnswers.write("\r\n")
+    #     writeAnswers.write(question + "?")
+    #     for sent_pair in backupAnswerAfterScoreBySummary:
+    #         print sent_pair, "\r\n"
+    #         print "+++++++++++++++++++++++++++++"
+    #         writeAnswers.write(sent_pair[0])
+    #         writeAnswers.write('\r\n')
+    #     writeAnswers.close()
 
-        str_word = ''
-        print "finish getting all the articles"
-        for art in art_list:
-            str_word += art[0]
-            # Write raw contents to file
-            # FileUtils.WriteToFile('data.text', art[0] + '\r\n' + '======')
-            # out = get_summary_sentences_by_summarizer_voting(art[0])
-            # print 'Results are '
-            # for sent in out :
-            #     print sent
-            #     print "\r\n"
-
-        str_word = str_word.split()
-        word_list = list()
-        for w in str_word:
-            # if len(str(w).strip())<3:
-            #     continue
-            post_w = str(w).strip().lower()
-            word_list.append(post_w)
-
-        # Write to the bag of words file
-        # FileUtils.WriteToFile('bag_of_words.txt', word_str_buff)
-        # Read words out from bag of words
-        # str_word = FileUtils.OpenFileUnicode('bag_of_words.txt')
-
-        # word_list = list()
-        # for w in str_word:
-            # if len(str(w).strip())<3:
-                # continue
-            # post_w = str(w).strip().lower()
-            # word_list.append(post_w)
-            # word_str_buff = word_str_buff + " " + post_w
-        # global embeddings
-        embeddings = None
-        sim_dict = {}
-        print "Will now call full_cycle()"
-        try:
-            embeddings, sim_dict = full_cycle(word_list)
-        except:
-            continue
-        print "full_cycle() end"
-        ansList = answer_by_a_few_sentence(question, WHO)
-        # extract freq words combinations
-        common_combination_rules = self_learn_by_fp_growth('./text/rawtext', '.', ENGLISH_STOP_WORDS)
-        # rules = getRulesByApriori('data.txt', ENGLISH_STOP_WORDS)
-        ansList = list(set(ansList))
-        ansList = sorted(ansList, key=lambda t: (-t[1], t[0]))
-        ner_list = list()
-        selected_sentences_string = ""
-        print 'The last answers are: '
-        for ans in ansList:
-            print ans, type(ans)
-            ner_list = ner_list + get_all_entities_by_nltk(ans[0])
-            selected_sentences_string = selected_sentences_string + ans[0] + "."
-            print "\r\n"
-
-        # get summary sentences from the last selected sentences
-        summarized_sentences = get_summary_sentences_by_summarizer_voting(selected_sentences_string)
-        print " summarized answers are: "
-        for sent in summarized_sentences:
-            print sent, "\r\n"
-            print get_tagged_sentence(sent[0])
-            print "====================="
-        # question_pattern = questionPatternSelector(question)
-        #Score the last extracted backup sentences by its presence in summarized_sentences
-        Voting_summarier_number = 4
-        word_black_list = ['do', 'does', 'why', 'when', 'how', 'what', 'which','who', 'where','?','html', 'ocols and Formats Working Group (PFWG'.lower()\
-                           , 'Semantic Web Deployment Working Group'.lower(), 'Microsoft'.lower(), 'your browser', 'JavaScript'.lower()]
-        backupAnswerAfterScoreBySummary = []
-        for str_score_pair in ansList:
-            ans_str = str_score_pair[0]
-            if (not is_sentence_complete(ans_str)) or wordListInString(word_black_list,ans_str.lower()):
-                continue
-            mean_score = str_score_pair[1]
-            summaryScore = 0.0
-            for summaryStr_score_pair in summarized_sentences:
-                if str_score_pair[0] in summaryStr_score_pair[0]:
-                    summaryScore = summaryStr_score_pair[1] / float(Voting_summarier_number)
-                    break
-            # length factor: we tend to extract longer sentences, they describes more clearly
-            # sent_length = len(ans_str)
-            # lengthFactor = sent_length/float(1+sent_length)
-            tag_str = tagString_of_sentence(ans_str)
-            # print '-----------', tag_str
-            #check if sentence meets question pattern
-            # questionPatternScore = float(0)
-            # if checkPatternByRe(tag_str, question_pattern):
-            #     questionPatternScore = 1
-            # else:
-            #     questionPatternScore = 0
-            common_combination_score = scoreSentenceByFreqRules(common_combination_rules,ans_str)\
-                                       /(len(common_combination_rules) + 1)
-            # print "Common_combination_score is ", common_combination_score
-            # print 'summaryScore is ', summaryScore
-            # print 'mean_score is ', mean_score
-            mean_score = 0.020 * summaryScore + \
-                         0.88 * mean_score + \
-                         0.1 * common_combination_score
-                         # 0.1 * questionPatternScore
-                         # 0.01 * lengthFactor
-                         # + 0.35 * compare_sentence_by_nuggets(question, ans_str)
-            # mean_score = mean_score/2
-            backupAnswerAfterScoreBySummary.append((ans_str, mean_score))
-        backupAnswerAfterScoreBySummary = sorted(backupAnswerAfterScoreBySummary, key=lambda t: (-t[1], t[0]))
-        print "For Question : ", question
-        print "Scored by both word relation and summary answers are: "
-        writeAnswers = file('./text/answers.txt', 'a+')
-        writeAnswers.write("\r\n")
-        writeAnswers.write(question + "?")
-        for sent_pair in backupAnswerAfterScoreBySummary:
-            print sent_pair, "\r\n"
-            print "+++++++++++++++++++++++++++++"
-            writeAnswers.write(sent_pair[0])
-            writeAnswers.write('\r\n')
-        writeAnswers.close()
+#############################################################################################
     #Check the scores of sentences by nuggets comparing again
     # see why unrelated sentences have very high scores
 
@@ -2492,3 +2737,9 @@ if __name__ == "__main__":
 #Check a sentence by its center word of NPs
 #if the center words match the center words in question,
 #the answer should be scored high
+
+#Make summary of an article:
+        # Get the important sentences,
+    # Get word definations in important sentences
+    # Get sub-tiltes
+    # Get word definations in sub-titles
