@@ -2276,6 +2276,19 @@ def scoreSentenceByFreqRules(ruleList,sent):
         score = percent + score
     return score
 
+def noun_related_score_to_sentences(noun_list, sent_list, embeddings, sim_dict):
+#     sort nouns by how close to the iven sentences
+    result = list()
+    # length = len(sent_list)
+    for noun in noun_list:
+        score = 0
+        for sent in sent_list:
+            s = compare_sentence_by_nugget_with_all_words(noun, sent[0], embeddings, sim_dict)
+            score += s
+        result.append((noun, score))
+    result = sorted(result, key=lambda t: (-t[1], t[0]))
+    return result
+
 def summary_by_wordEmbedding():
     filehandler = open('./text/tosummary/text', 'r')
     # what does ... mean
@@ -2290,18 +2303,28 @@ def summary_by_wordEmbedding():
     nerList = keysent_NERs[1]
 
     for keysent in keysents:
+        nuggets = nuggets_finder(keysent[0])
+        print("original: " + keysent[0])
+        for nug in nuggets:
+            (sbj,vp,obj) = nugget_builder(nug)
+            keyword_explation = answer_by_a_few_sentences_by_embedding("why and how " + sbj + " " + vp + " " + obj, 3)
+            if keyword_explation is None:
+                continue
+            for exp in keyword_explation:
+                writeSummaries.write("explination for " + keysent[0] + " is:-- " + exp[0])
+                print "explination for " + keysent[0] + " is:-- " + exp[0]
         writeSummaries.write(str(keysent))
         writeSummaries.write('\r\n')
-        NERs = get_all_entities_by_nltk(keysent[0])
+    NERs = get_all_entities_by_nltk(keysent[0])
 
-    writeSummaries.write('-------------key words------\r\n')
-    for ner in nerList:
-        writeSummaries.write(ner + ': \r\n')
-        keyword_explation = answer_by_a_few_sentences_by_embedding(ner + " " + keysents[0][0],1)
-        if keyword_explation is None:
-            continue
-        writeSummaries.write(str(keyword_explation[0]) + '\r\n')
-    writeSummaries.write('\r\n===================\r\n')
+    # writeSummaries.write('-------------key words------\r\n')
+    # for ner in nerList:
+    #     writeSummaries.write(ner + ': \r\n')
+    #     keyword_explation = answer_by_a_few_sentences_by_embedding(ner + " is what",1)
+    #     if keyword_explation is None:
+    #         continue
+    #     writeSummaries.write(str(keyword_explation[0]) + '\r\n')
+    # writeSummaries.write('\r\n===================\r\n')
     writeSummaries.close()
     # questionList = filehandler.readlines()
     questionList = keysent_NERs[1]
@@ -2370,7 +2393,26 @@ def summary_by_wordEmbedding():
             print sent, "\r\n"
             print get_tagged_sentence(sent[0])
             print "====================="
-        # question_pattern = questionPatternSelector(question)
+
+        key_noun_list = noun_related_score_to_sentences(nerList, summarized_sentences, embeddings, sim_dict)
+        print("key_noun_list scored by relation")
+        print key_noun_list
+        # explatnations_for_key_sents = list()
+        writeSummaries = file('./text/summaries.txt', 'a+')
+        for sent in summarized_sentences:
+            # writeSummaries.write("explination for " + sent[0] + ': \r\n')
+            nuggets = nuggets_finder(sent[0])
+            nugget_str = ''
+            for nug in nuggets:
+                (sbj, vp, obj) = nugget_builder(nug)
+            keyword_explation = answer_by_a_few_sentences_by_embedding("why and how " + sbj + " " + vp + " " + obj,3)
+            if keyword_explation is None:
+                continue
+            for exp in keyword_explation:
+                writeSummaries.write("explination for " + sent[0] + " is:-- " + exp[0])
+                print "explination for " + sent[0] + " is:-- " + exp[0]
+        writeSummaries.write('\r\n===================\r\n')
+        writeSummaries.close()
         # Score the last extracted backup sentences by its presence in summarized_sentences
         Voting_summarier_number = 4
         word_black_list = ['do', 'does', 'why', 'when', 'how', 'what', 'which', 'who', 'where', '?', 'html',
@@ -2743,3 +2785,7 @@ if __name__ == "__main__":
     # Get word definations in important sentences
     # Get sub-tiltes
     # Get word definations in sub-titles
+
+# generate an article for a given subject
+# extract paraghs with different subtitles(defination, structure,
+# history, future, related concepts) of sentences which should be related to each other
