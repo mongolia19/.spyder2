@@ -2289,6 +2289,45 @@ def noun_related_score_to_sentences(noun_list, sent_list, embeddings, sim_dict):
     result = sorted(result, key=lambda t: (-t[1], t[0]))
     return result
 
+def sentences_has_connection(sent1, sent2):
+    print "In sentences_has_connection"
+    threshold = 0.8
+    limitLen = 3
+    nuglist1 = nuggets_finder(sent1)
+    nuglist2 = nuggets_finder(sent2)
+    for nug1 in nuglist1:
+        (sbj1, vp, obj1) = nugget_builder(nug1)
+        for nug2 in nuglist2:
+            (sbj2, vp, obj2) = nugget_builder(nug2)
+            sbj1 = str(sbj1)
+            sbj2 = str(sbj2)
+            obj1 = str(obj1)
+            obj2 = str(obj2)
+            if wordInSentStr("his",sbj2.lower()) or wordInSentStr("her",sbj2.lower()) or wordInSentStr("these",sbj2.lower()) \
+                   or wordInSentStr("it", sbj2.lower()) or wordInSentStr("this", sbj2.lower()) or wordInSentStr("that", sbj2.lower()) :
+                print ("pronoun found")
+                return True
+            # sbj1 = str(sbj1)
+            # sbj1 = str(sbj1)
+            if (len(sbj1) < limitLen) or (len(sbj2) < limitLen) \
+                    or (len(obj1) < limitLen) or (len (obj2) < limitLen):
+                continue
+            simScore1 = Levenshtein.ratio(sbj1, sbj2)
+            if (simScore1 > threshold):
+                print sbj1 + " simi to " + sbj2
+            simScore2 = Levenshtein.ratio(sbj1, obj2)
+            if (simScore2 > threshold):
+                print sbj1 + " simi to " + obj2
+            simScore3 = Levenshtein.ratio(obj1, sbj2)
+            if (simScore3 > threshold):
+                print obj1 + " simi to " + sbj2
+            simScore4 = Levenshtein.ratio(obj1, obj2)
+            if (simScore4 > threshold):
+                print obj1 + " simi to " + obj2
+            if (simScore1> threshold) or (simScore2> threshold)\
+                    or (simScore3> threshold) or (simScore4> threshold):
+                return True
+    return False
 def summary_by_wordEmbedding():
     filehandler = open('./text/tosummary/text', 'r')
     # what does ... mean
@@ -2297,6 +2336,12 @@ def summary_by_wordEmbedding():
 
     SHORT_SENT = 3
     rawtext = filehandler.read()
+    sent_list = getSentencesFromPassageText(rawtext)
+    # sent_list = secondSentenceSplitor(sent_list)
+    print " test sentences conectivity:"
+    for i in range(len(sent_list)-1):
+        print (" " + str((sent_list[i])) + " --and-- " + str((sent_list[i+1])) + ":")
+        print sentences_has_connection(str(sent_list[i]), str(sent_list[i+1]))
     keysent_NERs = summary_article(rawtext)
     writeSummaries = file('./text/summaries.txt', 'a+')
     keysents = keysent_NERs[0]
@@ -2570,210 +2615,12 @@ question_countor = 0
 from word2vec_basic import full_cycle
 if __name__ == "__main__":
 
-    txt = '''For this simple fruit salad, you'll need strawberries, cherries, blueberries, red apples, peaches, and a kiwi.'''
-    # entity_List = getNPListFromStr(txt)
-    # InsertRelationsFromStrArticle(txt, db_list)
-    # txt = html_to_plain_text('http://www.ehow.com/how_291_make-green-salad.html')
-    # summary_over_article_text(txt)
-    n1_syn = ['united states', 'america']
-    sent = ' On behalf of all the course staff, I’d like to take this moment to thank all of you for your participation in this course and for all your constructive comments about how to further improve the course.'
-    # checkPatternByRe(tag_str, question_pattern)
-    # b = word_list_in_sentenceStr(n1_syn, sent.lower())
-
-    # question = 'what is the definition of Maths'
-    # print 'the empty ratio is ', Levenshtein.ratio('', '')
-    # sub_rl = nuggets_finder('Coming to America Father')
-    # for sr in sub_rl:
-    #     print sr
-    # compare_sentence_by_nuggets(sent, question)
-    # ch_list = get_chunks_in_sentence(sent)
-    # ansList = answer_by_a_few_sentence(question,WHO)
-    # for ans in ansList:
-    #     print ans
-    # chunk_list = sentence_structure_finder(question, SENTENCES_STRUCT_2)
-    # sentence_structure_finder(question, SENTENCES_STRUCT_4)
-    # sentence_structure_finder(question, SENTENCES_STRUCT_5)
-    # tokens = nltk.word_tokenize(question)
-    # tags = nltk.pos_tag(tokens)
-    # print tags
-    # InputClassifier(question)
-
-
-    # print get_synsets('US')
-    # raw_text_path_list = FileUtils.ReturnAllFileOnPath(1, "./text/soc.religion.christian")
-    # for rf in raw_text_path_list:
-    #     self_learn_by_question_answer(rf, 'self_learn_newphy_relations.txt', 0)
-    #
-    # we should take each word in the back-up sentence into consideration to see if the
-    # sentence is relevant to the question
     summary_by_wordEmbedding()
 
     print '----------summary ends-------'
 
-    # ans_pair = answer_by_a_few_sentences_by_embedding('what is atom', 5)
-    # print '----------test answer by embedding -------'
-    # for p in ans_pair:
-    #     print p
-################ qusestion and answer system ##################################################
-    # filehandler = open('./text/tosummary/text', 'r')
-    #
-    # question_sentence_part_start = 'what is '
-    # question_sentence_part_end = ' '
-    #
-    # SHORT_SENT = 3
-    # rawtext = filehandler.read()
-    # keysent_NERs = summary_article(rawtext)
-    # writeSummaries = file('./text/summaries.txt', 'a+')
-    # keysents = keysent_NERs[0]
-    # nerList = keysent_NERs[1]
-    # for keysent in keysents:
-    #     writeSummaries.write(str(keysent))
-    #     writeSummaries.write('\r\n')
-    # writeSummaries.write('-------------key words------\r\n')
-    # for ner in nerList:
-    #     writeSummaries.write(ner + ' ')
-    # writeSummaries.write('\r\n===================\r\n')
-    # writeSummaries.close()
-    #
-    # questionList = keysent_NERs[1]
-    # ner_list = list()
-    # question_ner = 'Maths'
-    # for q in questionList:
-    #     ner = get_all_entities_by_nltk(q)
-    #     print "NERs are ", ner
-    #     if len(ner) ==0:
-    #         continue
-    #     else:
-    #         index = len(ner)-1
-    #         if ner[index] not in ner_list:
-    #             ner_list.append(ner[index])
-    #     if len(q)<SHORT_SENT:
-    #         continue
-    #     question = question_sentence_part_start + ner[index] + question_sentence_part_end
-    #     question_countor = question_countor + 1
-    #     if question_countor>=5:
-    #         question_ner = ner[index]
-    #     question = keysents[0][0]
-    #     question = 'What are the main tasks of Text Mining'
-    #     print 'will search question ', question
-    #     art_list = get_articles_withURKL_from_websearch_query(question)
-    #
-    #     str_word = ''
-    #     print "finish getting all the articles"
-    #     for art in art_list:
-    #         str_word += art[0]
-    #
-    #
-    #     str_word = str_word.split()
-    #     word_list = list()
-    #     for w in str_word:
-    #
-    #         post_w = str(w).strip().lower()
-    #         word_list.append(post_w)
-    #
-    #
-    #     embeddings = None
-    #     sim_dict = {}
-    #     print "Will now call full_cycle()"
-    #     try:
-    #         embeddings, sim_dict = full_cycle(word_list)
-    #     except:
-    #         continue
-    #     print "full_cycle() end"
-    #     ansList = answer_by_a_few_sentence(question, WHO,embeddings,sim_dict)
-    #     # extract freq words combinations
-    #     common_combination_rules = self_learn_by_fp_growth('./text/rawtext', '.', ENGLISH_STOP_WORDS)
-    #
-    #     ansList = list(set(ansList))
-    #     ansList = sorted(ansList, key=lambda t: (-t[1], t[0]))
-    #     ner_list = list()
-    #     selected_sentences_string = ""
-    #     print 'The last answers are: '
-    #     for ans in ansList:
-    #         print ans, type(ans)
-    #         ner_list = ner_list + get_all_entities_by_nltk(ans[0])
-    #         selected_sentences_string = selected_sentences_string + ans[0] + "."
-    #         print "\r\n"
-    #
-    #
-    #     summarized_sentences = get_summary_sentences_by_summarizer_voting(selected_sentences_string)
-    #     print " summarized answers are: "
-    #     for sent in summarized_sentences:
-    #         print sent, "\r\n"
-    #         print get_tagged_sentence(sent[0])
-    #         print "====================="
-    #
-    #     Voting_summarier_number = 4
-    #     word_black_list = ['do', 'does', 'why', 'when', 'how', 'what', 'which','who', 'where','?','html', 'ocols and Formats Working Group (PFWG'.lower()\
-    #                        , 'Semantic Web Deployment Working Group'.lower(), 'Microsoft'.lower(), 'your browser', 'JavaScript'.lower()]
-    #     backupAnswerAfterScoreBySummary = []
-    #     for str_score_pair in ansList:
-    #         ans_str = str_score_pair[0]
-    #         if (not is_sentence_complete(ans_str)) or wordListInString(word_black_list,ans_str.lower()):
-    #             continue
-    #         mean_score = str_score_pair[1]
-    #         summaryScore = 0.0
-    #         for summaryStr_score_pair in summarized_sentences:
-    #             if str_score_pair[0] in summaryStr_score_pair[0]:
-    #                 summaryScore = summaryStr_score_pair[1] / float(Voting_summarier_number)
-    #                 break
-    #
-    #         tag_str = tagString_of_sentence(ans_str)
-    #
-    #         common_combination_score = scoreSentenceByFreqRules(common_combination_rules,ans_str)\
-    #                                    /(len(common_combination_rules) + 1)
-    #
-    #         mean_score = 0.020 * summaryScore + \
-    #                      0.88 * mean_score + \
-    #                      0.1 * common_combination_score
-    #
-    #         backupAnswerAfterScoreBySummary.append((ans_str, mean_score))
-    #     backupAnswerAfterScoreBySummary = sorted(backupAnswerAfterScoreBySummary, key=lambda t: (-t[1], t[0]))
-    #     print "For Question : ", question
-    #     print "Scored by both word relation and summary answers are: "
-    #     writeAnswers = file('./text/answers.txt', 'a+')
-    #     writeAnswers.write("\r\n")
-    #     writeAnswers.write(question + "?")
-    #     for sent_pair in backupAnswerAfterScoreBySummary:
-    #         print sent_pair, "\r\n"
-    #         print "+++++++++++++++++++++++++++++"
-    #         writeAnswers.write(sent_pair[0])
-    #         writeAnswers.write('\r\n')
-    #     writeAnswers.close()
 
-#############################################################################################
-    #Check the scores of sentences by nuggets comparing again
-    # see why unrelated sentences have very high scores
 
-    # Comparing with summary method, here just compare how similar center words in question are with
-    # the ones in answers
-    # ScoredSentencesByCenterWordComparing = []
-    # for str_score_pair in ansList:
-    #     ans_str = str_score_pair[0]
-    #     sent_length = len(ans_str)
-    #     lengthFactor = sent_length/float(1+sent_length)
-    #     mean_score = 0.95*compare_sentence_by_nugget_with_all_words(question, ans_str) + 0.05*lengthFactor
-    #     ScoredSentencesByCenterWordComparing.append((ans_str, mean_score))
-    # ScoredSentencesByCenterWordComparing = sorted(ScoredSentencesByCenterWordComparing, key=lambda t: (-t[1], t[0]))
-    # print "Scored by center words comparing"
-    # for sent_pair in ScoredSentencesByCenterWordComparing:
-    #     print sent_pair, "\r\n"
-    #     print "============================"
-    # get keywords
-    # ner_list = list(set(ner_list))
-    # print "the related nouns are "
-    # for ner in ner_list:
-    #     print ner, "\r\n"
-    # threads = []
-    # t1 = threading.Thread(target=answerQuestion, args=(u'how big is an atom',))
-    # threads.append(t1)
-    #
-    # for t in threads:
-    #     t.setDaemon(True)
-    #     t.start()
-    #
-    # t.join()
-    # print 'threads ended!'
 
 #@ToDO
 #Check a sentence by its center word of NPs
