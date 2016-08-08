@@ -1903,7 +1903,7 @@ def compare_sentence_by_nugget_with_all_words(sent1, sent2, embeddings, sim_dict
             v = similarityByEmbedding(base_vp_head, word, embeddings, sim_dict)
             # o = Levenshtein.ratio(base_obj, obj)
             o = similarityByEmbedding(base_obj_head, word, embeddings, sim_dict)
-            score = float(s + v + o)/3
+            score = float(0.4*s + 0.4*v + 0.2*o)/3
 
             if h_score < score:
                 h_score = score
@@ -2639,6 +2639,46 @@ def answer_by_a_few_sentences_by_embedding_with_context(question_str, ans_num=1)
 def get_paragraph_from_article(article):
     return None
 
+class question_option_pair:
+    def __init__(self,question, option_tuple):
+        self.question_str = question
+        self.options = option_tuple
+
+class readingWithProblems:
+    def __init__(self, text, question_option_list):
+        self.textStr = text
+        self.question_option_pair_list = question_option_list
+
+def read_in_one_comprehension(filePath):
+    TEXT = 0
+    QUESTION = 1
+    OPTION = 2
+    state = TEXT
+    f = open(filePath, 'r')
+    strList = f.readlines()
+    text = list()
+    question_option_list = list()
+    length = len(strList)
+    for i in range(0,length-1):
+        q_o = question_option_pair("",None)
+        question = ""
+        if re.match("[1-9]\d*\.",strList[i].strip()[0:2]) is None and ("A)" in strList[i+1]):
+            state = QUESTION
+            question = strList[i]
+            A = strList[i+1]
+            B = strList[i+2]
+            C = strList[i+3]
+            D = strList[i+4]
+            option = (A,B,C,D)
+            q_o.question_str = question
+            q_o.options = option
+            question_option_list.append(q_o)
+        else:
+            if state == TEXT:
+                text.append(strList[i])
+    ret = readingWithProblems(text, question_option_list)
+    return ret
+
 def get_connectied_sentences(sentence, context):
     print "get_connectied_sentences"
     print "sentence is ", sentence
@@ -2716,105 +2756,135 @@ def get_wordembedding_simdict(text2search):
     embeddings, sim_dict = full_cycle(word_list)
     return (embeddings, sim_dict)
 
+def do_one_reading_comprehension_by_embedding(article_with_problems):
+    textlist = article_with_problems.textStr
+    full_passage = ""
+    for sent in textlist:
+        full_passage += sent
+    sentences = getSentencesFromPassageText(full_passage)
+    text2search = full_passage[0:250]
+    (embedding, dict) = get_wordembedding_simdict(text2search)
+    q_list = article_with_problems.question_option_pair_list
+    for q in q_list:
+        question = list()
+        question.append((q.question_str,""))
+        # sentences = getSentencesFromPassageText(full_passage)
+        sentence_sorted_list = noun_related_score_to_sentences(sentences, question, embeddings, dict)
+        for sent in sentence_sorted_list:
+            print sent
+        # Then sort the sentences from the text by similarity to the question
+        # pick up the most related sentence
+        sentences_can_answer = sentence_sorted_list[0:4]
+        options = [q.options[0],
+                   q.options[1],
+                   q.options[2],
+                   q.options[3]]
+        sentence_sorted_list = noun_related_score_to_sentences(options, sentences_can_answer, embeddings, dict)
+        for sent in sentence_sorted_list:
+            print sent
+        print "question ends"
+
 question_countor = 0
 from word2vec_basic import full_cycle
 if __name__ == "__main__":
 
     # summary_by_wordEmbedding()
-
+    art_with_problems = read_in_one_comprehension("./text/tosummary/text")
+    do_one_reading_comprehension_by_embedding(art_with_problems)
     # try to answer question with given text
     # first search the given text from the web to get the embedding
-    question = list()
-    question.append(("The significance of Brocklehurst’s research is that ",""))
-    filehandler = open('./text/tosummary/text', 'r')
-    SHORT_SENT = 3
-    full_passage = filehandler.read()
-    sentences = getSentencesFromPassageText(full_passage)
-    text2search = full_passage[0:250]
-    (embedding, dict) = get_wordembedding_simdict(text2search)
-    sentences = getSentencesFromPassageText(full_passage)
 
-    sentence_sorted_list = noun_related_score_to_sentences(sentences, question,embeddings, dict)
-    for sent in sentence_sorted_list:
-        print sent
-    # Then sort the sentences from the text by similarity to the question
-    # pick up the most related sentence
-    sentences_can_answer = sentence_sorted_list[0:4]
-    options = [ "it suggested a way to keep some foods fresh without preservatives",
-                "it discovered tiny globules in both cream and butter",
-                "it revealed the secret of how bacteria multiply in cream and butter",
-                "it found that cream and butter share the same chemical composition"]
-    sentence_sorted_list = noun_related_score_to_sentences(options, sentences_can_answer, embeddings, dict)
-    for sent in sentence_sorted_list:
-        print sent
-    print "question ends"
-    # //////////////////////////
-    question = list()
-    question.append(("According to the researchers, cream sours fast than butter because bacteria",""))
-    sentence_sorted_list = noun_related_score_to_sentences(sentences, question,embeddings, dict)
-    for sent in sentence_sorted_list:
-        print sent
-    # Then sort the sentences from the text by similarity to the question
-    # pick up the most related sentence
-    sentences_can_answer = sentence_sorted_list[0:4]
-    options = [ "are more evenly distributed in cream",
-                "multiply more easily in cream than in butter",
-                "live on less fat in cream than in butter",
-                "produce less waste in cream than in butter"]
-    sentence_sorted_list = noun_related_score_to_sentences(options, sentences_can_answer, embeddings, dict)
-    for sent in sentence_sorted_list:
-        print sent
-    # //////////////////////////
-    print "question ends"
-    question = list()
-    question.append(("According to Brocklehurst, we can keep cream fresh by ", ""))
-    sentence_sorted_list = noun_related_score_to_sentences(sentences, question, embeddings, dict)
-    for sent in sentence_sorted_list:
-        print sent
-    # Then sort the sentences from the text by similarity to the question
-    # pick up the most related sentence
-    sentences_can_answer = sentence_sorted_list[0:4]
-    options = ["removing its fat",
-               "killing the bacteria",
-               "reducing its water content",
-               "altering its structure"]
-    sentence_sorted_list = noun_related_score_to_sentences(options, sentences_can_answer, embeddings, dict)
-    for sent in sentence_sorted_list:
-        print sent
-    # //////////////////////////
-    question = list()
-    question.append(("The word “colonies” (Line 2, Para. 4) refers to",""))
-    sentence_sorted_list = noun_related_score_to_sentences(sentences, question,embeddings, dict)
-    for sent in sentence_sorted_list:
-        print sent
-    # Then sort the sentences from the text by similarity to the question
-    # pick up the most related sentence
-    sentences_can_answer = sentence_sorted_list[0:4]
-    options = [ "tiny globules",
-                "watery regions",
-                "bacteria communities",
-                "little compartments"]
-    sentence_sorted_list = noun_related_score_to_sentences(options, sentences_can_answer, embeddings, dict)
-    for sent in sentence_sorted_list:
-        print sent
-    print "question ends"
-    # //////////////////////////
-    question = list()
-    question.append(("Commercial application of the research finding will be possible if salad cream can be made resistant to bacterial attack",""))
-    sentence_sorted_list = noun_related_score_to_sentences(sentences, question,embeddings, dict)
-    for sent in sentence_sorted_list:
-        print sent
-    # Then sort the sentences from the text by similarity to the question
-    # pick up the most related sentence
-    sentences_can_answer = sentence_sorted_list[0:4]
-    options = [ "by varying its chemical composition",
-                "by turning it into a solid lump",
-                "while keeping its structure unchanged",
-                "while retaining its liquid form"]
-    sentence_sorted_list = noun_related_score_to_sentences(options, sentences_can_answer, embeddings, dict)
-    for sent in sentence_sorted_list:
-        print sent
-    print "question ends"
+    # question = list()
+    # question.append(("The significance of Brocklehurst’s research is that ",""))
+    # filehandler = open('./text/tosummary/text', 'r')
+    # SHORT_SENT = 3
+    # full_passage = filehandler.read()
+    # sentences = getSentencesFromPassageText(full_passage)
+    # text2search = full_passage[0:250]
+    # (embedding, dict) = get_wordembedding_simdict(text2search)
+    # sentences = getSentencesFromPassageText(full_passage)
+    #
+    # sentence_sorted_list = noun_related_score_to_sentences(sentences, question,embeddings, dict)
+    # for sent in sentence_sorted_list:
+    #     print sent
+    # # Then sort the sentences from the text by similarity to the question
+    # # pick up the most related sentence
+    # sentences_can_answer = sentence_sorted_list[0:4]
+    # options = [ "it suggested a way to keep some foods fresh without preservatives",
+    #             "it discovered tiny globules in both cream and butter",
+    #             "it revealed the secret of how bacteria multiply in cream and butter",
+    #             "it found that cream and butter share the same chemical composition"]
+    # sentence_sorted_list = noun_related_score_to_sentences(options, sentences_can_answer, embeddings, dict)
+    # for sent in sentence_sorted_list:
+    #     print sent
+    # print "question ends"
+    # # //////////////////////////
+    # question = list()
+    # question.append(("According to the researchers, cream sours fast than butter because bacteria",""))
+    # sentence_sorted_list = noun_related_score_to_sentences(sentences, question,embeddings, dict)
+    # for sent in sentence_sorted_list:
+    #     print sent
+    # # Then sort the sentences from the text by similarity to the question
+    # # pick up the most related sentence
+    # sentences_can_answer = sentence_sorted_list[0:4]
+    # options = [ "are more evenly distributed in cream",
+    #             "multiply more easily in cream than in butter",
+    #             "live on less fat in cream than in butter",
+    #             "produce less waste in cream than in butter"]
+    # sentence_sorted_list = noun_related_score_to_sentences(options, sentences_can_answer, embeddings, dict)
+    # for sent in sentence_sorted_list:
+    #     print sent
+    # # //////////////////////////
+    # print "question ends"
+    # question = list()
+    # question.append(("According to Brocklehurst, we can keep cream fresh by ", ""))
+    # sentence_sorted_list = noun_related_score_to_sentences(sentences, question, embeddings, dict)
+    # for sent in sentence_sorted_list:
+    #     print sent
+    # # Then sort the sentences from the text by similarity to the question
+    # # pick up the most related sentence
+    # sentences_can_answer = sentence_sorted_list[0:4]
+    # options = ["removing its fat",
+    #            "killing the bacteria",
+    #            "reducing its water content",
+    #            "altering its structure"]
+    # sentence_sorted_list = noun_related_score_to_sentences(options, sentences_can_answer, embeddings, dict)
+    # for sent in sentence_sorted_list:
+    #     print sent
+    # # //////////////////////////
+    # question = list()
+    # question.append(("The word “colonies” (Line 2, Para. 4) refers to",""))
+    # sentence_sorted_list = noun_related_score_to_sentences(sentences, question,embeddings, dict)
+    # for sent in sentence_sorted_list:
+    #     print sent
+    # # Then sort the sentences from the text by similarity to the question
+    # # pick up the most related sentence
+    # sentences_can_answer = sentence_sorted_list[0:4]
+    # options = [ "tiny globules",
+    #             "watery regions",
+    #             "bacteria communities",
+    #             "little compartments"]
+    # sentence_sorted_list = noun_related_score_to_sentences(options, sentences_can_answer, embeddings, dict)
+    # for sent in sentence_sorted_list:
+    #     print sent
+    # print "question ends"
+    # # //////////////////////////
+    # question = list()
+    # question.append(("Commercial application of the research finding will be possible if salad cream can be made resistant to bacterial attack",""))
+    # sentence_sorted_list = noun_related_score_to_sentences(sentences, question,embeddings, dict)
+    # for sent in sentence_sorted_list:
+    #     print sent
+    # # Then sort the sentences from the text by similarity to the question
+    # # pick up the most related sentence
+    # sentences_can_answer = sentence_sorted_list[0:4]
+    # options = [ "by varying its chemical composition",
+    #             "by turning it into a solid lump",
+    #             "while keeping its structure unchanged",
+    #             "while retaining its liquid form"]
+    # sentence_sorted_list = noun_related_score_to_sentences(options, sentences_can_answer, embeddings, dict)
+    # for sent in sentence_sorted_list:
+    #     print sent
+    # print "question ends"
     print '----------summary ends-------'
 
 
