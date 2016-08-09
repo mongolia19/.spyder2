@@ -2665,12 +2665,12 @@ def read_in_one_comprehension(filePath):
         if re.match("[1-9]\d*\.",strList[i].strip()[0:2]) is None and ("A)" in strList[i+1]):
             state = QUESTION
             question = strList[i]
-            A = strList[i+1]
-            B = strList[i+2]
-            C = strList[i+3]
-            D = strList[i+4]
+            A = strList[i+1][3:]
+            B = strList[i+2][3:]
+            C = strList[i+3][3:]
+            D = strList[i+4][3:]
             option = (A,B,C,D)
-            q_o.question_str = question
+            q_o.question_str = question.replace("__________", "")
             q_o.options = option
             question_option_list.append(q_o)
         else:
@@ -2765,6 +2765,7 @@ def do_one_reading_comprehension_by_embedding(article_with_problems):
     text2search = full_passage[0:250]
     (embedding, dict) = get_wordembedding_simdict(text2search)
     q_list = article_with_problems.question_option_pair_list
+    answerlist = list()
     for q in q_list:
         question = list()
         question.append((q.question_str,""))
@@ -2783,14 +2784,41 @@ def do_one_reading_comprehension_by_embedding(article_with_problems):
         for sent in sentence_sorted_list:
             print sent
         print "question ends"
+        answerlist.append(sentence_sorted_list[0])
+    return answerlist
+
+def getPrecision(art_with_problems, answer_list, given_ansers):
+    question_option_pair_list = art_with_problems.question_option_pair_list
+    corrections =list()
+    for i in range(len(answer_list)):
+        if answer_list[i][0] in question_option_pair_list[i].options[0]:
+            corrections.append(1)
+        if answer_list[i][0] in question_option_pair_list[i].options[1]:
+            corrections.append(2)
+        if answer_list[i][0] in question_option_pair_list[i].options[2]:
+            corrections.append(3)
+        if answer_list[i][0] in question_option_pair_list[i].options[3]:
+            corrections.append(4)
+    right = 0
+    length= len(given_ansers)
+    for i in range(0, len(given_ansers)):
+        print "correct is " + str(given_ansers[i]) + " and it chose " + str(corrections[i])
+        if corrections[i] == given_ansers[i]:
+            right += 1
+    return float(right)/float(length)
+
 
 question_countor = 0
 from word2vec_basic import full_cycle
 if __name__ == "__main__":
-
+    # 从搜索引擎到回答引擎再到动作引擎
     # summary_by_wordEmbedding()
     art_with_problems = read_in_one_comprehension("./text/tosummary/text")
-    do_one_reading_comprehension_by_embedding(art_with_problems)
+    results = do_one_reading_comprehension_by_embedding(art_with_problems)
+    answers = [4,2,3,4,1]
+    precision = getPrecision(art_with_problems, results, answers)
+    print "precison is " ,precision
+
     # try to answer question with given text
     # first search the given text from the web to get the embedding
 
