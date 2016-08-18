@@ -1880,7 +1880,7 @@ def get_last_word(str_chunk):
     else:
         return str_chunk
 
-def compare_sentence_by_nugget_with_all_words(sent1, sent2, embeddings, sim_dict):
+def compare_sentence_by_nugget_with_all_words(sent1, sent2, embeddings, sim_dict, weight_tuple=(0.3,0.3,0.4,1)):
     nuggets1_list = nuggets_finder(sent1)
     words_list = sent2.split()
     score_list = list()
@@ -1895,15 +1895,53 @@ def compare_sentence_by_nugget_with_all_words(sent1, sent2, embeddings, sim_dict
         base_sbj_head = get_last_word(base_sbj)
         base_obj_head = get_last_word(base_obj)
         base_vp_head = get_last_word(base_vp)
-        # print 'the type of base_sbj_head is ', type(base_sbj_head)
-        # print base_sbj_head
+        if len(base_sbj_head) + len(base_obj_head) + len(base_vp_head)<=6:
+            sent1list = sent1.split()
+            base_sbj_head = sent1list[len(sent1list)-3]
+            base_vp_head = sent1list[len(sent1list)-2]
+            base_obj_head = sent1list[len(sent1list)-1]
+        print 'for sent1: ', sent1
+        print "base_sbj is ", base_sbj
+        print "base_vp is  ", base_vp
+        print "base_obj is ", base_obj
+        print "base_sbj_head is ", base_sbj_head
+        print "base_vp_head is  ", base_vp_head
+        print "base_obj_head is ", base_obj_head
+        # if len(base_sbj_head) + len(base_obj_head) + len(base_vp_head)<=6:
+        #     sent1list = sent1.split()
+        #     base_sbj_head = sent1list[len(sent1list)-3]
+        #     base_vp_head = sent1list[len(sent1list)-2]
+        #     base_obj_head = sent1list[len(sent1list)-1]
         h_score = 0
         for word in words_list:
             s = similarityByEmbedding(base_sbj_head, word, embeddings, sim_dict)
             v = similarityByEmbedding(base_vp_head, word, embeddings, sim_dict)
             # o = Levenshtein.ratio(base_obj, obj)
             o = similarityByEmbedding(base_obj_head, word, embeddings, sim_dict)
-            score = float(0.4*s + 0.4*v + 0.2*o)/3
+            score = float(weight_tuple[0]*s + weight_tuple[1]*v + (1-weight_tuple[0]-weight_tuple[1])*o)/3
+
+            if h_score < score:
+                h_score = score
+        print "score for word: ", word, "to ", str(base_sbj_head) + str(base_vp_head) + str(base_obj_head), " is ", h_score
+        score_list.append(h_score)
+    sum = 0
+    for s in score_list:
+        sum += s
+    avg = sum/(len(score_list) + 1)
+    # avg = max(score_list)
+    print "how similar is sent1 to sent2 ", sent1, "to ", sent2
+    print avg
+    return avg
+
+def compare_sentence_by_all_words_with_all_words(sent1, sent2, embeddings, sim_dict, weight_tuple=(0.3,0.3,0.4,1)):
+    base_word_list = sent1.split()
+    words_list = sent2.split()
+    score_list = list()
+    for word_in_base in base_word_list:
+        h_score = 0
+        for word in words_list:
+            s = similarityByEmbedding(word_in_base, word, embeddings, sim_dict)
+            score = s
 
             if h_score < score:
                 h_score = score
@@ -1911,8 +1949,10 @@ def compare_sentence_by_nugget_with_all_words(sent1, sent2, embeddings, sim_dict
     sum = 0
     for s in score_list:
         sum += s
-    # avg = sum/len(score_list)
-    avg = max(score_list)
+    avg = sum/(len(score_list)+1)
+    # avg = max(score_list)
+    print "how similar is sent1 to sent2 in all words to all words ", sent1, "to ", sent2
+    print avg
     return avg
 
 def compare_sentence_by_nuggets(sent1, sent2):
@@ -2276,7 +2316,7 @@ def scoreSentenceByFreqRules(ruleList,sent):
         score = percent + score
     return score
 
-def noun_related_score_to_sentences(noun_list, sent_list, embeddings, sim_dict):
+def noun_related_score_to_sentences(noun_list, sent_list, embeddings, sim_dict, weight_tuple=(0.3,0.3,0.4,1)):
 #     sort nouns by how close to the iven sentences
     result = list()
     # length = len(sent_list)
@@ -2284,8 +2324,45 @@ def noun_related_score_to_sentences(noun_list, sent_list, embeddings, sim_dict):
         score = 0
         for sent in sent_list:
             print "sent[0] is " , sent[0]
-            s = compare_sentence_by_nugget_with_all_words(noun, sent[0], embeddings, sim_dict)
+            #0.1*compare_sentence_by_nugget_with_all_words(noun, sent[0], embeddings, sim_dict, weight_tuple) +\
+            s = 0.8*compare_sentence_by_nugget_with_all_words(sent[0] ,noun, embeddings, sim_dict, weight_tuple) + \
+                0# 0.2*compare_sentence_by_all_words_with_all_words(sent[0], noun, embeddings, sim_dict, weight_tuple)
             score += s
+        result.append((noun, score))
+    result = sorted(result, key=lambda t: (-t[1], t[0]))
+    return result
+
+def noun_related_score_to_sentences_for_search_passage(noun_list, sent_list, embeddings, sim_dict, weight_tuple=(0.3,0.3,0.4,1)):
+#     sort nouns by how close to the iven sentences
+    result = list()
+    # length = len(sent_list)
+    for noun in noun_list:
+        score = 0
+        for sent in sent_list:
+            print "sent[0] is " , sent[0]
+            #0.1*compare_sentence_by_nugget_with_all_words(noun, sent[0], embeddings, sim_dict, weight_tuple) +\
+            s = 0.8*compare_sentence_by_nugget_with_all_words(sent[0] ,noun, embeddings, sim_dict, weight_tuple) + \
+                0.2*compare_sentence_by_all_words_with_all_words(sent[0], noun, embeddings, sim_dict, weight_tuple)
+            score += s
+        result.append((noun, score))
+    result = sorted(result, key=lambda t: (-t[1], t[0]))
+    return result
+
+def score_sentences_with_sentences_with_weight(noun_list, sent_list, embeddings, sim_dict, weight_tuple=(0.3,0.3,0.4,1)):
+    result = list()
+    weight_list = [0.6, 0.3, 0.1]
+    for noun in noun_list:
+        score = 0
+        for i in range(len(sent_list)):
+            print "sent[0] is " , sent_list[i][0]
+            #0.1*compare_sentence_by_nugget_with_all_words(noun, sent[0], embeddings, sim_dict, weight_tuple) +\
+            if i <= len(weight_list)-1:
+                s = 0.618 * compare_sentence_by_nugget_with_all_words(sent_list[i][0], noun, embeddings, sim_dict,
+                                                                      weight_tuple) + \
+                    0.382 * compare_sentence_by_all_words_with_all_words(sent_list[i][0], noun, embeddings, sim_dict,
+                                                                         weight_tuple)
+                score += weight_list[i]*s
+
         result.append((noun, score))
     result = sorted(result, key=lambda t: (-t[1], t[0]))
     return result
@@ -2736,7 +2813,18 @@ def answer_by_embedding_with_complete_sentences(question_str):
 
 def get_wordembedding_simdict(text2search):
     # question = "how big is an atom"
-    art_list = get_articles_withURKL_from_websearch_query(text2search)
+    art_list = list()
+    width = 250
+    text_total_length = len(text2search)
+    group_num = text_total_length//width
+    for i in range(0,group_num):
+        if i < group_num-1:
+            text_segment = text2search[i*width:width*i+width]
+        else:
+            text_segment = text2search[i*width:]
+        print "searching segment ",i," for total ", group_num
+        segment_list = get_articles_withURKL_from_websearch_query(text_segment)
+        art_list.extend(segment_list)
     str_word = ''
     print "finish getting all the articles"
     for art in art_list:
@@ -2749,38 +2837,44 @@ def get_wordembedding_simdict(text2search):
     str_word = str_word.split()
     word_list = list()
     for w in str_word:
-        post_w = str(w).strip().lower()
+        post_w = str(w)
         word_list.append(post_w)
     global embeddings
     print "Will now call full_cycle()"
     embeddings, sim_dict = full_cycle(word_list)
     return (embeddings, sim_dict)
 
-def do_one_reading_comprehension_by_embedding(article_with_problems):
+def do_one_reading_comprehension_by_embedding(article_with_problems, model_params=(0.3,0.3,0.4,1), embedding=None,dict=None):
     textlist = article_with_problems.textStr
     full_passage = ""
     for sent in textlist:
         full_passage += sent
     sentences = getSentencesFromPassageText(full_passage)
-    text2search = full_passage[0:250]
-    (embedding, dict) = get_wordembedding_simdict(text2search)
+    text2search = full_passage
+    if embedding is None or dict is None:
+        (embedding, dict) = get_wordembedding_simdict(text2search)
     q_list = article_with_problems.question_option_pair_list
     answerlist = list()
     for q in q_list:
         question = list()
         question.append((q.question_str,""))
         # sentences = getSentencesFromPassageText(full_passage)
-        sentence_sorted_list = noun_related_score_to_sentences(sentences, question, embeddings, dict)
+        sentence_sorted_list = noun_related_score_to_sentences_for_search_passage(sentences, question, embeddings, dict, model_params)
         for sent in sentence_sorted_list:
             print sent
         # Then sort the sentences from the text by similarity to the question
         # pick up the most related sentence
-        sentences_can_answer = sentence_sorted_list[0:4]
+        if model_params[3] >= len(sentence_sorted_list):
+            refSentenceNum =  len(sentence_sorted_list)-1
+        else:
+            refSentenceNum = model_params[3]
+
+        sentences_can_answer = sentence_sorted_list[0:refSentenceNum]
         options = [q.options[0],
                    q.options[1],
                    q.options[2],
                    q.options[3]]
-        sentence_sorted_list = noun_related_score_to_sentences(options, sentences_can_answer, embeddings, dict)
+        sentence_sorted_list = noun_related_score_to_sentences(options, sentences_can_answer, embeddings, dict, model_params)
         for sent in sentence_sorted_list:
             print sent
         print "question ends"
@@ -2807,18 +2901,127 @@ def getPrecision(art_with_problems, answer_list, given_ansers):
             right += 1
     return float(right)/float(length)
 
+def paramGenerator(param_list):
+    import random
+    rangeA = 1
+    rangeB = 1
+    rangeC = 20
+
+
+    while True:
+        a = random.uniform(0,rangeA)
+        b = random.uniform(0,rangeA-a)
+        d = random.uniform(0,rangeB)
+        c = int(random.uniform(1, rangeC))
+        tup = (a, b, d, c)
+        print "generated : ", str(tup)
+        if tup not in param_list:
+            param_list.append(tup)
+            break
+    return tup
+
+def envalueFun(art_with_problems, param, embedding, dict, answers):
+    results = do_one_reading_comprehension_by_embedding(art_with_problems, param, embedding, dict)
+    # answers = [1, 2, 3, 1, 4]
+    precision = getPrecision(art_with_problems, results, answers)
+    return precision
+
+def envalue_param_on_one_reading_text(reading_problem_path, standrad_answers_tuple, model_params):
+    art_with_problems = read_in_one_comprehension(reading_problem_path)
+    option_pair_list = art_with_problems.question_option_pair_list
+    opt_str = ''
+    for op in option_pair_list:
+        for opt in op.options:
+            # opt_str += " " + opt
+            opt_str += " " + op.question_str + " " + opt
+
+    textlist = art_with_problems.textStr
+    full_passage = ""
+    for sent in textlist:
+        full_passage += sent
+    sentences = getSentencesFromPassageText(full_passage)
+    text2search = full_passage + opt_str
+    (embedding, dict) = get_wordembedding_simdict(text2search)
+    results = do_one_reading_comprehension_by_embedding(art_with_problems, model_params, embedding, dict)
+    answers = standrad_answers_tuple
+    precision = getPrecision(art_with_problems, results, answers)
+    print "on test text: precison is ", precision, "for param ", str(model_params)
+    return precision
 
 question_countor = 0
 from word2vec_basic import full_cycle
 if __name__ == "__main__":
     # 从搜索引擎到回答引擎再到动作引擎
     # summary_by_wordEmbedding()
-    art_with_problems = read_in_one_comprehension("./text/tosummary/text")
-    results = do_one_reading_comprehension_by_embedding(art_with_problems)
-    answers = [4,2,3,4,1]
-    precision = getPrecision(art_with_problems, results, answers)
-    print "precison is " ,precision
+    # art_with_problems = read_in_one_comprehension("./text/tosummary/text")
+    # option_pair_list = art_with_problems.question_option_pair_list
+    # opt_str = ''
+    # for op in option_pair_list:
+    #     for opt in op.options:
+    #         opt_str += " " + opt
+    #
+    # textlist = art_with_problems.textStr
+    # full_passage = ""
+    # for sent in textlist:
+    #     full_passage += sent
+    # sentences = getSentencesFromPassageText(full_passage)
+    # text2search = full_passage + opt_str
+    # (embedding, dict) = get_wordembedding_simdict(text2search)
+    # param_list = list()
+    # optimal_param = None
+    # for i in range(500):
+    #     param = paramGenerator(param_list)
+    #
+    #     results = do_one_reading_comprehension_by_embedding(art_with_problems, param,embedding, dict)
+    #     answers = [4,3,1,2,4]
+    #     precision = getPrecision(art_with_problems, results, answers)
+    #     print "precison is " ,precision, "for param " , str(param)
+    #     writeSummaries = file('./text/opt_params.txt', 'a+')
+    #     writeSummaries.write("param: " + str(param) + ": " + str(precision))
+    #     writeSummaries.write("\r\n")
+    #     writeSummaries.close()
+    #     if precision >= 0.6:
+    #         optimal_param = param
+    #         break
+    optimal_param = (0.7733611596766595, 0.06991093490256266, 0.9548839847918859, 1)
+    #####Test on another reading problem
+    art_with_problems = read_in_one_comprehension("./text/tosummary/text_test")
+    option_pair_list = art_with_problems.question_option_pair_list
+    opt_str = ''
+    for op in option_pair_list:
+        for opt in op.options:
+            opt_str += " " + op.question_str + " " + opt
 
+    textlist = art_with_problems.textStr
+    full_passage = ""
+    for sent in textlist:
+        full_passage += sent
+    sentences = getSentencesFromPassageText(full_passage)
+    text2search = full_passage + opt_str
+    (embedding, dict) = get_wordembedding_simdict(text2search)
+    results = do_one_reading_comprehension_by_embedding(art_with_problems, optimal_param, embedding, dict)
+    answers = [4, 2, 3, 4, 1]
+    precision = getPrecision(art_with_problems, results, answers)
+    print "on test text: precison is ", precision, "for param ", str(optimal_param)
+
+    precision = envalue_param_on_one_reading_text("./text/tosummary/test1",[1,2,4,3,4],optimal_param)
+    writeSummaries = file('./text/opt_params.txt', 'a+')
+    writeSummaries.write("test ======= ")
+    writeSummaries.write("on test text: precison is" + str(precision))
+    writeSummaries.write("\r\n")
+    writeSummaries.close()
+    precision = envalue_param_on_one_reading_text("./text/tosummary/test2",[1,3,3,1,2],optimal_param)
+    writeSummaries = file('./text/opt_params.txt', 'a+')
+    writeSummaries.write("test ======= ")
+    writeSummaries.write("on test text: precison is" + str(precision))
+    writeSummaries.write("\r\n")
+    writeSummaries.close()
+    precision = envalue_param_on_one_reading_text("./text/tosummary/test3", [2, 3, 1, 3, 2], optimal_param)
+    writeSummaries = file('./text/opt_params.txt', 'a+')
+    writeSummaries.write("test ======= ")
+    writeSummaries.write("on test text: precison is" + str(precision))
+    writeSummaries.write("\r\n")
+    writeSummaries.close()
     # try to answer question with given text
     # first search the given text from the web to get the embedding
 

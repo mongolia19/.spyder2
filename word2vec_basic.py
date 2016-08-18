@@ -114,8 +114,14 @@ def generate_batch(batch_size, num_skips, skip_window, data):
       while target in targets_to_avoid:
         target = random.randint(0, span - 1)
       targets_to_avoid.append(target)
+      # print( "batch index "+ str(i * num_skips + j) + " batch length is " + str(len(batch)))
+      # print( "buffer index "+ str( skip_window) + "buffer length is " + str(len(buffer)))
+      if len(buffer)<=0 or len(batch)<=0:
+          continue
       batch[i * num_skips + j] = buffer[skip_window]
       labels[i * num_skips + j, 0] = buffer[target]
+    if data_index>=len(data):
+        continue
     buffer.append(data[data_index])
     data_index = (data_index + 1) % len(data)
   return batch, labels
