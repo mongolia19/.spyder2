@@ -325,8 +325,15 @@ def all_word_list_in_sentenceStr(word_str_list, sentStr):
         else:
             return False
     return True
+def tokenize(sent):
+    '''Return the tokens of a sentence including punctuation.
+    #>>> tokenize('Bob dropped the apple. Where is the apple?')
+    ['Bob', 'dropped', 'the', 'apple', '.', 'Where', 'is', 'the', 'apple', '?']
+    '''
+    return [x.strip() for x in re.split('(\W+)?', sent) if x.strip()]
+
 def hit_percent_in_sentenceStr(word_str_list, sentStr):
-    wordList = nltk.word_tokenize(sentStr)
+    wordList = tokenize(sentStr)
     # print 'type of wordlist is ',type(wordList[0])
     wordSet = set(wordList)
     count = 0
