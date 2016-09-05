@@ -172,6 +172,18 @@ def MeasureWordSimilarity(wordA, wordB):
     keyB = wordBList[0]
     return keyA.path_similarity(keyB)
 
+def IsModifier(TagStr):
+    # p = re.compile('NNP|NN|NNS|NE|PRP|NNPS')
+    p = re.compile('ADJ|ADV')
+    m = p.match(TagStr)
+    if m:
+
+        return True
+
+    else:
+
+        return False
+
 
 def IsNamedEntity(TagStr):
     # p = re.compile('NNP|NN|NNS|NE|PRP|NNPS')
@@ -231,6 +243,12 @@ def IsVerb(TagStr):
 
         return False
 
+def getAllModifiers(TaggedWordList):
+    ADList = list()
+    for taggedWord in TaggedWordList:
+        if IsModifier(taggedWord[1]):
+            ADList.append(taggedWord[0])
+    return ADList
 
 def getAllEntities(TaggedWordList):
     NEList = list()
