@@ -57,7 +57,7 @@ import nltk
 
 from pattern.en import parsetree
 # import MySqlHelper
-from wordNet import wordDictRelation, hit_percent_in_sentenceStr
+from wordNet import wordDictRelation, hit_percent_in_sentenceStr ,tokenize
 from wordNet import getVPListFromStr
 from wordNet import getNPListFromStr
 from wordNet import wordInSentStr
@@ -212,6 +212,7 @@ def readStrToTuple(path):
     resTupleList = list()
     f = open(path, 'r')
     strList = f.readlines()
+    f.close()
     for s in strList:
         tempTuple = s.strip().strip('\n').split(' ')
         if len(tempTuple) > 1:
@@ -888,7 +889,8 @@ def questionMod(inputSentence, qType):
     patternList = questionPatternLoader(qType)
     print '========== question mod entered ============'
     backupAnwsersDict = {}
-    SentencesList = getRelatedSentencesListFromWeb(inputSentence)
+    SentencesList = get_all_sentences_list_from_web(inputSentence)
+    # SentencesList = getRelatedSentencesListFromWeb(inputSentence)
     for sentence in SentencesList:
         strSent = sentence
         for pat in patternList:
@@ -1305,22 +1307,29 @@ def if_rules_repeated(rule_setA, rule_setB):
         else:
             return False
 
+def matchlist2string(matchlist):
+    res_string = ""
+    for m in matchlist:
+        res_string += "---" + m.string
+    return res_string
 
-def self_learn_by_question_answer(local_text_seed_article, out_put_path, similarity_tol):
+def self_learn_by_question_answer(local_text_seed_article, out_put_path, similarity_tol, glove_embedding, core_sentence):
     f = open(local_text_seed_article, 'r')
     raw_text = f.read()
     raw_text = raw_text.decode('gbk', 'ignore').encode('utf-8')
     sent_str_list = getSentencesFromPassageText(raw_text)
     print '--------- after splitting, getSentencesFromPassageText'
     sent_str_list = secondSentenceSplitor(sent_str_list)
+    question_str = core_sentence
     if len(sent_str_list) <= 1:
         return
     for n in range(0, len(sent_str_list) - 1):
-        question_str = sent_str_list[n]
-        answer_str = sent_str_list[n + 1]
-        candidate_sent_list = questionMod(question_str, DEFAULT)
+
+        # question_str = sent_str_list[n]
+        # answer_str = sent_str_list[n + 1]
+        candidate_sent_list, _ = answer_by_a_few_sentence_by_Glove(question_str, DEFAULT, glove_embedding, None)
         c_list = list()
-        c_list.append(answer_str)
+        # c_list.append(answer_str)
         for c in candidate_sent_list:
             # remove the sentences with pronouns
             if len(c[0]) > 0 and len(getAllPronounEntities(get_tagged_sentence(c[0]))) == 0 and is_sentence_complete(
@@ -1328,39 +1337,59 @@ def self_learn_by_question_answer(local_text_seed_article, out_put_path, similar
                 c_list.append(c[0])
             else:
                 continue
-        total_txt = ''
-        for s in c_list:
-            total_txt = total_txt + ' ' + s
-        total_txt = total_txt.strip()
-        simVal_list = similarity(c_list, total_txt)
+        # total_txt = ''
+        # for s in c_list:
+        #     total_txt = total_txt + ' ' + s
+        # total_txt = total_txt.strip()
+        # simVal_list = similarity(c_list, total_txt)
         # get the sentences that are most like the answer
         for i in range(1, len(c_list)):
-            if float(abs(simVal_list[i] - simVal_list[0])) / simVal_list[0] > similarity_tol:
-                match_list = muti_sentence_structure_finder(c_list[i])
-                if match_list is not None and len(match_list) > 0:
-                    if len(filter_when(c_list[i], question_str)) > 0:
-                        FileUtils.WriteToFile(out_put_path, c_list[i] + '\r\n')
-                        continue
+            match_list = muti_sentence_structure_finder(c_list[i])
+            if match_list is not None and len(match_list) > 0:
+                # if len(filter_when(c_list[i], question_str)) > 0:
+                #     FileUtils.WriteToFile(out_put_path, c_list[i] + '\r\n')
+                #     continue
 
-                    match_str_list = list()
-                    for chunk in match_list:
-                        match_str_list.append(chunk.string)
-                    verb_string = evaluate_verb_in_relation_by_search_web(match_list, 0)
-                    if verb_string is None:
-                        continue
-                    else:
-                        rel_chunks_list = discover_entity_relation_by_verb(verb_string, match_list[0].string, ' ')
-                        for rel_chunks in rel_chunks_list:
-                            rel_str = ''
-                            for chunk in rel_chunks:
-                                rel_str = rel_str + " " + chunk.string
-                            FileUtils.WriteToFile(out_put_path, rel_str + '\r\n')
+                match_str_list = list()
+                for chunk in match_list:
+                    match_str_list.append(chunk.string)
+                # ne_list = get_all_entities_by_nltk(core_sentence)
+                nuggets = nuggets_finder(core_sentence)
+                ne_score = 0
+                for nug in nuggets:
+                    nugget = nugget_builder(nug)
+                    nug_str = str_list_to_string(nugget)
+                    s = similarity_by_all_words_by_Glove_Aline_Words(nug_str, c_list[i], glove_embedding)
+                    if s > ne_score:
+                        ne_score = s
+                if ne_score<0.3:
+                    continue
+                print " will extracted related sentence ", c_list[i]
+                verb_string = evaluate_verb_in_relation_by_search_web(match_list, 0, glove_embedding)
+                if verb_string is None:
+                    continue
+                else:
+                    match_str = matchlist2string(match_list)
+                    FileUtils.WriteToFile(out_put_path, match_str + ' || ' + c_list[i] + '\r\n')
+                    rel_chunks_list = discover_entity_relation_by_verb(verb_string, match_list[0].string, match_list[-1].string, 0.25, glove_embedding)
+                    for (rel_chunks, sent) in rel_chunks_list:
+                        rel_str = ''
+                        for chunk in rel_chunks:
+                            rel_str = rel_str + " --- " + chunk.string
+                        print " have extracted rel_str is ", rel_str
+                        # question_str = rel_chunks[0].string + " " + verb_string
+                        nug = nuggets[0]
+                        nug_str_tuple = nugget_builder(nug)
+                        # ne_str = str_list_to_string(ne_list)
+                        question_str = nug_str_tuple[0] + " " + verb_string + " " +  nug_str_tuple[-1]
+                        print "next question is ", question_str
+                        FileUtils.WriteToFile(out_put_path, rel_str + ' || ' + sent + '\r\n')
 
 
 from copy import deepcopy
 
 
-def evaluate_verb_in_relation_by_search_web(chunk_type_list, tol_val):
+def evaluate_verb_in_relation_by_search_web(chunk_type_list, tol_val, glove_embedding):
     temp_chunk_list = deepcopy(chunk_type_list)
     verb_chunk = None
     sbj_chunk = None
@@ -1381,13 +1410,14 @@ def evaluate_verb_in_relation_by_search_web(chunk_type_list, tol_val):
     if len(np_chunk_list) <= 1:
         return None
     verb_with_sbj = [np_chunk_list[0].string, verb_chunk.string, np_chunk_list[1].string]
-    if evaluate_relation_by_search_web(verb_with_sbj, 0, 0):
+    if evaluate_relation_by_search_web(verb_with_sbj, 0, tol_val, 0.2, glove_embedding):
         return verb_chunk.string
     else:
         return None
 
 
-def evaluate_relation_by_search_web(chunk_list, pop_index=-1, tol_val=0):
+def evaluate_relation_by_search_web(chunk_list, pop_index, related_percent, sim_percent, glove_embedding):
+    # pop_index should be -1 by default
     if len(chunk_list) <= 2:
         return False
     else:
@@ -1404,23 +1434,25 @@ def evaluate_relation_by_search_web(chunk_list, pop_index=-1, tol_val=0):
         total_relation_list = list()
         for s in sent_list:
             for w in search_list:
-                if wordInSentStr(w, s) == False:
+                if similarity_by_all_words_by_Glove_Aline_Words(w, s, glove_embedding)<sim_percent:
+                # if wordInSentStr(w, s) == False:
                     continue
             half_relation_list.append(s)
         if len(half_relation_list) == 0:
             return False
         else:
             for s in half_relation_list:
-                if wordInSentStr(hidden_str, s):
+                if similarity_by_all_words_by_Glove_Aline_Words(hidden_str, s, glove_embedding)>=sim_percent:
+                # if wordInSentStr(hidden_str, s):
                     total_relation_list.append(s)
-            if float(len(total_relation_list)) / len(half_relation_list) >= tol_val:
+            if float(len(total_relation_list)) / len(half_relation_list) >= related_percent:
                 return True
             else:
                 return False
 
 
-def discover_entity_relation_by_verb(verb_str, seed_sbj, seed_obj):
-    sent_list = get_all_sentences_list_from_web(seed_sbj + verb_str + seed_obj)
+def discover_entity_relation_by_verb(verb_str, seed_sbj, seed_obj, tol , glove_embeddings):
+    sent_list = get_all_sentences_list_from_web(seed_sbj + " " + verb_str + " " + seed_obj)
     chunks_list = list()
     noun1 = ''
     noun2 = ''
@@ -1439,9 +1471,11 @@ def discover_entity_relation_by_verb(verb_str, seed_sbj, seed_obj):
                             noun1 = match_list[n - 1].string
                         if n + 1 < length and 'NP' in match_list[n + 1].tag:
                             noun2 = match_list[n + 1].string
-                        if (noun1 != '' and noun2 != '') and \
-                                not (noun1 == seed_sbj and noun2 == seed_obj):
-                            chunks_list.append(match_list)
+                        if (noun1 != '' and noun2 != ''):
+                            sim1 = similarity_by_all_words_by_Glove_Aline_Words(noun1, seed_sbj, glove_embeddings)
+                            sim2 = similarity_by_all_words_by_Glove_Aline_Words(noun1, seed_sbj, glove_embeddings)
+                            if sim1 > tol and sim2 > tol:
+                                chunks_list.append((match_list, sent))
     return chunks_list
 
 
@@ -2078,6 +2112,8 @@ def compare_sentence_by_modifiers(sent1, sent2, embeddings, sim_dict, weight_tup
 
 
 def compare_sentence_by_all_words_with_all_words(sent1, sent2, embeddings, sim_dict, weight_tuple=(0.3, 0.3, 0.4, 1)):
+    if len(sent1)<=1 or len(sent2)<=1:
+        return 0
     base_word_list = sent1.split()
     words_list = sent2.split()
     score_list = list()
@@ -2316,7 +2352,7 @@ def answer_by_a_few_sentence(question_string, question_type, embeddings, sim_dic
     return sorted_l, art_str_list
 
 def answer_by_a_few_sentence_by_Glove(question_string, question_type, embeddings, sim_dict):
-    print "answer_by_a_few_sentence_by_Glove called"
+    print "answer_by_a_few_sentence_by_Glove called, will search, ", question_string
     ner_tuple = get_synsets_lists_from_sentence(question_string)
     sent_str_list, art_str_list = getRelatedSentencesListFromWeb(question_string)
 
@@ -2327,12 +2363,15 @@ def answer_by_a_few_sentence_by_Glove(question_string, question_type, embeddings
     sent_str_list = interrogative_filter(temp_str_list)
     candidate_noun_sentence_list = sent_str_list
     print 'candidate_noun_sentence_list are ', candidate_noun_sentence_list
-
+    word_black_list = ['do', 'does', 'why', 'when', 'how', 'what', 'which', 'who', 'where', '?', 'html',
+                       'ocols and Formats Working Group (PFWG'.lower() \
+        , 'Semantic Web Deployment Working Group'.lower(), 'Microsoft'.lower(), 'your browser',
+                       'JavaScript'.lower()]
     sent_eval = list()
     similar_level = 0.8
     scored_list = candidate_noun_sentence_list
     for sent in scored_list:
-        if (Levenshtein.ratio(str(question_string.lower()), str(sent.lower())) > similar_level):
+        if (Levenshtein.ratio(str(question_string.lower()), str(sent.lower())) > similar_level) or wordListInString(word_black_list, sent.lower()):
             continue
         sc = compare_sentence_by_all_words_with_all_words_by_Glove(question_string.split()[0], sent, embeddings, sim_dict)*0.3\
               + compare_sentence_by_all_words_with_all_words_by_Glove(question_string, sent, embeddings, sim_dict)*0.3\
@@ -2435,7 +2474,7 @@ def similarity_one_arragement_by_glove_aline_word(long_word_list, short_word_lis
 
 def similarity_by_all_words_by_Glove_Aline_Words(sent1, sent2, embeddings):
     print "Aligment!!! similarity_by_all_words_by_Glove_Aline_Words called "
-    MAX_LENGTH = 20
+    MAX_LENGTH = 16
     base_word_list = sent1.strip(".").strip(",").split()
     compare_words_list = sent2.strip(".").strip(",").split()
     long_word_list = None
@@ -3002,6 +3041,63 @@ def load_glove(GLOVE_DIR):
     f.close()
     return embeddings_index
 
+def compare_sentence_except_origin_words(sent_str, base_sent, glove_embedding):
+    word_list = base_sent.split()
+    reduced_sent_str = sent_str
+
+    for word in word_list:
+        reduced_sent_str = reduced_sent_str.replace(word, "")
+    return compare_sentence_by_all_words_with_all_words_by_Glove(reduced_sent_str,base_sent,glove_embedding, None)
+
+def fetch_news_by_Glove(question_str, embeddings, ans_num=12):
+    question = question_str
+    glove_embeddings = embeddings
+    import math
+    print 'will search question in function answer_by_a_few_sentences_by_embedding ', question
+    # art_list = get_articles_withURKL_from_websearch_query(question)
+    _,art_list = getRelatedSentencesListFromWeb(question)
+    str_word = ''
+    print "finish getting all the articles"
+    ansList,art_list = answer_by_a_few_sentence_by_Glove(question, WHO, glove_embeddings, None)
+
+
+    Voting_summarier_number = 4
+    word_black_list = ['do', 'does', 'why', 'when', 'how', 'what', 'which', 'who', 'where', '?', 'html',
+                       'ocols and Formats Working Group (PFWG'.lower() \
+        , 'Semantic Web Deployment Working Group'.lower(), 'Microsoft'.lower(), 'your browser',
+                       'JavaScript'.lower()]
+    backupAnswerAfterScoreBySummary = []
+    words_in_question = tokenize(question_str.lower())
+    print "question contain words: ",words_in_question
+    for str_score_pair in ansList:
+        ans_str = str_score_pair[0]
+        if (not is_sentence_complete(ans_str)) or wordListInString(word_black_list, ans_str.lower()) or wordListInString(words_in_question, ans_str.lower()):
+            continue
+        mean_score = str_score_pair[1]
+        # ne_list = get_all_entities_by_nltk(ans_str)
+        # noun_score = math.tanh(len(ne_list))
+        # the longer the higher
+        length_score = math.tanh(len(ans_str.split()))
+        #
+
+        # the fewer orignial words in, the higher
+        ne_in_question = get_all_entities_by_nltk(ans_str)
+        ne_score = math.tanh(len(ne_in_question))
+        # origin_word_hit_percent = hit_percent_in_sentenceStr(ne_in_question, ans_str.lower())
+        # origin_word_not_in_score = math.tanh(1 / (1 + origin_word_hit_percent))
+
+        # mean_score_except_origin_words
+        # mean_score_except_origin_words = mean_score /((origin_word_hit_percent + 1)**3)
+        # mean_score_except_origin_words = compare_sentence_except_origin_words(ans_str.lower(), question_str.lower(), glove_embeddings)
+        # should count the noun number that not included in the question
+        mean_score = (0.2*length_score + 0.4* mean_score + 0.4* ne_score)
+
+        backupAnswerAfterScoreBySummary.append((ans_str, mean_score))
+    backupAnswerAfterScoreBySummary = sorted(backupAnswerAfterScoreBySummary, key=lambda t: (-t[1], t[0]))
+    # print "For Question : ", question
+
+    return (backupAnswerAfterScoreBySummary, glove_embeddings)
+
 def answer_by_Glove(question_str, embeddings, ans_num=12):
     question = question_str
     glove_embeddings = embeddings
@@ -3125,6 +3221,7 @@ def read_in_one_comprehension(filePath):
     state = TEXT
     f = open(filePath, 'r')
     strList = f.readlines()
+    f.close()
     text = list()
     question_option_list = list()
     length = len(strList)
@@ -3331,6 +3428,54 @@ def do_one_reading_comprehension_by_embedding(article_with_problems, model_param
         print "question ends"
         answerlist.append(sentence_sorted_list[0])
     return answerlist
+class article_structure:
+    # import math
+    def __init__(self, art_str):
+        # import math.fabs as abs
+        ratio = 5/6
+        sentences= getSentencesFromPassageText(art_str)
+        self.sentence_list = sentences
+        paragraphs = get_paragraph_from_article(art_str)
+        self.paragraph_list = paragraphs
+        titles = list()
+        for i in range(0,len(paragraphs)-1):
+            if (-1)*(len(paragraphs[i])-len(paragraphs[i+1]))/len(paragraphs[i+1])>=ratio:
+                titles.append(paragraphs[i])
+        self.title_list = titles
+
+
+    def set_sub_titles(self, title_list):
+        self.title_list = title_list
+
+
+def summary_across_articles_by_GLOVE(question_str, glove_embeddings):
+    article_list = get_articles_withURKL_from_websearch_query(question_str)
+    word_in_question = question_str.split()[0].strip()
+    main_article = ""
+    for i in range(1,len(article_list)):
+        if word_in_question.lower() in article_list[i][0].lower():
+            main_article = article_list[i][0]
+    print "main_article ", main_article
+    if main_article == "":
+        return (None,None)
+    art_obj = article_structure(main_article)
+    sim_threshold = 0.25
+    picked_sents = list()
+    for main_sent in art_obj.sentence_list:
+        match_flag = False
+        for art in range(3,4):
+            if match_flag:
+                break
+            art__sent_list = getSentencesFromPassageText( article_list[art][0])
+            for sent in art__sent_list:
+                # print "article_list[art] type is ", type(article_list[art])
+                if match_flag:
+                    break
+                score = similarity_by_all_words_by_Glove_Aline_Words(sent, main_sent, glove_embeddings)
+                if score>= sim_threshold:
+                    picked_sents.append(main_sent)
+                    match_flag = True
+    return (art_obj.title_list, picked_sents)
 
 
 def getPrecision(art_with_problems, answer_list, given_ansers):
@@ -3412,6 +3557,7 @@ def read_in_questions_to_list(filePath):
     # state = TEXT
     f = open(filePath, 'r')
     strList = f.readlines()
+    f.close()
     text = list()
     question_option_list = list()
     length = len(strList)
@@ -3455,6 +3601,232 @@ def sents_with_paragraph_to_html_page(tuple_list, title='TestDoc', file_path="./
             # page << (h2(sent_tuple[0], style='color:red'))
     page.printOut(file_path + output_file)
 
+def process_reminder(sent_str):
+    affair = None
+    time = None
+    return (affair, time)
+
+def process_story(sent_str):
+    global global_glove_embeddings
+    function_list = ["sleep stories",\
+                    "ghost stories", "love stories", "kids stories",\
+                    ]
+    resort_list = noun_related_score_to_sentences(function_list, [(sent_str, "")], \
+                                                      global_glove_embeddings, None, True)
+    news_to_search = resort_list[0][0]
+    question_str = (news_to_search)
+    (reslist, glove_embeddings) = answer_by_Glove(question_str, global_glove_embeddings)
+    sent_str_list = list()
+    for res in reslist:
+        print "selected news is ", res[0]
+        sent_str_list.append(res[0])
+        print "in paragraph: ", res[2]
+    return reslist[0][0] + " ===== \r\n " + reslist[0][3]
+
+politic_news = "politic news"
+financial_news = "financial news"
+science_news = "science news"
+every_day_life_tips = "everyday life tips"
+
+def get_search_sentence(search_type):
+    if search_type == politic_news:
+        return "politic headlines today"
+    if search_type == financial_news:
+        return "financial headlines today"
+    if search_type == science_news:
+        return "science headlines today"
+    if search_type == every_day_life_tips:
+        return "every day life tips"
+
+def process_question(sent_str):
+    global global_glove_embeddings
+    ans_list, _=  answer_by_a_few_sentence_by_Glove(sent_str, None, global_glove_embeddings, None)
+    if len(ans_list)>15:
+        ans_list = ans_list[:15]
+    sent_str_list = list()
+    for res in ans_list:
+        print "selected anwser is ", res[0]
+        sent_str_list.append(res[0])
+        # print "in paragraph: ", res[2]
+    # sents_with_paragraph_to_html_page(reslist, quest, "./text/", quest+".html")
+    resort_list = noun_related_score_to_sentences(sent_str_list, [(sent_str, "")], \
+                                                  global_glove_embeddings, None, True)
+    return resort_list[0][0] + " \r\n" + resort_list[1][0] + " \r\n" + resort_list[2][0]
+
+def process_news(sent_str):
+
+    global global_glove_embeddings
+    function_list = [politic_news,\
+                    every_day_life_tips, financial_news, science_news,\
+                    ]
+    resort_list = noun_related_score_to_sentences(function_list, [(sent_str, "")], \
+                                                      global_glove_embeddings, None, True)
+    news_to_search = resort_list[0][0]
+    question_str = get_search_sentence(news_to_search)
+    (reslist, _) = fetch_news_by_Glove(question_str, global_glove_embeddings)
+    sent_str_list = list()
+    for res in reslist:
+        print "selected news is ", res[0], " ",res[1]
+        sent_str_list.append(res[0])
+        # print "in paragraph: ", res[2]
+    return reslist[0][0] + " ===== \r\n " + reslist[1][0]
+
+REMINDER = "remind to do things at some time"
+STORY = "tell a story read article"
+NEWS = "read some news events about the world"
+WEATHER = "what weather climate report sunny rainy"
+QUESTION = "what how when why who will did do does can questions"
+
+def function_switcher(function_score_pair, question_str):
+    print "function_switcher called"
+    function_str = function_score_pair[0]
+    result = None
+    if function_str == REMINDER:
+        print "process_reminder"
+        result = process_reminder(question_str)
+    elif function_str == STORY:
+        result = process_story(question_str)
+    elif function_str == NEWS:
+        result = process_news(question_str)
+    elif function_str == QUESTION:
+        print "process question"
+        result = process_question(question_str)
+    return result
+
+def human_state_anlayze(question_str, time_string):
+    state = None
+    time_list = str(time_string).split("-")
+    hour = int(time_list[3])
+    min = int(time_list[4])
+    if hour == 11 and min == 0:
+        state = "You should go to bed now!"
+        return state
+    else:
+        return ""
+
+def human_mood_anlayze(question_str):
+    mood = None
+    return mood
+
+def send_response(result_str, state_body, state_mind):
+    return None
+
+global_glove_embeddings = None
+client_sock = None
+import os
+from  pyinotify import  WatchManager, Notifier, \
+ProcessEvent,IN_DELETE, IN_CREATE,IN_MODIFY
+
+class EventHandler(ProcessEvent):
+    """事件处理"""
+    def process_IN_CREATE(self, event):
+        print  "Create file: %s "  %  os.path.join(event.path,event.name)
+    def process_IN_DELETE(self, event):
+        print  "Delete file: %s "  %  os.path.join(event.path,event.name)
+    def process_IN_MODIFY(self, event):
+        print   "Modify file: %s " %   os.path.join(event.path,event.name)
+        f = open(os.path.join(event.path,event.name), 'r')
+        sents = f.readlines()
+        last_sent = sents[-1]
+        f.close()
+        process_sent(last_sent)
+
+def FSMonitor(path='./text/conversation/', embeddings=None):
+        local_embeddings = embeddings
+        wm= WatchManager()
+        mask= IN_DELETE | IN_CREATE |IN_MODIFY
+        notifier= Notifier(wm, EventHandler())
+        wm.add_watch(path, mask,rec=True)
+        print'now starting monitor %s'%(path)
+        while True:
+                try:
+                       notifier.process_events()
+                       if notifier.check_events():
+                               notifier.read_events()
+                except KeyboardInterrupt:
+                       notifier.stop()
+                       break
+
+def get_time_str():
+    import time
+    return time.strftime('%Y-%m-%d-%H-%M', time.localtime(time.time()))
+
+def process_sent(question_str):
+    global global_glove_embeddings
+    function_list = [REMINDER,\
+                    STORY, NEWS, WEATHER,\
+                     QUESTION]
+    resort_list = noun_related_score_to_sentences(function_list, [(question_str, "")], \
+                                                      global_glove_embeddings, None, True)
+    for sent in resort_list:
+        print sent
+    result = function_switcher(resort_list[0], question_str)
+
+    time_of_day = get_time_str()
+    state_body = human_state_anlayze(question_str,time_of_day)
+
+    state_mind = human_mood_anlayze(question_str)
+
+    send_response(result, state_body, state_mind)
+    return result
+
+def speak2client(sent):
+    global client_sock
+    t_sock = client_sock
+    if t_sock:
+        t_sock.send(sent)
+
+import time
+import thread
+def timer(no, interval):
+    # cnt = 0
+    while True:
+        # print 'Thread:(%d) Time:%s\n'%(no, time.ctime())
+        time.sleep(interval)
+        t = get_time_str()
+        state = human_state_anlayze("", t)
+        if len(state) >0:
+            speak2client("speak from timer..." + state)
+        # cnt+=1
+    thread.exit_thread()
+
+
+def test_thread(): #Use thread.start_new_thread() to create 2 new threads
+    thread.start_new_thread(timer, (1,3))
+    # thread.start_new_thread(timer, (2,2))
+
+def tcp_server():
+    from socket import *
+    from time import ctime
+
+    HOST = ''
+    PORT = 51706
+    BUFSIZ = 1024
+    ADDR = (HOST, PORT)
+
+    tcpSerSock = socket(AF_INET, SOCK_STREAM)
+    tcpSerSock.bind(ADDR)
+    tcpSerSock.listen(5)
+    test_thread()
+    while True:
+        try:
+            print 'waiting for connection...'
+            tcpCliSock, addr = tcpSerSock.accept()
+            print '...connected from:', addr
+            global client_sock
+            client_sock = tcpCliSock
+            while True:
+                data = tcpCliSock.recv(BUFSIZ)
+                if not data:
+                    break
+                data = str(process_sent(data))
+                tcpCliSock.send('[%s] %s' % (ctime(), data))
+        except Exception , e:
+            print e
+            tcpCliSock.close()
+
+    tcpSerSock.close()
+
 question_countor = 0
 from word2vec_basic import full_cycle
 
@@ -3475,49 +3847,88 @@ if __name__ == "__main__":
     # paras = get_paragraph_from_article(art)
     # for p in paras:
     #     print p
+    # question_str = "NASA Science Science @ NASA Headline News You may have noticed that the \"look and feel\" of Science @ NASA stories has changed"
+    # ne_in_question = get_all_entities_by_nltk(question_str.lower())
+    # origin_word_not_in_score = hit_percent_in_sentenceStr(ne_in_question, question_str.lower())
 
-    glove_embeddings = load_glove("./glove.6B/")
-    # sent0 = "who is the father of USA"
-    # sent1 = "In grade school and beyond, every American learns that George Washington is the Father of the country."
-    # sent2 = "Father's Day is an occasion to mark and celebrate the contribution that your own father has made to your life."
-    # s1 = similarity_by_all_words_by_Glove_Aline_Words(sent0, sent1, glove_embeddings)
-    # s2 = similarity_by_all_words_by_Glove_Aline_Words(sent0, sent2, glove_embeddings)
-    # print "s1 ", s1, " s2 ", s2
-    print "Embeddings load finished"
-    question_list = read_in_questions_to_list("./text/questions")
-    for quest in question_list:
+    global global_glove_embeddings
+    global_glove_embeddings = load_glove("./glove.6B/")
+    # tcp_server()
 
-        writeSummaries = file('./text/ans_seq.txt', 'a+')
-        question_str = quest
-        (reslist, glove_embeddings) = answer_by_Glove(question_str, glove_embeddings)
-        sent_str_list = list()
-        for res in reslist:
-            print "selected anwser is ", res[0]
-            sent_str_list.append(res[0])
-            print "in paragraph: ", res[2]
-        # sents_with_paragraph_to_html_page(reslist, quest, "./text/", quest+".html")
-        resort_list = noun_related_score_to_sentences(sent_str_list, [(question_str, "")], \
-                                                      glove_embeddings, None, True)
-        html_text_list = list()
-        for str_score_pair in resort_list:
-            for sent_para_pair in reslist:
-                if str_score_pair[0] in sent_para_pair[0]:
-                    html_text_list.append((sent_para_pair))
-        sents_with_paragraph_to_html_page(html_text_list, quest, "./text/", quest + ".html")
-        # sents_with_paragraph_to_html_page(html_text_list, quest + ".html")
-        print 'After resorting '
-        for sent in resort_list:
-            print sent
-        writeSummaries.write("question ------> ")
-        writeSummaries.write(str(quest) + "\r\n")
-        writeSummaries.write("answer ======= ")
-        writeSummaries.write(str(resort_list[0][0]))
-        writeSummaries.write("\r\n")
-        writeSummaries.write(str(resort_list[1][0]))
-        writeSummaries.write("\r\n")
-        writeSummaries.write(str(resort_list[2][0]))
-        writeSummaries.write("\r\n")
-        writeSummaries.close()
+    (titles, important_sents) = summary_across_articles_by_GLOVE("how to make potato chips at home?", global_glove_embeddings)
+    print "sub titles "
+    for t in titles:
+        print t
+    print "important sentences "
+    for s in important_sents:
+        print s
+    # self_learn_by_question_answer("./text/questions", "./text/relations", 0.5, global_glove_embeddings, "what caused earthquakes")
+
+    # compare articles extract similar sentences over different articles
+    # extract subtitles: small paragrah followed by a long paragragh
+    # FSMonitor()
+    # # sent0 = "who is the father of USA"
+    # # sent1 = "In grade school and beyond, every American learns that George Washington is the Father of the country."
+    # # sent2 = "Father's Day is an occasion to mark and celebrate the contribution that your own father has made to your life."
+    # # s1 = similarity_by_all_words_by_Glove_Aline_Words(sent0, sent1, glove_embeddings)
+    # # s2 = similarity_by_all_words_by_Glove_Aline_Words(sent0, sent2, glove_embeddings)
+    # # print "s1 ", s1, " s2 ", s2
+    # print "Embeddings load finished"
+    # question_str = "don't forget to tell me to buy some potato chips at noon"
+    # question_str = "I was always wondering when did the first fish come into being "
+    # question_str = "what weather it be tomorrow"
+    # question_str = "I am really tired"
+    #
+    # function_list = [REMINDER,\
+    #                 STORY, NEWS, WEATHER,\
+    #                  QUESTION]
+    # resort_list = noun_related_score_to_sentences(function_list, [(question_str, "")], \
+    #                                                   glove_embeddings, None, True)
+    # for sent in resort_list:
+    #     print sent
+    # result = function_switcher(resort_list[0], question_str)
+    #
+    # state_body = human_state_anlayze(question_str,time_of_day)
+    #
+    # state_mind = human_mood_anlayze(question_str)
+    #
+    # send_response(result, state_body, state_mind)
+
+    #
+    # question_list = read_in_questions_to_list("./text/questions")
+    # for quest in question_list:
+    #
+    #     writeSummaries = file('./text/ans_seq.txt', 'a+')
+    #     question_str = quest
+    #     (reslist, glove_embeddings) = answer_by_Glove(question_str, glove_embeddings)
+    #     sent_str_list = list()
+    #     for res in reslist:
+    #         print "selected anwser is ", res[0]
+    #         sent_str_list.append(res[0])
+    #         print "in paragraph: ", res[2]
+    #     # sents_with_paragraph_to_html_page(reslist, quest, "./text/", quest+".html")
+    #     resort_list = noun_related_score_to_sentences(sent_str_list, [(question_str, "")], \
+    #                                                   glove_embeddings, None, True)
+    #     html_text_list = list()
+    #     for str_score_pair in resort_list:
+    #         for sent_para_pair in reslist:
+    #             if str_score_pair[0] in sent_para_pair[0]:
+    #                 html_text_list.append((sent_para_pair))
+    #     sents_with_paragraph_to_html_page(html_text_list, quest, "./text/", quest + ".html")
+    #     # sents_with_paragraph_to_html_page(html_text_list, quest + ".html")
+    #     print 'After resorting '
+    #     for sent in resort_list:
+    #         print sent
+    #     writeSummaries.write("question ------> ")
+    #     writeSummaries.write(str(quest) + "\r\n")
+    #     writeSummaries.write("answer ======= ")
+    #     writeSummaries.write(str(resort_list[0][0]))
+    #     writeSummaries.write("\r\n")
+    #     writeSummaries.write(str(resort_list[1][0]))
+    #     writeSummaries.write("\r\n")
+    #     writeSummaries.write(str(resort_list[2][0]))
+    #     writeSummaries.write("\r\n")
+    #     writeSummaries.close()
 
 
     # chunks = get_chunks_in_sentence("old big fathers and celebrating fatherhood, paternal bonds, and the influence of fathers in society.")
