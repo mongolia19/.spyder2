@@ -71,7 +71,7 @@ from wordNet import listToDict
 from wordNet import getAllLinksFromPage
 from wordNet import html_to_plain_text
 from wordNet import word_list_in_sentenceStr, all_word_list_in_sentenceStr
-from wordNet import get_lemma_of_word
+from wordNet import hypernym_of_word
 import textblob
 import copy
 import Levenshtein
@@ -1096,25 +1096,25 @@ def getRelatedSentencesListFromWeb(searchedKeyWords):
             # print ks
             keySentencesText = keySentencesText + ' ' + ks
     MainSearchResultSentencesList = getSentencesFromPassageText(keySentencesText)
-    MainSearchResultSentencesList = secondSentenceSplitor(MainSearchResultSentencesList)
+    # MainSearchResultSentencesList = secondSentenceSplitor(MainSearchResultSentencesList)
     # write sentences in format w,w,w, to file
-    global question_countor
-    if question_countor > 5:
-        question_countor = 0
-        writeEmpty = file('./text/rawtext/data.txt', 'w')
-        writeEmpty.write('')
-        writeEmpty.close()
-    else:
-        question_countor += 1
-    read = file('./text/rawtext/data.txt', 'a+')
-    for s in MainSearchResultSentencesList:
-
-        lineStr = sentence2wordStr_removeStopWords(s, ENGLISH_STOP_WORDS)
-        if len(lineStr) <= 1 or len(lineStr) > 15:
-            continue
-        read.write("\r\n")
-        read.write(lineStr)
-    read.close
+    # global question_countor
+    # if question_countor > 5:
+    #     question_countor = 0
+    #     writeEmpty = file('./text/rawtext/data.txt', 'w')
+    #     writeEmpty.write('')
+    #     writeEmpty.close()
+    # else:
+    #     question_countor += 1
+    # read = file('./text/rawtext/data.txt', 'a+')
+    # for s in MainSearchResultSentencesList:
+    #
+    #     lineStr = sentence2wordStr_removeStopWords(s, ENGLISH_STOP_WORDS)
+    #     if len(lineStr) <= 1 or len(lineStr) > 15:
+    #         continue
+    #     read.write("\r\n")
+    #     read.write(lineStr)
+    # read.close
 
     # for a single article remove the summary sentences,leaving only the details.
     # then extract patterns from only the details
@@ -1313,7 +1313,7 @@ def matchlist2string(matchlist):
         res_string += "---" + m.string
     return res_string
 
-def self_learn_by_question_answer(local_text_seed_article, out_put_path, similarity_tol, glove_embedding, core_sentence):
+def self_learn_by_question_answer(local_text_seed_article, out_put_path, similarity_tol, glove_embedding, core_sentence, return_num = 1):
     f = open(local_text_seed_article, 'r')
     raw_text = f.read()
     raw_text = raw_text.decode('gbk', 'ignore').encode('utf-8')
@@ -1321,6 +1321,7 @@ def self_learn_by_question_answer(local_text_seed_article, out_put_path, similar
     print '--------- after splitting, getSentencesFromPassageText'
     sent_str_list = secondSentenceSplitor(sent_str_list)
     question_str = core_sentence
+    result_list = list()
     if len(sent_str_list) <= 1:
         return
     for n in range(0, len(sent_str_list) - 1):
@@ -1384,13 +1385,18 @@ def self_learn_by_question_answer(local_text_seed_article, out_put_path, similar
                         question_str = nug_str_tuple[0] + " " + verb_string + " " +  nug_str_tuple[-1]
                         print "next question is ", question_str
                         FileUtils.WriteToFile(out_put_path, rel_str + ' || ' + sent + '\r\n')
-
+                        result_list.append(rel_str + ' || ' + sent)
+                        if len(result_list)>return_num:
+                            return result_list
+    return result_list
 
 from copy import deepcopy
 
 
 def evaluate_verb_in_relation_by_search_web(chunk_type_list, tol_val, glove_embedding):
     temp_chunk_list = deepcopy(chunk_type_list)
+    if temp_chunk_list is None:
+        return None
     verb_chunk = None
     sbj_chunk = None
     obj_chunk = None
@@ -2373,6 +2379,8 @@ def answer_by_a_few_sentence_by_Glove(question_string, question_type, embeddings
     for sent in scored_list:
         if (Levenshtein.ratio(str(question_string.lower()), str(sent.lower())) > similar_level) or wordListInString(word_black_list, sent.lower()):
             continue
+        if not is_sentence_complete(sent.lower()):
+            continue
         sc = compare_sentence_by_all_words_with_all_words_by_Glove(question_string.split()[0], sent, embeddings, sim_dict)*0.3\
               + compare_sentence_by_all_words_with_all_words_by_Glove(question_string, sent, embeddings, sim_dict)*0.3\
               + compare_sentence_by_nugget_with_all_words(question_string, sent, embeddings, sim_dict, True)*0.4
@@ -2469,14 +2477,30 @@ def similarity_one_arragement_by_glove_aline_word(long_word_list, short_word_lis
     for i in range(short_length):
         sum += similarityByGloveEmedding( short_word_list[i] , long_word_list[one_arrange[i]],\
             glove_embeddings,None)
-    avg = sum/(short_length+1)
+    # avg = sum/(short_length+1)
+    avg = sum
+    return avg
+
+def similarity_one_arragement_by_glove_by_all_words_comparing(long_word_list, short_word_list, one_arrange, glove_embeddings):
+    short_length = len(short_word_list)
+    sum = 0
+    for i in range(short_length):
+        sum += similarity_by_all_words_by_Glove_Aline_Words( short_word_list[i] , long_word_list[one_arrange[i]],\
+            glove_embeddings)
+    # avg = sum/(short_length+1)
+    avg = sum
     return avg
 
 def similarity_by_all_words_by_Glove_Aline_Words(sent1, sent2, embeddings):
     print "Aligment!!! similarity_by_all_words_by_Glove_Aline_Words called "
     MAX_LENGTH = 16
-    base_word_list = sent1.strip(".").strip(",").split()
-    compare_words_list = sent2.strip(".").strip(",").split()
+    import string
+
+    sent1_a = str(sent1).translate(None, string.punctuation)
+    sent2_a = str(sent2).translate(None, string.punctuation)
+    print "after remove comma ", sent1_a
+    base_word_list = tokenize(sent1_a)
+    compare_words_list = tokenize(sent2_a)
     long_word_list = None
     short_word_list = None
     if len(base_word_list)>=len(compare_words_list):
@@ -2506,15 +2530,98 @@ def similarity_by_all_words_by_Glove_Aline_Words(sent1, sent2, embeddings):
         arrange_score_list.append(score)
     print "arrange_score_list ", len(arrange_score_list), " arrangements ", len(arrangements)
     max_score = max(arrange_score_list)
+    print "in maximum alingment: "
+    for arrange in arrangements:
+        score = similarity_one_arragement_by_glove_aline_word(long_word_list, short_word_list, arrange, embeddings)
+        if score == max_score:
+            for i in range(len(arrange)):
+                s = similarityByGloveEmedding(short_word_list[i], long_word_list[arrange[i]], \
+                                          embeddings, None)
+                print (short_word_list[i] + " aline to " + long_word_list[arrange[i]] + " score is " + str(s))
+
     # avg = max(score_list)
     print "how similar is sent1 to sent2 in all words to all words ", sent1, "to ", sent2
     print max_score
     return max_score
 
+def similarity_by_all_words_by_Glove_Aline_nuggets(sent1, sent2, embeddings):
+    print "Aligment!!! similarity_by_all_words_by_Glove_Aline_nuggets called "
+    MAX_LENGTH = 16
+    import string
+
+    sent1_a = str(sent1).translate(None, string.punctuation)
+    sent2_a = str(sent2).translate(None, string.punctuation)
+    print "after remove comma ", sent1_a
+    nugs_of_s1 = nuggets_finder(sent1_a)
+    nug_str_list = list()
+    for nug in nugs_of_s1:
+        (sbj,v,obj) = nugget_builder(nug)
+        nug_sent = sbj  + v  + obj
+        nug_str_list.append(nug_sent)
+    base_word_list = nug_str_list
+    nug_str_list = list()
+    nugs_of_s2 = nuggets_finder(sent2_a)
+    for nug in nugs_of_s2:
+        (sbj, v, obj) = nugget_builder(nug)
+        nug_sent = sbj  + v  + obj
+        print "find nug ", nug_sent
+        nug_str_list.append(nug_sent)
+    # base_word_list = nug_str_list
+    # base_word_list = tokenize(sent1_a)
+    compare_words_list = nug_str_list
+    long_word_list = None
+    short_word_list = None
+    if len(base_word_list)>=len(compare_words_list):
+        long_word_list = base_word_list
+        short_word_list = compare_words_list
+    else:
+        long_word_list = compare_words_list
+        short_word_list = base_word_list
+    long_length = len(long_word_list)
+    short_length = len(short_word_list)
+    if long_length>MAX_LENGTH:
+        long_word_list = long_word_list[:MAX_LENGTH]
+        long_length = len(long_word_list)
+    if short_length>MAX_LENGTH:
+        short_word_list = short_word_list[:MAX_LENGTH]
+        short_length = len(short_word_list)
+    print "lengths are ", short_length, " <--->", long_length
+    total_list = range(long_length)
+    import itertools
+    # Here use permutations instead of combination
+    print "Using permutations"
+    arrangements = list(itertools.permutations(total_list, short_length))
+    if len(arrangements)<=0:
+        print "arrangements null"
+        return 0
+    arrange_score_list = list()
+    for arrange in arrangements:
+        score = similarity_one_arragement_by_glove_by_all_words_comparing(long_word_list, short_word_list, arrange, embeddings)
+        arrange_score_list.append(score)
+    print "arrange_score_list ", len(arrange_score_list), " arrangements ", len(arrangements)
+    sum_score = max(arrange_score_list)
+    # print "in maximum alingment: "
+    # for arrange in arrangements:
+    #     score = similarity_one_arragement_by_glove_aline_word(long_word_list, short_word_list, arrange, embeddings)
+    #     if score == max_score:
+    #         for i in range(len(arrange)):
+    #             s = similarityByGloveEmedding(short_word_list[i], long_word_list[arrange[i]], \
+    #                                       embeddings, None)
+    #             print (short_word_list[i] + " aline to " + long_word_list[arrange[i]] + " score is " + str(s))
+
+    # avg = max(score_list)
+    # print "how similar is sent1 to sent2 in all words to all words ", sent1, "to ", sent2
+    # print max_score
+    return sum_score
+
 import numpy as np
 def similarityByGloveEmedding(w1, w2, embeddings, sim_dict):
     w1 = w1.lower()
     w2 = w2.lower()
+    if w1== "" or w2 == "" or len(w1)<1 or len(w2)<1:
+        return 0
+    if w1 == w2:
+        return 1
     if embeddings.has_key(w1) and embeddings.has_key(w2):
         vec1 = embeddings[w1]
         vec2 = embeddings[w2]
@@ -2629,13 +2736,13 @@ def noun_related_score_to_sentences(noun_list, sent_list, embeddings, sim_dict, 
             # 0.1*compare_sentence_by_nugget_with_all_words(noun, sent[0], embeddings, sim_dict, weight_tuple) +\
             print "comparing ", str(sent[0]), " with ", noun
             if usingGlove == True:
-                s = similarity_by_all_words_by_Glove_Aline_Words(sent[0], noun, embeddings)
+                s = similarity_by_all_words_by_Glove_Aline_nuggets(sent[0], noun, embeddings)
                 # s = 0.6 * compare_sentence_by_all_words_with_all_words_by_Glove(str(sent[0]).strip().split()[0], noun, embeddings, sim_dict, weight_tuple) + \
                 #     0.4 * compare_sentence_by_nugget_with_all_words(sent[0], noun, embeddings, sim_dict, True, weight_tuple)
             else:
                 s = 0.6 * compare_sentence_by_all_words_with_all_words(str(sent[0]).strip().split()[0], noun,
                                                                                 embeddings, sim_dict, weight_tuple) + \
-                    0.4 * compare_sentence_by_nugget_with_all_words(sent[0], noun, embeddings, sim_dict, weight_tuple)
+                    0.4 * compare_sentence_by_nugget_with_all_words(sent[0], noun, embeddings, sim_dict, usingGlove, weight_tuple)
             score += s
         result.append((noun, score))
     result = sorted(result, key=lambda t: (-t[1], t[0]))
@@ -3213,6 +3320,10 @@ class readingWithProblems:
         self.textStr = text
         self.question_option_pair_list = question_option_list
 
+def question_pre_process(question_str):
+    res = question_str.split(":")[-1]
+    res = res.replace("__________", "")
+    return res
 
 def read_in_one_comprehension(filePath):
     TEXT = 0
@@ -3228,7 +3339,7 @@ def read_in_one_comprehension(filePath):
     for i in range(0, length - 1):
         q_o = question_option_pair("", None)
         question = ""
-        if re.match("[1-9]\d*\.", strList[i].strip()[0:2]) is None and ("A)" in strList[i + 1]):
+        if re.match("[1-9]\d*\.", strList[i].strip()[0:2]) is not None and ("A)" in strList[i + 1]):
             state = QUESTION
             question = strList[i]
             A = strList[i + 1][3:]
@@ -3236,7 +3347,7 @@ def read_in_one_comprehension(filePath):
             C = strList[i + 3][3:]
             D = strList[i + 4][3:]
             option = (A, B, C, D)
-            q_o.question_str = question.replace("__________", "")
+            q_o.question_str = question2_statement_order(question_pre_process(question))
             q_o.options = option
             question_option_list.append(q_o)
         else:
@@ -3452,31 +3563,161 @@ def summary_across_articles_by_GLOVE(question_str, glove_embeddings):
     article_list = get_articles_withURKL_from_websearch_query(question_str)
     word_in_question = question_str.split()[0].strip()
     main_article = ""
+    # noun_related_score_to_sentences()
+    art_str_list = list()
     for i in range(1,len(article_list)):
-        if word_in_question.lower() in article_list[i][0].lower():
-            main_article = article_list[i][0]
+        art_str_list.append(article_list[i][0])
+        # if word_in_question.lower() in article_list[i][0].lower():
+        #     main_article = article_list[i][0]
+    scored_articles = noun_related_score_to_sentences(art_str_list, [(question_str,"")], glove_embeddings, None, True)
+    main_article = scored_articles[1][0]
+
     print "main_article ", main_article
     if main_article == "":
         return (None,None)
     art_obj = article_structure(main_article)
-    sim_threshold = 0.25
+    sim_threshold = 0.5
     picked_sents = list()
     for main_sent in art_obj.sentence_list:
         match_flag = False
-        for art in range(3,4):
+        for art in range(0,len(article_list)):
             if match_flag:
                 break
             art__sent_list = getSentencesFromPassageText( article_list[art][0])
+            if article_list[art][0] == main_article:
+                print "met the same article! "
+                continue
+            print "in second for loop"
             for sent in art__sent_list:
                 # print "article_list[art] type is ", type(article_list[art])
+                print "in third for loop"
                 if match_flag:
                     break
-                score = similarity_by_all_words_by_Glove_Aline_Words(sent, main_sent, glove_embeddings)
+                score = compare_sentence_by_all_words_with_all_words_by_Glove(sent, main_sent, glove_embeddings,None)
                 if score>= sim_threshold:
                     picked_sents.append(main_sent)
                     match_flag = True
-    return (art_obj.title_list, picked_sents)
+    return (art_obj.title_list, picked_sents, main_article)
 
+# getOntologyKnowledge()
+class food_entity:
+    taste_tag = "flavor"
+    nutrition_tag = "nutrition"
+    def __init__(self, name_str):
+        self.name = name_str
+        self.taste = list()
+        self.nutrition = list()
+
+    def set_taste(self,taste_str):
+        if taste_str not in self.taste:
+            self.taste.append(taste_str)
+
+    def set_nutrition(self, nutrition_str):
+        if nutrition_str not in self.nutrition:
+            self.nutrition.append(nutrition_str)
+
+def enbody_food(food_name, glove_embedding):
+    food = food_entity(food_name)
+    search_taste_prop = food_name + " " + food_entity.taste_tag
+    search_nutrition_prop = food_name + " " + food_entity.nutrition_tag
+    entity_str_list = self_learn_by_question_answer("./text/relations","./text/relations",0.3,glove_embedding, search_taste_prop, 30)
+    for en in entity_str_list:
+        food.set_taste(en)
+    # print entity_str_list[0]
+    entity_str_list = self_learn_by_question_answer("./text/relations", "./text/relations", 0.3, glove_embedding, search_nutrition_prop, 30)
+    for en in entity_str_list:
+        food.set_nutrition(en)
+    # print entity_str_list[0]
+    return food
+
+# we can make a food profile card template to let program to fill
+# eg food name:
+#    energy amount:
+#    protein type:
+#    fiber amount:
+#    flavor choices among(sweet salt spicy bitter sour)
+#    benifit to body:
+def fill_profile_for_food(food_name, glove_embedding):
+    food = food_entity(food_name)
+    prop = ["carbohydrates content:" ,"protein content:", "fat content:","vitamins content:",  "minerals:"]
+    # ans_list, _ = answer_by_a_few_sentence_by_Glove(prop[0] + food_name + " contain", WHAT,glove_embedding,None)
+    # for ans_p in ans_list:
+    #     print ans_p
+    writeSummaries = file('./text/food_profile.txt', 'a+')
+    writeSummaries.write("--------\r\n")
+    writeSummaries.write("name:" + food_name + " \r\n")
+    for p in prop:
+        # food.set_nutrition(ans_list[0][0])
+        ans_list, _ = answer_by_a_few_sentence_by_Glove(  food_name + " " + p, WHAT,
+                                                        glove_embedding, None)
+        if len(ans_list)<1:
+            continue
+        writeSummaries.write(p + " " + ans_list[0][0] + " ;\r\n")
+        food.set_nutrition(ans_list[0][0])
+        for ans_p in ans_list:
+            print ans_p
+    # writeSummaries.write("protein content: " + ans_list[0][0] + " ;\r\n")
+    # ans_list, _ = answer_by_a_few_sentence_by_Glove("what fat does " + food_name + " contain", WHAT,
+    #                                                 glove_embedding, None)
+    # food.set_nutrition(ans_list[0][0])
+    # for ans_p in ans_list:
+    #     print ans_p
+    # writeSummaries.write("fat content: " + ans_list[0][0] + " ;")
+    writeSummaries.write("\r\n============\r\n")
+    # print "important sentences "
+    # for s in important_sents:
+    #     print s
+    #     writeSummaries.write(s)
+    #     writeSummaries.write("\r\n")
+    writeSummaries.close()
+    return food
+
+def read_in_one_food_entity_by_lines(lines):
+    TEXT = 0
+    QUESTION = 1
+    # OPTION = 2
+    state = TEXT
+    # f = open(filePath, 'r')
+    strList = lines
+    # f.close()
+    text = list()
+    question_option_list = list()
+    ans_list = list()
+    length = len(strList)
+    food_entity_obj = None
+    for i in range(0, length ):
+        if ("name:" in strList[i]):
+            food_entity_obj = food_entity(strList[i].replace("name:",""))
+        else:
+            if len(strList[i])<=1:
+                continue
+            if "============" in strList[i]:
+                break
+            food_entity_obj.set_nutrition(strList[i])
+    # ret = readingWithProblems(text, question_option_list)
+    return food_entity_obj
+
+def decision_support_food(question_str, goal_list, choice_list,glove_embedding):
+    # entity_tuple_list = self_learn_by_question_answer("","./text/relations",0.3,glove_embedding,question_str)
+    # knowledgelist = extract_entity_knowledge(entity_tuple_list)
+    food_score_list = list()
+    for ch in choice_list:
+        temp_food = fill_profile_for_food(ch, glove_embedding)
+        score = list()
+        for g in goal_list:
+            s_list = list()
+            for n in temp_food.nutrition:
+                s_list.append( similarity_by_all_words_by_Glove_Aline_nuggets(n, g, glove_embedding))
+            score.append((g,max(s_list)))
+        l_score =  0
+        for s in score:
+            l_score += s[1]
+        food_score_list.append( (ch, l_score))
+    result = sorted(food_score_list, key=lambda t: (-t[1], t[0]))
+    return result
+
+    # for entity in knowledgelist:
+    #     score_entity_with_goal(entity, goal_list, glove_embedding)
 
 def getPrecision(art_with_problems, answer_list, given_ansers):
     question_option_pair_list = art_with_problems.question_option_pair_list
@@ -3524,6 +3765,113 @@ def envalueFun(art_with_problems, param, embedding, dict, answers):
     precision = getPrecision(art_with_problems, results, answers)
     return precision
 
+def read_in_one_comprehension_text_by_lines(lines_story, start):
+    line_num = len(lines_story)
+    this_start = start
+    next_start = -1
+    this_lines = list()
+    for i in range(this_start, line_num - 1):
+        if "********" in lines_story[ i]:
+            this_start = i
+            for j in range(i+1,line_num):
+                this_lines.append(lines_story[j])
+                if "********" in lines_story[j]:
+                    next_start = j
+                    return (this_lines, next_start)
+    return (this_lines, line_num-1)
+
+def read_in_segment_text_by_lines(lines_story, start, startline_str, endline_str):
+    line_num = len(lines_story)
+    this_start = start
+    next_start = -1
+    this_lines = list()
+    for i in range(this_start, line_num - 1):
+        if startline_str in lines_story[ i]:
+            this_start = i
+            for j in range(i+1,line_num):
+                this_lines.append(lines_story[j])
+                if endline_str in lines_story[j]:
+                    next_start = j
+                    return (this_lines, next_start)
+    return (this_lines, line_num-1)
+
+def read_in_one_comprehension_by_lines(total_lines):
+    TEXT = 0
+    QUESTION = 1
+    # OPTION = 2
+    state = TEXT
+    # f = open(filePath, 'r')
+    strList = total_lines
+    # f.close()
+    text = list()
+    question_option_list = list()
+    ans_list = list()
+    length = len(strList)
+    for i in range(0, length - 1):
+        q_o = question_option_pair("", None)
+        question = ""
+        if re.match("[1-9]\d*:", strList[i].strip()[0:2]) is not None and (("A)" in strList[i + 1]) or ("*A)" in strList[i + 1])):
+            state = QUESTION
+            question = strList[i]
+            A = strList[i + 1]#[3:]
+            B = strList[i + 2]#[3:]
+            C = strList[i + 3]#[3:]
+            D = strList[i + 4]#[3:]
+            option = (A, B, C, D)
+            # set correct answers
+            ans = -1
+            for j in range(0,len(option)):
+                if "*" in option[j]:
+                    ans = j + 1
+                    break
+            ans_list.append(ans)
+            A = strList[i + 1][3:]
+            B = strList[i + 2][3:]
+            C = strList[i + 3][3:]
+            D = strList[i + 4][3:]
+            option = (A, B, C, D)
+            q_o.question_str = question2_statement_order(question_pre_process(question))
+            q_o.options = option
+            question_option_list.append(q_o)
+
+        else:
+            if state == TEXT:
+                text.append(strList[i])
+    ret = readingWithProblems(text, question_option_list)
+    return ret , ans_list
+
+class is_kind:
+    tag = "is_kind"
+    match_string_list = ["is a kind of", "is a sort of", "is a type of", ", a kind of"]
+    def __init__(self, inst, hyper):
+        self.instance = inst
+        self.hypernym = hyper
+
+class is_part:
+    tag = "is_part"
+    match_string_list = ["is a part of", "is a component of", ]
+    def __init__(self, part, body):
+        self.m_part = part
+        self.m_body = body
+
+class cause:
+    tag = "cause"
+    match_string_list = ["cause", "result in", "lead to"]
+    def __init__(self, reason, result):
+        self.m_reason = reason
+        self.m_result = result
+
+
+def envalue_param_on_one_reading_from_struct_by_glove(readingWithProblems_obj, standrad_answers_tuple, model_params, embedding, usingGlove =False ):
+    art_with_problems = readingWithProblems_obj
+    # option_pair_list = art_with_problems.question_option_pair_list
+    t_embedding = embedding
+    t_dict = None
+    results = do_one_reading_comprehension_by_embedding(art_with_problems, model_params, t_embedding,t_dict,True)
+    answers = standrad_answers_tuple
+    precision = getPrecision(art_with_problems, results, answers)
+    print "on test text: precison is ", precision, "for param ", str(model_params)
+    return precision
 
 def envalue_param_on_one_reading_text(reading_problem_path, standrad_answers_tuple, model_params, embedding, usingGlove =False ):
     art_with_problems = read_in_one_comprehension(reading_problem_path)
@@ -3827,6 +4175,116 @@ def tcp_server():
 
     tcpSerSock.close()
 
+def question2_statement_order(question_str):
+    DID = "did"
+    DOES = "does"
+    DO = "do"
+
+    words = tokenize(question_str.replace("?","").replace("\'s",""))
+    statementorder = list()
+    last_word = ""
+    for w in words:
+        l_w = w.lower()
+        if WHAT == l_w or WHOM == l_w or WHICH == l_w or WHERE == l_w or WHY == l_w:
+            last_word = w
+            continue
+        else:
+            if DID == l_w or DOES == l_w or DO == l_w:
+                continue
+            else:
+                statementorder.append(w)
+    statementorder.append(last_word)
+    result = str_list_to_string(statementorder)
+    return result
+
+def populate_entity_by_wordNet(word_str, glove_embedding):
+    hyper = hypernym_of_word( word_str)
+    if hyper is None:
+        return ""
+    search_str = hyper + " such as  "
+    ans_list, _ = answer_by_a_few_sentence_by_Glove(search_str,DEFAULT, glove_embedding, None)
+    print " will search similar entity in ", ans_list[0][0]
+    ne_list = list()
+    for ans in ans_list:
+        if "such as" in ans[0]:
+            ne_list += get_all_entities_by_nltk(ans[0].split("such as")[-1])
+    remove_list = list()
+    for ne in ne_list:
+        if ne == word_str:
+            continue
+        else:
+            remove_list.append(ne)
+    resort_noun = noun_related_score_to_sentences(remove_list, [(search_str,"")], glove_embedding,None, True, None)
+    return resort_noun
+
+def get_lowest_similarity(center_word, cluster_list, glove_embedding):
+    lowest_score = 1000
+    for item in cluster_list:
+        temp_score = similarity_by_all_words_by_Glove_Aline_Words(center_word,item, glove_embedding)
+        if lowest_score>= temp_score:
+            lowest_score = temp_score
+    return lowest_score
+
+def coref_resolver(sent_list, glove_embedding):
+    sent_num = len(sent_list)
+    resolved_list = list()
+    pronoun_single = ["he", "it", "she", "her", "its", "his","He", "It", "She", "Her", "Its", "His"]
+    for i in range(sent_num):
+        print "i is ", i, "len(resolved_list) ", len(resolved_list)
+        # if len(resolved_list) == i+1:
+        #     lower_i = resolved_list[i].lower()
+        # else:
+        lower_i = sent_list[i]
+        if not word_list_in_sentenceStr(pronoun_single, lower_i):
+            resolved_list.append(lower_i)
+            continue
+        words_in_sent = tokenize(lower_i)
+        for p in pronoun_single:
+            print "for p", p
+            print "resolved_list is ", resolved_list
+            print "resolved_list length ", len(resolved_list), "sent_num is ", sent_num, "i ", i
+            if len(resolved_list) == i + 1:
+                print "in len(resolved_list) == i + 1"
+                print resolved_list[i]
+                lower_i = resolved_list[i]
+                words_in_sent = tokenize(lower_i)
+
+            print "words_in_sent: ", words_in_sent
+            if p in words_in_sent:
+
+                print "found ", p, " in sentence", lower_i
+                if i >0:
+                    nouns = get_all_entities_by_nltk(resolved_list[i-1])
+                    print 'nouns are found ', nouns
+                    sorted_n = noun_related_score_to_sentences(nouns,[(lower_i,"")],glove_embedding, None, True)
+
+                    sort_again = list()
+                    for s_n in sorted_n:
+                        if str(s_n[0]).istitle():
+                            pair = (s_n[0],s_n[1] + 1)
+                            sort_again.append(pair)
+                        else:
+                            pair = (s_n[0], s_n[1])
+                            sort_again.append(pair)
+                    sort_again = sorted(sort_again, key=lambda t: (-t[1], t[0]))
+                    sorted_n = sort_again
+                    print "after sorting ", sorted_n
+                    after_replace = ""
+                    for w in words_in_sent:
+                        if w == p:
+                            after_replace += " " + sorted_n[0][0]
+                        else:
+                            after_replace += " " + w
+                    if len(resolved_list) == i + 1:
+                        resolved_list.pop(i)
+                    after_replace = after_replace.strip()
+                    resolved_list.append(after_replace)
+                    print "add sentence after replace", after_replace
+                else:
+                    resolved_list.append(sent_list[i])
+                    continue
+    return resolved_list
+
 question_countor = 0
 from word2vec_basic import full_cycle
 
@@ -3850,19 +4308,137 @@ if __name__ == "__main__":
     # question_str = "NASA Science Science @ NASA Headline News You may have noticed that the \"look and feel\" of Science @ NASA stories has changed"
     # ne_in_question = get_all_entities_by_nltk(question_str.lower())
     # origin_word_not_in_score = hit_percent_in_sentenceStr(ne_in_question, question_str.lower())
+    # print hypernym_of_word("tomatos")
 
     global global_glove_embeddings
     global_glove_embeddings = load_glove("./glove.6B/")
+    # answer_by_a_few_sentence_by_Glove("who is J W Bush","", global_glove_embeddings,None)
+    food_name_list = ["beans", "tomato", "nut", "beef", "chicken","egg", "bread", "milk", \
+                      "mushroom", "salad", "potato", "juice", "coke","rice"]
+    sentlist = list()
+    sentlist.append("John's house was three houses down.")
+    sentlist.append("Mary and Kim stopped by to ask John if he wanted to play at the park.")
+    sentlist.append("John said no.")
+    sentlist.append("He was afraid of being chased by a squirrel.")
+    sentlist.append("Tammy was a purple tiger.")
+    sentlist.append("She was friends with Bobby the blue bird.")
+    sentlist.append("\"Hello,\" said the boy.")
+    sentlist.append("The boy held out his rock for the cow to see.")
+    sentlist.append("The cow looked at it.")
+    sentlist.append("Then it picked it up in its mouth.")
+    sentlist.append("Jimmy swam around the pond.")
+    sentlist.append("He was a duck.")
+    sentlist.append("He was wet, but he was a duck and didn't care.")
+    sentlist.append("He ate some bugs.")
+    resolved = coref_resolver(sentlist, global_glove_embeddings)
+    print resolved
+
+    # answer_by_embedding_with_complete_sentences("what will cause a nuclear winter")
+    # for food in food_name_list:
+    #     sim_ne_list = populate_entity_by_wordNet(food, global_glove_embeddings)
+    #     if sim_ne_list is None or len(sim_ne_list)<=0:
+    #         continue
+    #     if len(sim_ne_list[0][0])<=1:
+    #         continue
+    #     center_word = "food"
+    #     edge_score = 1.1*get_lowest_similarity(center_word,food_name_list, global_glove_embeddings)
+    #     for ne_word in sim_ne_list:
+    #         new_food = ne_word[0]
+    #         if new_food in food_name_list:
+    #             continue
+    #         # hyper = hypernym_of_word(food)
+    #         # if hyper == "":
+    #         #     continue
+    #         print "will check ",str(new_food) +  " is " + "food"
+    #         sim_score = similarity_by_all_words_by_Glove_Aline_Words(new_food, center_word, global_glove_embeddings)
+    #         print "score for ", new_food, " is ", sim_score, " edge score is ", edge_score
+    #         if sim_score<edge_score:
+    #             continue
+    #         # if None is evaluate_verb_in_relation_by_search_web(muti_sentence_structure_finder( new_food +  " is food"),0.001,global_glove_embeddings):
+    #         #     continue
+    #         food_name_list.append( new_food)
+    #         print "found food: ", new_food
+    #     if len(food_name_list)>50:
+    #         break
+    # for f_n in food_name_list:
+    #     print f_n
+    #     fill_profile_for_food(f_n ,global_glove_embeddings)
+    # clothing_name_list = ["jacket", "cap", "hat", "glasses", "sweater", "t-shirt", "boot", "jeans", \
+    #                       "pants","coat","BLOUSE"]
+    # for food in clothing_name_list:
+    #     sim_ne_list = populate_entity_by_wordNet(food, global_glove_embeddings)
+    #     if sim_ne_list is None or len(sim_ne_list) <= 0:
+    #         continue
+    #     if len(sim_ne_list[0][0]) <= 1:
+    #         continue
+    #     for ne_word in sim_ne_list:
+    #         new_food = ne_word[0]
+    #         if new_food in clothing_name_list:
+    #             continue
+    #         # hyper = hypernym_of_word(food)
+    #         # if hyper == "":
+    #         #     continue
+    #         print "will check ", str(new_food) + " is " + " clothing"
+    #         if None is evaluate_verb_in_relation_by_search_web(muti_sentence_structure_finder(new_food + " is " + " clothing"), 0.001,
+    #                                                            global_glove_embeddings):
+    #             continue
+    #             clothing_name_list.append(new_food)
+    #         print "found clothing: ", new_food
+    #     if len(clothing_name_list) > 50:
+    #         break
+    # for f_n in clothing_name_list:
+    #     print f_n
+
+    # f = open("./text/food_profile.txt")
+    # total_text_lines = f.readlines()
+    # read_index = 0
+    # for i in range(14):
+    #     (lines, read_index)= read_in_segment_text_by_lines(total_text_lines, read_index,"-------", "============")
+    #     food_en = read_in_one_food_entity_by_lines(lines)
+    #     print food_en.name
+    #     print food_en.nutrition
+
+    # breakfast_list = decision_support_food("",["Build on a healthy cereal", "Don’t rule out a.m. vegetables.", "Don’t skip the eggs", "Think whole grain"],food_name_list, global_glove_embeddings)
+    # writeSummaries = file('./text/food_list.txt', 'a+')
+    # writeSummaries.write("breakfast suggestion: \r\n")
+    # for f in breakfast_list:
+    #     writeSummaries.write(str(f) + "\r\n")
+    # writeSummaries.write("dinner suggestion: \r\n")
+    # dinner_list = decision_support_food("",["Add 1/2 cup of any of the following cooked beans to your plate.", "Cooked rice or green veggies to complete the meal", "Top with a little fat", "Time to add some veggie power "],food_name_list, global_glove_embeddings)
+    # for f in dinner_list:
+    #     writeSummaries.write(str(f) + "\r\n")
+    # writeSummaries.write("============\r\n")
+    # writeSummaries.close()
     # tcp_server()
 
-    (titles, important_sents) = summary_across_articles_by_GLOVE("how to make potato chips at home?", global_glove_embeddings)
-    print "sub titles "
-    for t in titles:
-        print t
-    print "important sentences "
-    for s in important_sents:
-        print s
-    # self_learn_by_question_answer("./text/questions", "./text/relations", 0.5, global_glove_embeddings, "what caused earthquakes")
+    # (titles, important_sents, origin_article) = summary_across_articles_by_GLOVE("how to make fried fish", global_glove_embeddings)
+    # print "sub titles "
+    # for t in titles:
+    #     print t
+    # writeSummaries = file('./text/summary_across_articles.txt', 'a+')
+    # writeSummaries.write("origin: \r\n")
+    # writeSummaries.write(origin_article)
+    # writeSummaries.write("============\r\n")
+    # print "important sentences "
+    # for s in important_sents:
+    #     print s
+    #     writeSummaries.write(s)
+    #     writeSummaries.write("\r\n")
+    # writeSummaries.close()
+    # decision supportting question -> extract entities with knowledge tuples about the question
+    # check goals with the mined entities , select the entity scored thee highest with the goal
+
+    # ne_list = list()
+    # arts = get_articles_withURKL_from_websearch_query("food for dinner")
+    # for art in arts:
+    #     nes = get_all_entities_by_nltk(art[0].lower())
+    #     ne_list.extend(nes)
+    # ne_list = list(set(ne_list))
+    # print ne_list
+    # resorted_nouns = noun_related_score_to_sentences(ne_list, [("food for dinner","")],global_glove_embeddings,None,True)
+    # print resorted_nouns
+
+    # self_learn_by_question_answer("./text/questions", "./text/relations", 0.3, global_glove_embeddings, "nutrition lunch should contains what",999999999999)
 
     # compare articles extract similar sentences over different articles
     # extract subtitles: small paragrah followed by a long paragragh
@@ -3981,6 +4557,12 @@ if __name__ == "__main__":
     #         optimal_param = param
     #         break
     optimal_param = (0.7733611596766595, 0.06991093490256266, 0.9548839847918859, 1)
+
+    # sent0 =  question2_statement_order("3 .: one : Sally like walking in the woods Why")
+    # sent1 = "Sally's favorite activity was walking in the woods because she enjoyed nature"
+    # sent2 = "Sally went to the beach with her family in the summer as well."
+    # similarity_by_all_words_by_Glove_Aline_Words(sent0, sent1, global_glove_embeddings)
+    # similarity_by_all_words_by_Glove_Aline_Words(sent0, sent2, global_glove_embeddings)
     #####Test on another reading problem
     # art_with_problems = read_in_one_comprehension("./text/tosummary/text_test")
     # option_pair_list = art_with_problems.question_option_pair_list
@@ -4001,7 +4583,17 @@ if __name__ == "__main__":
     # precision = getPrecision(art_with_problems, results, answers)
     # print "on test text: precison is ", precision, "for param ", str(optimal_param)
     #
-    # precision = envalue_param_on_one_reading_text("./text/tosummary/test1",[1,2,4,3,4],optimal_param,glove_embeddings,True)
+    # total_text = open("./text/mc500.dev.txt")
+    # total_lines = total_text.readlines()
+    # cursor = 0
+    # precision_sum = 0
+    # for i in range(0,50):
+    #     text_lines , cursor= read_in_one_comprehension_text_by_lines(total_lines, cursor)
+    #     readingWithProblems_obj, ans_list = read_in_one_comprehension_by_lines(text_lines)
+    #     p = envalue_param_on_one_reading_from_struct_by_glove(readingWithProblems_obj,ans_list,optimal_param,global_glove_embeddings,True)
+    #     precision_sum += p
+    #     print "precision is ", p, " i is ", i, " avg precision is ", precision_sum/(i+1)
+    # precision = envalue_param_on_one_reading_text("./text/tosummary/test4",[1,3,2,2],optimal_param,global_glove_embeddings,True)
     # writeSummaries = file('./text/opt_params.txt', 'a+')
     # writeSummaries.write("test ======= ")
     # writeSummaries.write("on test text: precison is" + str(precision))
@@ -4131,3 +4723,12 @@ if __name__ == "__main__":
     # generate an article for a given subject
     # extract paraghs with different subtitles(defination, structure,
     # history, future, related concepts) of sentences which should be related to each other
+
+    # build a relation tuple list of named entities for an article
+    # then extract some relation modules around the Named entities discovered in the article
+    # relation modules such as of same type , belong to , same to
+
+    # shopping module compare items
+    # clothes matching module
+    # dinning module
+    # free chat with goals (response human with goals, such as healthy, keep fit, everyday life tips)
