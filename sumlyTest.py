@@ -71,7 +71,7 @@ from wordNet import listToDict
 from wordNet import getAllLinksFromPage
 from wordNet import html_to_plain_text
 from wordNet import word_list_in_sentenceStr, all_word_list_in_sentenceStr
-from wordNet import hypernym_of_word
+# from wordNet import hypernym_of_word
 import textblob
 import copy
 import Levenshtein
@@ -2390,8 +2390,91 @@ def answer_by_a_few_sentence_by_Glove(question_string, question_type, embeddings
     sorted_l = sorted_l[:len(sorted_l) // 2]
     return sorted_l, art_str_list
 
-def question_classifier(input_string):
-    return HOW
+class question_ansys_result:
+    def __init__(self, question_str, q_type):
+        self.string = question_str
+        self.question_type = q_type
+    def set_clause(self, c_list):
+        self.clause_list = c_list
+    def set_core_word(self, word):
+        self.core_word = word
+
+def get_multiple_targets(words_list):
+    lower_word_list = str_list_to_lower_case(words_list)
+    if WHAT in lower_word_list:
+        i = lower_word_list.index(WHAT)
+        if i+1<len(lower_word_list):
+            next_word = lower_word_list[i+1]
+            if len(get_all_entities_by_nltk(next_word))>0:
+                if next_word[-1] == "s":
+                    return next_word
+    return None
+
+def deal_mutiple_targets(sentence, target_type):
+    clause = split_clause(sentence)
+    question_obj = question_ansys_result(sentence, WHAT)
+    question_obj.set_clause(clause)
+    question_obj.set_core_word(target_type)
+    return question_obj
+
+def deal_time_question(event, base_event, off_set):
+    return None
+
+def is_why_question(words_list):
+    lower_word_list = str_list_to_lower_case(words_list)
+    if WHY in lower_word_list:
+        return WHY
+    return None
+
+def split_clause(input_string):
+    clauses = str(input_string).split(",")
+    nug_list = list()
+    for clause in clauses:
+        nuggets = nuggets_finder(clause)
+        nug_list.extend(nuggets)
+    # print nug_list
+    nugstr_list = list()
+    for nugtup in nug_list:
+        nug = nugget_builder(nugtup)
+        nug_str = str_list_to_string(nug)
+        nugstr_list.append(nug_str)
+    return nugstr_list
+
+def deal_why_question(input_string):
+    clause = split_clause(input_string)
+    question_obj = question_ansys_result(input_string,WHY)
+    question_obj.set_clause(clause)
+    return question_obj
+
+def deal_how_question(input_string):
+    clause = split_clause(input_string)
+    question_obj = question_ansys_result(input_string,HOW)
+    question_obj.set_clause(clause)
+    return question_obj
+
+def select_sentences_for_why(question_ansys_result_obj, sent_list, glove_embedding):
+    return
+
+def question_classifier(input_string, embedding):
+    words_in_question = tokenize(input_string)
+    targets = get_multiple_targets(words_in_question)
+
+    if targets is not None:
+        # find mutiple nouns "what nouns" question
+        print "find mutiple type ", targets
+        q_obj = deal_mutiple_targets(input_string, targets)
+    else:
+        if is_why_question(words_in_question) is not None:
+            q_obj = deal_why_question(input_string)
+            # back_up_list = list()
+            # glove_embedding = embedding
+            # sentences_sorted = select_sentences_for_why(q_obj, back_up_list, glove_embedding)
+            # noun_related_score_to_sentences()
+        elif deal_how_question(input_string) is not None:
+            q_obj = deal_how_question(input_string)
+        else:
+            q_obj = question_ansys_result(input_string, DEFAULT)
+    return q_obj
 
 
 QUESTION = 0
@@ -3861,6 +3944,11 @@ class cause:
         self.m_reason = reason
         self.m_result = result
 
+class set_of_things:
+    tag = "group"
+    def __init__(self, thing_list, thing_type):
+        self.thing_set
+        self.type = thing_type
 
 def envalue_param_on_one_reading_from_struct_by_glove(readingWithProblems_obj, standrad_answers_tuple, model_params, embedding, usingGlove =False ):
     art_with_problems = readingWithProblems_obj
@@ -4198,7 +4286,7 @@ def question2_statement_order(question_str):
     return result
 
 def populate_entity_by_wordNet(word_str, glove_embedding):
-    hyper = hypernym_of_word( word_str)
+    hyper = ( word_str)
     if hyper is None:
         return ""
     search_str = hyper + " such as  "
@@ -4310,28 +4398,29 @@ if __name__ == "__main__":
     # origin_word_not_in_score = hit_percent_in_sentenceStr(ne_in_question, question_str.lower())
     # print hypernym_of_word("tomatos")
 
-    global global_glove_embeddings
-    global_glove_embeddings = load_glove("./glove.6B/")
+    # global global_glove_embeddings
+    # global_glove_embeddings = load_glove("./glove.6B/")
     # answer_by_a_few_sentence_by_Glove("who is J W Bush","", global_glove_embeddings,None)
     food_name_list = ["beans", "tomato", "nut", "beef", "chicken","egg", "bread", "milk", \
                       "mushroom", "salad", "potato", "juice", "coke","rice"]
-    sentlist = list()
-    sentlist.append("John's house was three houses down.")
-    sentlist.append("Mary and Kim stopped by to ask John if he wanted to play at the park.")
-    sentlist.append("John said no.")
-    sentlist.append("He was afraid of being chased by a squirrel.")
-    sentlist.append("Tammy was a purple tiger.")
-    sentlist.append("She was friends with Bobby the blue bird.")
-    sentlist.append("\"Hello,\" said the boy.")
-    sentlist.append("The boy held out his rock for the cow to see.")
-    sentlist.append("The cow looked at it.")
-    sentlist.append("Then it picked it up in its mouth.")
-    sentlist.append("Jimmy swam around the pond.")
-    sentlist.append("He was a duck.")
-    sentlist.append("He was wet, but he was a duck and didn't care.")
-    sentlist.append("He ate some bugs.")
-    resolved = coref_resolver(sentlist, global_glove_embeddings)
-    print resolved
+    question_classifier("What games do Tommy and Suzy not like to play?")
+    # sentlist = list()
+    # sentlist.append("John's house was three houses down.")
+    # sentlist.append("Mary and Kim stopped by to ask John if he wanted to play at the park.")
+    # sentlist.append("John said no.")
+    # sentlist.append("He was afraid of being chased by a squirrel.")
+    # sentlist.append("Tammy was a purple tiger.")
+    # sentlist.append("She was friends with Bobby the blue bird.")
+    # sentlist.append("\"Hello,\" said the boy.")
+    # sentlist.append("The boy held out his rock for the cow to see.")
+    # sentlist.append("The cow looked at it.")
+    # sentlist.append("Then it picked it up in its mouth.")
+    # sentlist.append("Jimmy swam around the pond.")
+    # sentlist.append("He was a duck.")
+    # sentlist.append("He was wet, but he was a duck and didn't care.")
+    # sentlist.append("He ate some bugs.")
+    # resolved = coref_resolver(sentlist, global_glove_embeddings)
+    # print resolved
 
     # answer_by_embedding_with_complete_sentences("what will cause a nuclear winter")
     # for food in food_name_list:
