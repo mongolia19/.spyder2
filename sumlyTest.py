@@ -1876,6 +1876,13 @@ def nuggets_finder(sub_sent_string):
         sub_relation_list.append(relation)
     return sub_relation_list
 
+def whole_sentence_nuggets_finder(whole_sent_str):
+    sent_list = whole_sent_str.split(",")
+    nug_list = list()
+    for part_sent in sent_list:
+        part_list = nuggets_finder(part_sent)
+        nug_list += part_list
+    return nug_list
 
 def sub_relation_finder(sub_sent_string):
     VP = 'VP'
@@ -2381,14 +2388,23 @@ def answer_by_a_few_sentence_by_Glove(question_string, question_type, embeddings
             continue
         if not is_sentence_complete(sent.lower()):
             continue
-        sc = compare_sentence_by_all_words_with_all_words_by_Glove(question_string.split()[0], sent, embeddings, sim_dict)*0.3\
-              + compare_sentence_by_all_words_with_all_words_by_Glove(question_string, sent, embeddings, sim_dict)*0.3\
-              + compare_sentence_by_nugget_with_all_words(question_string, sent, embeddings, sim_dict, True)*0.4
+        sc = compare_sentence_by_all_words_with_all_words_by_Glove(question_string, sent, embeddings,None)
+              # + compare_sentence_by_all_words_with_all_words_by_Glove(question_string, sent, embeddings, sim_dict)*0.3\
+              # + compare_sentence_by_nugget_with_all_words(question_string, sent, embeddings, sim_dict, True)*0.4
+        # + 0.7*similarity_by_all_words_by_Glove_Aline_nuggets(question_string, sent, embeddings)
         sent_eval.append((sent, sc))
     print "Now will do the sorting length is ", len(sent_eval)
     sorted_l = sorted(sent_eval, key=lambda t: t[1], reverse=True)
-    sorted_l = sorted_l[:len(sorted_l) // 2]
-    return sorted_l, art_str_list
+    # sorted_l = sorted_l[:len(sorted_l) // 2]
+    str_noun_list =list()
+    if len(sorted_l)>10:
+        cut_len = 10
+    else:
+        cut_len = len(sorted_l)-1
+    for pair in sorted_l[:cut_len]:
+        str_noun_list.append(pair[0])
+    result_list = noun_related_score_to_sentences(str_noun_list, [(lowerFirstLetter(question_string),"")],embeddings,None,True)
+    return result_list, art_str_list
 
 class question_ansys_result:
     def __init__(self, question_str, q_type):
@@ -2440,16 +2456,44 @@ def split_clause(input_string):
         nugstr_list.append(nug_str)
     return nugstr_list
 
+def get_focus_noun_in_nugget(nugget_string):
+    nugs = nuggets_finder(nugget_string)
+    nug = nugget_builder(nugs[0])
+    focus = ""
+    if nug[0] != "":
+        focus = nug[0]
+    else:
+        focus = nug[2]
+    return focus
+
 def deal_why_question(input_string):
     clause = split_clause(input_string)
     question_obj = question_ansys_result(input_string,WHY)
     question_obj.set_clause(clause)
+    core = get_focus_noun_in_nugget(clause[0])
+    question_obj.set_core_word(core)
     return question_obj
 
+def is_how_question(words_list):
+    lower_word_list = str_list_to_lower_case(words_list)
+    if HOW in lower_word_list:
+        return HOW
+    else:
+        return None
 def deal_how_question(input_string):
     clause = split_clause(input_string)
     question_obj = question_ansys_result(input_string,HOW)
     question_obj.set_clause(clause)
+    core = get_focus_noun_in_nugget(clause[0])
+    question_obj.set_core_word(core)
+    return question_obj
+
+def deal_default_question(input_string):
+    clause = split_clause(input_string)
+    question_obj = question_ansys_result(input_string,DEFAULT)
+    question_obj.set_clause(clause)
+    core = get_focus_noun_in_nugget(clause[0])
+    question_obj.set_core_word(core)
     return question_obj
 
 def select_sentences_for_why(question_ansys_result_obj, sent_list, glove_embedding):
@@ -2470,10 +2514,11 @@ def question_classifier(input_string, embedding):
             # glove_embedding = embedding
             # sentences_sorted = select_sentences_for_why(q_obj, back_up_list, glove_embedding)
             # noun_related_score_to_sentences()
-        elif deal_how_question(input_string) is not None:
+        elif is_how_question(words_in_question) is not None:
             q_obj = deal_how_question(input_string)
         else:
-            q_obj = question_ansys_result(input_string, DEFAULT)
+            # q_obj = question_ansys_result(input_string, DEFAULT)
+            q_obj = deal_default_question(input_string)
     return q_obj
 
 
@@ -2603,7 +2648,10 @@ def similarity_by_all_words_by_Glove_Aline_Words(sent1, sent2, embeddings):
     print "lengths are ", short_length, " <--->", long_length
     total_list = range(long_length)
     import itertools
-    arrangements = list(itertools.combinations(total_list, short_length))
+    if long_length>MAX_LENGTH/2+1:
+        arrangements = list(itertools.combinations(total_list, short_length))
+    else:
+        arrangements = list(itertools.permutations(total_list, short_length))
     if len(arrangements)<=0:
         print "arrangements null"
         return 0
@@ -2617,6 +2665,7 @@ def similarity_by_all_words_by_Glove_Aline_Words(sent1, sent2, embeddings):
     for arrange in arrangements:
         score = similarity_one_arragement_by_glove_aline_word(long_word_list, short_word_list, arrange, embeddings)
         if score == max_score:
+            print "words aline info "
             for i in range(len(arrange)):
                 s = similarityByGloveEmedding(short_word_list[i], long_word_list[arrange[i]], \
                                           embeddings, None)
@@ -2640,6 +2689,7 @@ def similarity_by_all_words_by_Glove_Aline_nuggets(sent1, sent2, embeddings):
     for nug in nugs_of_s1:
         (sbj,v,obj) = nugget_builder(nug)
         nug_sent = sbj  + v  + obj
+        print "find nug ", nug_sent
         nug_str_list.append(nug_sent)
     base_word_list = nug_str_list
     nug_str_list = list()
@@ -2674,6 +2724,7 @@ def similarity_by_all_words_by_Glove_Aline_nuggets(sent1, sent2, embeddings):
     # Here use permutations instead of combination
     print "Using permutations"
     arrangements = list(itertools.permutations(total_list, short_length))
+    print "arrangements are ", arrangements
     if len(arrangements)<=0:
         print "arrangements null"
         return 0
@@ -2703,8 +2754,8 @@ def similarityByGloveEmedding(w1, w2, embeddings, sim_dict):
     w2 = w2.lower()
     if w1== "" or w2 == "" or len(w1)<1 or len(w2)<1:
         return 0
-    if w1 == w2:
-        return 1
+    # if w1 == w2:
+    #     return 1
     if embeddings.has_key(w1) and embeddings.has_key(w2):
         vec1 = embeddings[w1]
         vec2 = embeddings[w2]
@@ -3583,6 +3634,7 @@ def do_one_reading_comprehension_by_embedding(article_with_problems, model_param
     for sent in textlist:
         full_passage += sent
     sentences = getSentencesFromPassageText(full_passage)
+
     text2search = full_passage
     t_embedding = None
     t_dict = None
@@ -3591,11 +3643,18 @@ def do_one_reading_comprehension_by_embedding(article_with_problems, model_param
     else:
         t_embedding = embedding
         t_dict = dict
+        sentences = coref_resolver(sentences, t_embedding)
+        sentences = coref_multi_resolver(sentences, t_embedding)
     q_list = article_with_problems.question_option_pair_list
     answerlist = list()
     for q in q_list:
         question = list()
-        question.append((q.question_str, ""))
+        q_obj = question_classifier(q.question_str, t_embedding)
+        print "question is ", q_obj.string
+        print "question type is ", q_obj.question_type
+        print "question focus is ", q_obj.core_word
+        print "question clasues ", q_obj.clause_list
+        question.append((question2statement(lowerFirstLetter(q.question_str),""), ""))
         # sentences = getSentencesFromPassageText(full_passage)
         # sentence_sorted_list = noun_related_score_to_sentences_for_search_passage(sentences, question, embeddings, dict,
         #                                                                           model_params)
@@ -3609,19 +3668,39 @@ def do_one_reading_comprehension_by_embedding(article_with_problems, model_param
             refSentenceNum = len(sentence_sorted_list) - 1
         else:
             refSentenceNum = model_params[3]
-
+        if q_obj.question_type == WHY or q_obj.question_type == HOW:
+            refSentenceNum = 3
         sentences_can_answer = sentence_sorted_list[0:refSentenceNum]
         options = [q.options[0],
                    q.options[1],
                    q.options[2],
                    q.options[3]]
-        sentence_sorted_list = noun_related_score_to_sentences(options, sentences_can_answer, embedding, dict,usingGlove,
+        filled_options_to_question = list()
+        filledoption2option = {}
+        for op in options:
+            filled = question2statement(q_obj.string.lower().replace("\r\n",""), op.replace("\r\n",""))
+            filled_options_to_question.append(filled)
+            filledoption2option[filled] = op
+        keylist = list(filledoption2option.keys())
+        if keylist[0] == keylist[-1]:
+            filled_options_to_question = options
+            filledoption2option.clear()
+            for op in options:
+                filledoption2option[op] = op
+
+        sentence_sorted_list = noun_related_score_to_sentences(filled_options_to_question, sentences_can_answer, embedding, dict,usingGlove,
                                                                model_params)
+        original_options = list()
         for sent in sentence_sorted_list:
+            original_options.append( (filledoption2option[sent[0]],sent[1]))
             print sent
+        print "orignal options"
+        for option in original_options:
+            print option
         print "question ends"
-        answerlist.append(sentence_sorted_list[0])
+        answerlist.append(original_options[0])
     return answerlist
+
 class article_structure:
     # import math
     def __init__(self, art_str):
@@ -3913,13 +3992,23 @@ def read_in_one_comprehension_by_lines(total_lines):
             C = strList[i + 3][3:]
             D = strList[i + 4][3:]
             option = (A, B, C, D)
-            q_o.question_str = question2_statement_order(question_pre_process(question))
+            q_o.question_str = question_pre_process(question)
             q_o.options = option
             question_option_list.append(q_o)
 
         else:
             if state == TEXT:
-                text.append(strList[i])
+                if "Work Time(s):" in strList[i] or "Author:" in strList[i]:
+                    continue
+                if "Creativity Words:" in strList[i]:
+                    p = re.compile(r',[a-zA-Z]+\r\n')
+                    temp_line = p.split(strList[i])[-1]
+                    print "after dealing with Creativity Words:", temp_line
+                    # temp_line = strList[i].split("Creativity Words:")[-1]
+                    text.append(temp_line)
+                else:
+                    text.append(strList[i])
+    print "whole sentence is ", text
     ret = readingWithProblems(text, question_option_list)
     return ret , ans_list
 
@@ -4322,10 +4411,13 @@ def coref_resolver(sent_list, glove_embedding):
         # if len(resolved_list) == i+1:
         #     lower_i = resolved_list[i].lower()
         # else:
-        lower_i = sent_list[i]
+        lower_i = lowerFirstLetter((sent_list[i]).strip())
         if not word_list_in_sentenceStr(pronoun_single, lower_i):
             resolved_list.append(lower_i)
+            print "after append resolved 1 ", len(resolved_list)
             continue
+        else:
+            print "found pronoun in ", lower_i
         words_in_sent = tokenize(lower_i)
         for p in pronoun_single:
             print "for p", p
@@ -4342,36 +4434,195 @@ def coref_resolver(sent_list, glove_embedding):
 
                 print "found ", p, " in sentence", lower_i
                 if i >0:
+                    print 'if i>0 resolved_list', len(resolved_list), ' i-1 ', i-1
                     nouns = get_all_entities_by_nltk(resolved_list[i-1])
+                    if len(nouns)== 0 and (i-2)>=0:
+                        nouns = get_all_entities_by_nltk(resolved_list[i-2])
                     print 'nouns are found ', nouns
-                    sorted_n = noun_related_score_to_sentences(nouns,[(lower_i,"")],glove_embedding, None, True)
+                    if len(nouns)>0:
+                        sorted_n = noun_related_score_to_sentences(nouns,[(lower_i,"")],glove_embedding, None, True)
 
-                    sort_again = list()
-                    for s_n in sorted_n:
-                        if str(s_n[0]).istitle():
-                            pair = (s_n[0],s_n[1] + 1)
-                            sort_again.append(pair)
-                        else:
-                            pair = (s_n[0], s_n[1])
-                            sort_again.append(pair)
-                    sort_again = sorted(sort_again, key=lambda t: (-t[1], t[0]))
-                    sorted_n = sort_again
-                    print "after sorting ", sorted_n
-                    after_replace = ""
-                    for w in words_in_sent:
-                        if w == p:
-                            after_replace += " " + sorted_n[0][0]
-                        else:
-                            after_replace += " " + w
-                    if len(resolved_list) == i + 1:
-                        resolved_list.pop(i)
-                    after_replace = after_replace.strip()
+                        sort_again = list()
+                        for s_n in sorted_n:
+                            if str(s_n[0]).istitle():
+                                pair = (s_n[0],s_n[1] + 1)
+                                sort_again.append(pair)
+                            else:
+                                pair = (s_n[0], s_n[1])
+                                sort_again.append(pair)
+                        sort_again = sorted(sort_again, key=lambda t: (-t[1], t[0]))
+                        sorted_n = sort_again
+                        print "after sorting ", sorted_n
+                        after_replace = ""
+                        for w in words_in_sent:
+                            if w == p:
+                                after_replace += " " + sorted_n[0][0]
+                            else:
+                                after_replace += " " + w
+                        if len(resolved_list) == i + 1:
+                            resolved_list.pop(i)
+                        after_replace = after_replace.strip()
+                    else:
+                        after_replace = lower_i
                     resolved_list.append(after_replace)
+                    print "after append resolved 2 ", len(resolved_list)
                     print "add sentence after replace", after_replace
                 else:
                     resolved_list.append(sent_list[i])
+                    print "after append resolved 3 ", len(resolved_list)
                     continue
     return resolved_list
+
+def coref_multi_resolver(sent_list, glove_embedding):
+    sent_num = len(sent_list)
+    resolved_list = list()
+    pronoun_plural = ["They", "they", "their", "Their","Them",'them']
+    for i in range(sent_num):
+        print "i is ", i, "len(resolved_list) ", len(resolved_list)
+        # if len(resolved_list) == i+1:
+        #     lower_i = resolved_list[i].lower()
+        # else:
+        lower_i = sent_list[i]
+        if not word_list_in_sentenceStr(pronoun_plural, lower_i):
+            resolved_list.append(lower_i)
+            print "after append resolved 1 ", len(resolved_list)
+            continue
+        else:
+            print "found pronoun in ", lower_i
+        words_in_sent = tokenize(lower_i)
+        for p in pronoun_plural:
+            print "for p", p
+            print "resolved_list is ", resolved_list
+            print "resolved_list length ", len(resolved_list), "sent_num is ", sent_num, "i ", i
+            if len(resolved_list) == i + 1:
+                print "in len(resolved_list) == i + 1"
+                print resolved_list[i]
+                lower_i = resolved_list[i]
+
+                words_in_sent = tokenize(lower_i)
+            part_sent_with_pronoun = lower_i
+            temp_nuggets = whole_sentence_nuggets_finder(lower_i)
+            print temp_nuggets
+            for nug in temp_nuggets:
+                nugget = nugget_builder(nug)
+                nug_str = str_list_to_string(nugget)
+                if p in nug_str:
+                    part_sent_with_pronoun = nug_str
+                    break
+            print "words_in_sent: ", words_in_sent
+            if p in words_in_sent:
+
+                print "found ", p, " in sentence", lower_i
+                if i > 0:
+                    print 'if i>0 resolved_list', len(resolved_list), ' i-1 ', i - 1
+                    nouns = get_all_entities_by_nltk(resolved_list[i - 1])
+                    if len(nouns) == 0 and (i - 2) >= 0:
+                        nouns = get_all_entities_by_nltk(resolved_list[i - 2])
+                    print 'nouns are found ', nouns
+                    if len(nouns) > 0:
+                        print " use for compare", part_sent_with_pronoun
+                        sorted_n = noun_related_score_to_sentences(nouns, [(part_sent_with_pronoun, "")], glove_embedding, None, True)
+
+                        sort_again = list()
+                        for s_n in sorted_n:
+                            if str(s_n[0]).istitle():
+                                pair = (s_n[0], s_n[1] + 1)
+                                sort_again.append(pair)
+                            else:
+                                pair = (s_n[0], s_n[1])
+                                sort_again.append(pair)
+                        sort_again = sorted(sort_again, key=lambda t: (-t[1], t[0]))
+                        sorted_n = sort_again
+                        print "after sorting ", sorted_n
+                        if len(sorted_n)>1:
+                            after_replace_nouns = str_list_to_string([sorted_n[0][0],sorted_n[1][0]])
+                        else:
+                            after_replace_nouns = sorted_n[0][0]
+                        after_replace = ""
+                        for w in words_in_sent:
+                            if w == p:
+                                after_replace += " " + after_replace_nouns
+                            else:
+                                after_replace += " " + w
+                        if len(resolved_list) == i + 1:
+                            resolved_list.pop(i)
+                        after_replace = after_replace.strip()
+                    else:
+                        after_replace = lower_i
+                    resolved_list.append(after_replace)
+                    print "after append resolved 2 ", len(resolved_list)
+                    print "add sentence after replace", after_replace
+                else:
+                    resolved_list.append(sent_list[i])
+                    print "after append resolved 3 ", len(resolved_list)
+                    continue
+    return resolved_list
+
+def question2statement(question_str, other_parts):
+    # should completely remove the words before did do does and add them after verb
+    do_list = ["did", "does","do", "have"]
+    pronoun_list = ["who","whom","what","where"]
+    adv_list = ["why", "when", "how"]
+    nugs = nuggets_finder(question_str)
+    tokens = tokenize(question_str)
+    for d in do_list:
+        if d in tokens:
+            tokens.remove(d)
+            for p in pronoun_list:
+                if p in tokens:
+                    tokens.remove(p)
+                    str_after_do = str_list_to_string(question_str.split(d)[1:])
+                    processed_sent_str = str_list_to_string(tokens)
+                    nugs = nuggets_finder(str_after_do)
+                    (sbj,vp,obj) = nugget_builder(nugs[0])
+                    new_list = list()
+                    new_list.append(sbj)
+                    what_part = question_str.split(d)[0].strip()
+                    if vp == '':
+                        last_part_of_sent = ""
+                    else:
+                        last_part_of_sent = str_list_to_string( str_after_do.split(vp)[1:])
+                    if p in what_part:
+                        what_part = what_part.replace(p ,"")
+                    if other_parts != "" :
+                        new_list.append(vp + " " + what_part + " " + other_parts + " " +last_part_of_sent)
+                    else:
+                        new_list.append(vp + " " + what_part + " " + last_part_of_sent)
+                    sent_with_no_obj = str_list_to_string(new_list)
+                    if not obj.strip() in sent_with_no_obj:
+                        new_list.append(obj)
+                    statement = str_list_to_string(new_list)
+                    return statement
+    sent_list = list()
+    if wordInSentStr(HOW,question_str.lower()) or wordInSentStr(WHY,question_str.lower()):
+        for w in tokens:
+            if HOW == w or WHY == w or w in do_list:
+                continue
+            else:
+                sent_list.append(w)
+        if other_parts =="":
+            # sent_list.append(other_parts)
+            return str_list_to_string(sent_list)
+        else:
+            return other_parts
+    for w in tokens:
+        p_flag = False
+        for p in pronoun_list:
+            if p == w:
+                p_flag = True
+                break
+        if p_flag == False:
+            sent_list.append(w)
+        else:
+            sent_list.append(other_parts)
+    return str_list_to_string(sent_list)
+
+def lowerFirstLetter(sent_string):
+    if (sent_string is not None) and (len(sent_string)>1):
+        if sent_string[0] is not "I":
+            head_letter = sent_string[0].lower()
+            return head_letter + sent_string[1:]
+    return sent_string
 
 question_countor = 0
 from word2vec_basic import full_cycle
@@ -4393,34 +4644,39 @@ if __name__ == "__main__":
     # paras = get_paragraph_from_article(art)
     # for p in paras:
     #     print p
-    # question_str = "NASA Science Science @ NASA Headline News You may have noticed that the \"look and feel\" of Science @ NASA stories has changed"
-    # ne_in_question = get_all_entities_by_nltk(question_str.lower())
-    # origin_word_not_in_score = hit_percent_in_sentenceStr(ne_in_question, question_str.lower())
-    # print hypernym_of_word("tomatos")
+    global global_glove_embeddings
+    global_glove_embeddings = load_glove("./glove.6B/")
 
-    # global global_glove_embeddings
-    # global_glove_embeddings = load_glove("./glove.6B/")
-    # answer_by_a_few_sentence_by_Glove("who is J W Bush","", global_glove_embeddings,None)
-    food_name_list = ["beans", "tomato", "nut", "beef", "chicken","egg", "bread", "milk", \
-                      "mushroom", "salad", "potato", "juice", "coke","rice"]
-    question_classifier("What games do Tommy and Suzy not like to play?")
-    # sentlist = list()
+    # print question2statement(lowerFirstLetter( "What do I heat up on the stove for breakfast"), "thing")
+    # question = str("when did the world come into existance")
+    # ans_list, _ = answer_by_a_few_sentence_by_Glove(question,"", global_glove_embeddings,None)
+    # for res in ans_list:
+    #     print "last selected anwser is ", res
+
+    # food_name_list = ["beans", "tomato", "nut", "beef", "chicken","egg", "bread", "milk", \
+    #                   "mushroom", "salad", "potato", "juice", "coke","rice"]
+    # question_classifier("What games do Tommy and Suzy not like to play?",None)
+    sentlist = list()
     # sentlist.append("John's house was three houses down.")
     # sentlist.append("Mary and Kim stopped by to ask John if he wanted to play at the park.")
-    # sentlist.append("John said no.")
+    # sentlist.append("They said no.")
     # sentlist.append("He was afraid of being chased by a squirrel.")
     # sentlist.append("Tammy was a purple tiger.")
     # sentlist.append("She was friends with Bobby the blue bird.")
     # sentlist.append("\"Hello,\" said the boy.")
     # sentlist.append("The boy held out his rock for the cow to see.")
-    # sentlist.append("The cow looked at it.")
+    # sentlist.append("The cow looked at them.")
     # sentlist.append("Then it picked it up in its mouth.")
     # sentlist.append("Jimmy swam around the pond.")
-    # sentlist.append("He was a duck.")
-    # sentlist.append("He was wet, but he was a duck and didn't care.")
-    # sentlist.append("He ate some bugs.")
-    # resolved = coref_resolver(sentlist, global_glove_embeddings)
+    # sentlist.append("Ted was a duck.")
+    # nuggets = whole_sentence_nuggets_finder("he were covered in little beads, and mom had to sew them on.")
+    # for nug in nuggets:
+    #     print nug
+    # sentlist.append("One day I was in the attic, helping Mommy make a boot for a costume.")
+    # sentlist.append("They were covered in little beads, and mom had to sew them on.")
+    # resolved = coref_multi_resolver(sentlist, global_glove_embeddings)
     # print resolved
+
 
     # answer_by_embedding_with_complete_sentences("what will cause a nuclear winter")
     # for food in food_name_list:
@@ -4532,12 +4788,29 @@ if __name__ == "__main__":
     # compare articles extract similar sentences over different articles
     # extract subtitles: small paragrah followed by a long paragragh
     # FSMonitor()
-    # # sent0 = "who is the father of USA"
-    # # sent1 = "In grade school and beyond, every American learns that George Washington is the Father of the country."
-    # # sent2 = "Father's Day is an occasion to mark and celebrate the contribution that your own father has made to your life."
-    # # s1 = similarity_by_all_words_by_Glove_Aline_Words(sent0, sent1, glove_embeddings)
-    # # s2 = similarity_by_all_words_by_Glove_Aline_Words(sent0, sent2, glove_embeddings)
-    # # print "s1 ", s1, " s2 ", s2
+    sent0 = lowerFirstLetter("Lucy draws many yellow feathers for Lucy pet bird named Andy .")
+    # sent0 = lowerFirstLetter("the spell also gave Ellen's voice to the witch.")
+    print "They were covered in little beads", sent0
+    # sent1 = question2statement( (lowerFirstLetter("boot")),'marshmallows')
+    # print sent1
+    # sent2 = question2statement((lowerFirstLetter( "Mommy")),"pickles")
+    # print sent2
+    # (u' jack  mackenzie go with  playground  their mother ', 3.695364153937379)
+    # (u' jack  mackenzie go with  library  their mother ', 3.6657238971399453)
+    # (u' jack  mackenzie go with  river  their mother ', 3.6560988581508633)
+    #     "Both the Germans and Allies used the planes to ... managed to maintain the air.Both the Germans and Allies used the planes to ... managed to maintain the air."
+
+    # sent1 = question2statement("Why is Tuesday night special for Marsha", "Every Tuesday Marsha meets a new friend")
+    # sent2 = question2statement("Why is Tuesday night special for Marsha", 'It\'s spaghetti night and it\'s Marsha\'s favorite dinner')
+    sent1 = "Lucy is the name of the pet bird ?"
+    sent2 = "Andy is the name of the pet bird ?"
+    # s1 = Levenshtein.ratio(str(sent0), str(sent1))
+    # s2 = Levenshtein.ratio(str(sent0), str(sent2))
+    # print "editting distance s1 ", s1, " s2 ", s2
+    s1 = similarity_by_all_words_by_Glove_Aline_nuggets(sent0, sent1, global_glove_embeddings)
+    s2 = similarity_by_all_words_by_Glove_Aline_nuggets(sent0, sent2, global_glove_embeddings)
+    print "s1 ", s1, " s2 ", s2
+    exit()
     # print "Embeddings load finished"
     # question_str = "don't forget to tell me to buy some potato chips at noon"
     # question_str = "I was always wondering when did the first fish come into being "
@@ -4645,7 +4918,7 @@ if __name__ == "__main__":
     #     if precision >= 0.6:
     #         optimal_param = param
     #         break
-    optimal_param = (0.7733611596766595, 0.06991093490256266, 0.9548839847918859, 1)
+    optimal_param = (0.7733611596766595, 0.06991093490256266, 0.9548839847918859, 2)
 
     # sent0 =  question2_statement_order("3 .: one : Sally like walking in the woods Why")
     # sent1 = "Sally's favorite activity was walking in the woods because she enjoyed nature"
@@ -4672,16 +4945,18 @@ if __name__ == "__main__":
     # precision = getPrecision(art_with_problems, results, answers)
     # print "on test text: precison is ", precision, "for param ", str(optimal_param)
     #
-    # total_text = open("./text/mc500.dev.txt")
-    # total_lines = total_text.readlines()
-    # cursor = 0
-    # precision_sum = 0
-    # for i in range(0,50):
-    #     text_lines , cursor= read_in_one_comprehension_text_by_lines(total_lines, cursor)
-    #     readingWithProblems_obj, ans_list = read_in_one_comprehension_by_lines(text_lines)
-    #     p = envalue_param_on_one_reading_from_struct_by_glove(readingWithProblems_obj,ans_list,optimal_param,global_glove_embeddings,True)
-    #     precision_sum += p
-    #     print "precision is ", p, " i is ", i, " avg precision is ", precision_sum/(i+1)
+
+    total_text = open("./text/mc500.dev.txt")
+    total_lines = total_text.readlines()
+    cursor = 0
+    precision_sum = 0
+    for i in range(0,50):
+        text_lines , cursor= read_in_one_comprehension_text_by_lines(total_lines, cursor)
+        readingWithProblems_obj, ans_list = read_in_one_comprehension_by_lines(text_lines)
+        p = envalue_param_on_one_reading_from_struct_by_glove(readingWithProblems_obj,ans_list,optimal_param,global_glove_embeddings,True)
+        precision_sum += p
+        print "precision is ", p, " i is ", i, " avg precision is ", precision_sum/(i+1)
+
     # precision = envalue_param_on_one_reading_text("./text/tosummary/test4",[1,3,2,2],optimal_param,global_glove_embeddings,True)
     # writeSummaries = file('./text/opt_params.txt', 'a+')
     # writeSummaries.write("test ======= ")

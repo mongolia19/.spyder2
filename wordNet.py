@@ -323,7 +323,7 @@ def word_list_in_sentenceStr(word_str_list, sentStr):
             print 'sentence hit!'
             return True
         for k in wordsDictInSent.keys():
-            if k in word:
+            if k == word:
                 print 'sentence hit --- key in one synet !'
                 return True
     print "sentence pass..."
