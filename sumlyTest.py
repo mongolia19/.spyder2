@@ -1818,6 +1818,7 @@ def nuggets_finder(sub_sent_string):
     NP = 'NP'
     OBJ = 'OBJ'
     SBJ = 'SBJ'
+    PP = 'PP'
     scan_state = SCANNING_SBJ
 
     chunks = get_chunks_in_sentence(sub_sent_string)
@@ -1830,7 +1831,7 @@ def nuggets_finder(sub_sent_string):
         if scan_state == SCANNING_SBJ:
             # DO things
             # Change state
-            if chunks[i].tag != VP:
+            if chunks[i].tag != VP and chunks[i].tag != PP:
                 tempSBJ += " " + chunks[i].string
                 # ------
                 # no state change
@@ -2602,21 +2603,48 @@ def similarityByEmbedding(w1, w2, embeddings, sim_dict):
 def similarity_one_arragement_by_glove_aline_word(long_word_list, short_word_list, one_arrange, glove_embeddings):
     short_length = len(short_word_list)
     sum = 0
+    import math
     for i in range(short_length):
         sum += similarityByGloveEmedding( short_word_list[i] , long_word_list[one_arrange[i]],\
             glove_embeddings,None)
     # avg = sum/(short_length+1)
-    avg = sum
+    avg = math.tanh(sum)
     return avg
 
 def similarity_one_arragement_by_glove_by_all_words_comparing(long_word_list, short_word_list, one_arrange, glove_embeddings):
     short_length = len(short_word_list)
     sum = 0
     for i in range(short_length):
-        sum += similarity_by_all_words_by_Glove_Aline_Words( short_word_list[i] , long_word_list[one_arrange[i]],\
-            glove_embeddings)
+        nugs_of_s1 = nuggets_finder(long_word_list[one_arrange[i]])
+        nug_verb_flag = True
+        for nug in nugs_of_s1:
+            (sbj, v, obj) = nugget_builder(nug)
+            nug_sent = sbj + v + obj
+            print "find nug in similarity_one_arragement_by_glove_by_all_words_comparing", nug_sent
+            if v == "":
+                print "but not a real nugget!"
+                nug_verb_flag = False
+        if nug_verb_flag:
+            print "evaluating ", short_word_list[i], " and ", long_word_list[one_arrange[i]]
+            sum += similarity_by_all_words_by_Glove_Aline_nuggets_inner(short_word_list[i], long_word_list[one_arrange[i]], \
+                                                                glove_embeddings)
+        else:
+            sum += similarity_by_all_words_by_Glove_Aline_Words( short_word_list[i] , long_word_list[one_arrange[i]],\
+                glove_embeddings)
     # avg = sum/(short_length+1)
     avg = sum
+    return avg
+
+def similarity_one_arragement_by_glove_by_all_words_comparing_inner(long_word_list, short_word_list, one_arrange, glove_embeddings):
+    short_length = len(short_word_list)
+    sum = 0
+    for i in range(short_length):
+        sum += similarity_by_all_words_by_Glove_Aline_Words( short_word_list[i] , long_word_list[one_arrange[i]],\
+                glove_embeddings)
+    # avg = sum/(short_length+1)
+    # avg = sum
+    import math
+    avg = math.tanh(sum)
     return avg
 
 def similarity_by_all_words_by_Glove_Aline_Words(sent1, sent2, embeddings):
@@ -2648,7 +2676,7 @@ def similarity_by_all_words_by_Glove_Aline_Words(sent1, sent2, embeddings):
     print "lengths are ", short_length, " <--->", long_length
     total_list = range(long_length)
     import itertools
-    if long_length>MAX_LENGTH/2+1:
+    if long_length>MAX_LENGTH/2-1:
         arrangements = list(itertools.combinations(total_list, short_length))
     else:
         arrangements = list(itertools.permutations(total_list, short_length))
@@ -2686,10 +2714,14 @@ def similarity_by_all_words_by_Glove_Aline_nuggets(sent1, sent2, embeddings):
     print "after remove comma ", sent1_a
     nugs_of_s1 = nuggets_finder(sent1_a)
     nug_str_list = list()
+    nug_verb_flag = True
     for nug in nugs_of_s1:
         (sbj,v,obj) = nugget_builder(nug)
         nug_sent = sbj  + v  + obj
         print "find nug ", nug_sent
+        if v == "":
+            print "but not a real nugget!"
+            nug_verb_flag = False
         nug_str_list.append(nug_sent)
     base_word_list = nug_str_list
     nug_str_list = list()
@@ -2698,6 +2730,9 @@ def similarity_by_all_words_by_Glove_Aline_nuggets(sent1, sent2, embeddings):
         (sbj, v, obj) = nugget_builder(nug)
         nug_sent = sbj  + v  + obj
         print "find nug ", nug_sent
+        if v == "":
+            print "but not a real nugget!"
+            nug_verb_flag = False
         nug_str_list.append(nug_sent)
     # base_word_list = nug_str_list
     # base_word_list = tokenize(sent1_a)
@@ -2746,6 +2781,77 @@ def similarity_by_all_words_by_Glove_Aline_nuggets(sent1, sent2, embeddings):
     # avg = max(score_list)
     # print "how similar is sent1 to sent2 in all words to all words ", sent1, "to ", sent2
     # print max_score
+    return sum_score
+
+def similarity_by_all_words_by_Glove_Aline_nuggets_inner(sent1, sent2, embeddings):
+    print "Aligment!!! similarity_by_all_words_by_Glove_Aline_nuggets_inner called "
+    MAX_LENGTH = 16
+    import string
+
+    sent1_a = str(sent1).translate(None, string.punctuation)
+    sent2_a = str(sent2).translate(None, string.punctuation)
+    print "after remove comma ", sent1_a
+    nugs_of_s1 = nuggets_finder(sent1_a)
+    nug_str_list = list()
+    nug_verb_flag = True
+    for nug in nugs_of_s1:
+        (sbj,v,obj) = nugget_builder(nug)
+        nug_sent = sbj  + v  + obj
+        print "find nug ", nug_sent
+        if v == "":
+            print "but not a real nugget!"
+            nug_verb_flag = False
+        nug_str_list.append(sbj)
+        nug_str_list.append(v)
+        nug_str_list.append(obj)
+    base_word_list = nug_str_list
+    nug_str_list = list()
+    nugs_of_s2 = nuggets_finder(sent2_a)
+    for nug in nugs_of_s2:
+        (sbj, v, obj) = nugget_builder(nug)
+        nug_sent = sbj  + v  + obj
+        print "find nug ", nug_sent
+        if v == "":
+            print "but not a real nugget!"
+            nug_verb_flag = False
+        nug_str_list.append(sbj)
+        nug_str_list.append(v)
+        nug_str_list.append(obj)
+    # base_word_list = nug_str_list
+    # base_word_list = tokenize(sent1_a)
+    compare_words_list = nug_str_list
+    long_word_list = None
+    short_word_list = None
+    if len(base_word_list)>=len(compare_words_list):
+        long_word_list = base_word_list
+        short_word_list = compare_words_list
+    else:
+        long_word_list = compare_words_list
+        short_word_list = base_word_list
+    long_length = len(long_word_list)
+    short_length = len(short_word_list)
+    if long_length>MAX_LENGTH:
+        long_word_list = long_word_list[:MAX_LENGTH]
+        long_length = len(long_word_list)
+    if short_length>MAX_LENGTH:
+        short_word_list = short_word_list[:MAX_LENGTH]
+        short_length = len(short_word_list)
+    print "lengths are ", short_length, " <--->", long_length
+    total_list = range(long_length)
+    import itertools
+    # Here use permutations instead of combination
+    print "Using permutations"
+    arrangements = list(itertools.permutations(total_list, short_length))
+    print "arrangements are ", arrangements
+    if len(arrangements)<=0:
+        print "arrangements null"
+        return 0
+    arrange_score_list = list()
+    for arrange in arrangements:
+        score = similarity_one_arragement_by_glove_by_all_words_comparing_inner(long_word_list, short_word_list, arrange, embeddings)
+        arrange_score_list.append(score)
+    print "arrange_score_list ", len(arrange_score_list), " arrangements ", len(arrangements)
+    sum_score = max(arrange_score_list)
     return sum_score
 
 import numpy as np
@@ -2859,7 +2965,7 @@ def scoreSentenceByFreqRules(ruleList, sent):
     return score
 
 
-def noun_related_score_to_sentences(noun_list, sent_list, embeddings, sim_dict, usingGlove = False, weight_tuple=(0.3, 0.3, 0.4, 1)):
+def noun_related_score_to_sentences(noun_list, sent_list, embeddings, sim_dict, usingGlove = False, usingEntailment = False,weight_tuple=(0.3, 0.3, 0.4, 1)):
     #     sort nouns by how close to the iven sentences
     result = list()
     # length = len(sent_list)
@@ -2870,7 +2976,10 @@ def noun_related_score_to_sentences(noun_list, sent_list, embeddings, sim_dict, 
             # 0.1*compare_sentence_by_nugget_with_all_words(noun, sent[0], embeddings, sim_dict, weight_tuple) +\
             print "comparing ", str(sent[0]), " with ", noun
             if usingGlove == True:
-                s = similarity_by_all_words_by_Glove_Aline_nuggets(sent[0], noun, embeddings)
+                if usingEntailment:
+                    s = textEntailment(noun,sent[0], embeddings)[1]
+                else:
+                    s = similarity_by_all_words_by_Glove_Aline_nuggets(noun,sent[0], embeddings)
                 # s = 0.6 * compare_sentence_by_all_words_with_all_words_by_Glove(str(sent[0]).strip().split()[0], noun, embeddings, sim_dict, weight_tuple) + \
                 #     0.4 * compare_sentence_by_nugget_with_all_words(sent[0], noun, embeddings, sim_dict, True, weight_tuple)
             else:
@@ -2964,8 +3073,10 @@ def sentences_has_connection(sent1, sent2):
                 return True
     return False
 
+def extract_onto_relation(sent_list):
+    return
 
-def summary_by_wordEmbedding():
+def summary_by_wordEmbedding(glove_embeddings):
     filehandler = open('./text/tosummary/text', 'r')
     # what does ... mean
     question_sentence_part_start = 'what is '
@@ -2974,6 +3085,12 @@ def summary_by_wordEmbedding():
     SHORT_SENT = 3
     rawtext = filehandler.read()
     sent_list = getSentencesFromPassageText(rawtext)
+    sent_list = coref_resolver(sent_list, glove_embeddings)
+    sent_list = coref_multi_resolver(sent_list, glove_embeddings)
+    print "after coref resolve"
+    for sent in sent_list:
+        print sent
+    relation_list = extract_onto_relation(sent_list)
     # sent_list = secondSentenceSplitor(sent_list)
     print " test sentences conectivity:"
     for i in range(len(sent_list) - 1):
@@ -2987,15 +3104,15 @@ def summary_by_wordEmbedding():
     for keysent in keysents:
         nuggets = nuggets_finder(keysent[0])
         print("original: " + keysent[0])
-        for nug in nuggets:
-            (sbj, vp, obj) = nugget_builder(nug)
-            (keyword_explation, e, d) = answer_by_a_few_sentences_by_embedding(
-                "why and how " + sbj + " " + vp + " " + obj, 3)
-            if keyword_explation is None:
-                continue
-            for exp in keyword_explation:
-                writeSummaries.write("explination for " + keysent[0] + " is:-- " + exp[0])
-                print "explination for " + keysent[0] + " is:-- " + exp[0]
+        # for nug in nuggets:
+        #     (sbj, vp, obj) = nugget_builder(nug)
+        #     (keyword_explation, e, d) = answer_by_a_few_sentences_by_embedding(
+        #         "why and how " + sbj + " " + vp + " " + obj, 3)
+        #     if keyword_explation is None:
+        #         continue
+        #     for exp in keyword_explation:
+        #         writeSummaries.write("explination for " + keysent[0] + " is:-- " + exp[0])
+        #         print "explination for " + keysent[0] + " is:-- " + exp[0]
         writeSummaries.write(str(keysent))
         writeSummaries.write('\r\n')
     NERs = get_all_entities_by_nltk(keysent[0])
@@ -3013,154 +3130,154 @@ def summary_by_wordEmbedding():
     questionList = keysent_NERs[1]
     ner_list = list()
 
-    for q in questionList:
-
-        question = keysents[0][0]
-        print 'will search question ', question
-        art_list = get_articles_withURKL_from_websearch_query(question)
-
-        str_word = ''
-        print "finish getting all the articles"
-        for art in art_list:
-            str_word += art[0]
-
-        str_word = str_word.split()
-        word_list = list()
-        for w in str_word:
-            # if len(str(w).strip())<3:
-            #     continue
-            post_w = str(w).strip().lower()
-            word_list.append(post_w)
-
-            # Write to the bag of words file
-            # FileUtils.WriteToFile('bag_of_words.txt', word_str_buff)
-            # Read words out from bag of words
-            # str_word = FileUtils.OpenFileUnicode('bag_of_words.txt')
-
-            # word_list = list()
-            # for w in str_word:
-            # if len(str(w).strip())<3:
-            # continue
-            # post_w = str(w).strip().lower()
-            # word_list.append(post_w)
-            # word_str_buff = word_str_buff + " " + post_w
-        # global embeddings
-        embeddings = None
-        sim_dict = {}
-        print "Will now call full_cycle()"
-        try:
-            embeddings, sim_dict = full_cycle(word_list)
-        except:
-            print 'failed to get embeddings'
-            return
-        print "full_cycle() end"
-        ansList = answer_by_a_few_sentence(question, WHO, embeddings, sim_dict)
-        # extract freq words combinations
-        common_combination_rules = self_learn_by_fp_growth('./text/rawtext', '.', ENGLISH_STOP_WORDS)
-        # rules = getRulesByApriori('data.txt', ENGLISH_STOP_WORDS)
-        ansList = list(set(ansList))
-        ansList = sorted(ansList, key=lambda t: (-t[1], t[0]))
-        ner_list = list()
-        selected_sentences_string = ""
-        print 'The last answers are: '
-        for ans in ansList:
-            print ans, type(ans)
-            # ner_list = ner_list + get_all_entities_by_nltk(ans[0])
-            selected_sentences_string = selected_sentences_string + ans[0] + "."
-            print "\r\n"
-
-        # get summary sentences from the last selected sentences
-        summarized_sentences = get_summary_sentences_by_summarizer_voting(selected_sentences_string)
-        print " summarized answers are: "
-        for sent in summarized_sentences:
-            print sent, "\r\n"
-            print get_tagged_sentence(sent[0])
-            print "====================="
-
-        key_noun_list = noun_related_score_to_sentences(nerList, summarized_sentences, embeddings, sim_dict)
-        print("key_noun_list scored by relation")
-        print key_noun_list
-        # explatnations_for_key_sents = list()
-        writeSummaries = file('./text/summaries.txt', 'a+')
-        for sent in summarized_sentences:
-            # writeSummaries.write("explination for " + sent[0] + ': \r\n')
-            nuggets = nuggets_finder(sent[0])
-            nugget_str = ''
-            for nug in nuggets:
-                (sbj, vp, obj) = nugget_builder(nug)
-            (keyword_explation, e, d) = answer_by_a_few_sentences_by_embedding(
-                "why and how " + sbj + " " + vp + " " + obj, 3)
-            if keyword_explation is None:
-                continue
-            for exp in keyword_explation:
-                writeSummaries.write("explination for " + sent[0] + " is:-- " + exp[0])
-                print "explination for " + sent[0] + " is:-- " + exp[0]
-        writeSummaries.write('\r\n===================\r\n')
-        writeSummaries.close()
-        # Score the last extracted backup sentences by its presence in summarized_sentences
-        Voting_summarier_number = 4
-        word_black_list = ['do', 'does', 'why', 'when', 'how', 'what', 'which', 'who', 'where', '?', 'html',
-                           'ocols and Formats Working Group (PFWG'.lower() \
-            , 'Semantic Web Deployment Working Group'.lower(), 'Microsoft'.lower(), 'your browser',
-                           'JavaScript'.lower()]
-        backupAnswerAfterScoreBySummary = []
-        # ansList =getSentencesFromPassageText()
-        # envaluate the article
-        ansList = getSentencesFromPassageText(rawtext)
-        ansList = secondSentenceSplitor(ansList)
-        for str_score_pair in ansList:
-            ans_str = str_score_pair
-            if (not is_sentence_complete(ans_str)) or wordListInString(word_black_list, ans_str.lower()):
-                continue
-            mean_score = compare_sentence_by_nugget_with_all_words(question, ans_str, embeddings, sim_dict)
-            summaryScore = 0.0
-            # length factor: we tend to extract longer sentences, they describes more clearly
-            # sent_length = len(ans_str)
-            # lengthFactor = sent_length/float(1+sent_length)
-            tag_str = tagString_of_sentence(ans_str)
-            # print '-----------', tag_str
-            # check if sentence meets question pattern
-            # questionPatternScore = float(0)
-            # if checkPatternByRe(tag_str, question_pattern):
-            #     questionPatternScore = 1
-            # else:
-            #     questionPatternScore = 0
-            common_combination_score = scoreSentenceByFreqRules(common_combination_rules, ans_str) \
-                                       / (len(common_combination_rules) + 1)
-            # print "Common_combination_score is ", common_combination_score
-            # print 'summaryScore is ', summaryScore
-            # print 'mean_score is ', mean_score
-            mean_score = 0.020 * summaryScore + \
-                         0.88 * mean_score + \
-                         0.1 * common_combination_score
-            # 0.1 * questionPatternScore
-            # 0.01 * lengthFactor
-            # + 0.35 * compare_sentence_by_nuggets(question, ans_str)
-            # mean_score = mean_score/2
-            backupAnswerAfterScoreBySummary.append((ans_str, mean_score))
-        backupAnswerAfterScoreBySummary = sorted(backupAnswerAfterScoreBySummary, key=lambda t: (-t[1], t[0]))
-        TopScoredSentences = list()
-        sent_num = len(backupAnswerAfterScoreBySummary)
-        percent = 0.05
-        for i in range(sent_num):
-            if i <= sent_num * percent:
-                TopScoredSentences.append(backupAnswerAfterScoreBySummary[i])
-            else:
-                break
-        print 'passage total num: ', sent_num
-        print 'summary num: ', len(TopScoredSentences)
-        backupAnswerAfterScoreBySummary = TopScoredSentences
-        print "For Question : ", question
-        print "Scored by both word relation "
-        writeAnswers = file('./text/summaries.txt', 'a+')
-        writeAnswers.write("\r\n")
-        writeAnswers.write(question + "?")
-        for sent_pair in backupAnswerAfterScoreBySummary:
-            print sent_pair, "\r\n"
-            print "+++++++++++++++++++++++++++++"
-            writeAnswers.write(sent_pair[0])
-            writeAnswers.write('\r\n')
-        writeAnswers.close()
+    # for q in questionList:
+    #
+    #     question = keysents[0][0]
+    #     print 'will search question ', question
+    #     art_list = get_articles_withURKL_from_websearch_query(question)
+    #
+    #     str_word = ''
+    #     print "finish getting all the articles"
+    #     for art in art_list:
+    #         str_word += art[0]
+    #
+    #     str_word = str_word.split()
+    #     word_list = list()
+    #     for w in str_word:
+    #         # if len(str(w).strip())<3:
+    #         #     continue
+    #         post_w = str(w).strip().lower()
+    #         word_list.append(post_w)
+    #
+    #         # Write to the bag of words file
+    #         # FileUtils.WriteToFile('bag_of_words.txt', word_str_buff)
+    #         # Read words out from bag of words
+    #         # str_word = FileUtils.OpenFileUnicode('bag_of_words.txt')
+    #
+    #         # word_list = list()
+    #         # for w in str_word:
+    #         # if len(str(w).strip())<3:
+    #         # continue
+    #         # post_w = str(w).strip().lower()
+    #         # word_list.append(post_w)
+    #         # word_str_buff = word_str_buff + " " + post_w
+    #     # global embeddings
+    #     embeddings = None
+    #     sim_dict = {}
+    #     print "Will now call full_cycle()"
+    #     try:
+    #         embeddings, sim_dict = full_cycle(word_list)
+    #     except:
+    #         print 'failed to get embeddings'
+    #         return
+    #     print "full_cycle() end"
+    #     ansList = answer_by_a_few_sentence(question, WHO, embeddings, sim_dict)
+    #     # extract freq words combinations
+    #     common_combination_rules = self_learn_by_fp_growth('./text/rawtext', '.', ENGLISH_STOP_WORDS)
+    #     # rules = getRulesByApriori('data.txt', ENGLISH_STOP_WORDS)
+    #     ansList = list(set(ansList))
+    #     ansList = sorted(ansList, key=lambda t: (-t[1], t[0]))
+    #     ner_list = list()
+    #     selected_sentences_string = ""
+    #     print 'The last answers are: '
+    #     for ans in ansList:
+    #         print ans, type(ans)
+    #         # ner_list = ner_list + get_all_entities_by_nltk(ans[0])
+    #         selected_sentences_string = selected_sentences_string + ans[0] + "."
+    #         print "\r\n"
+    #
+    #     # get summary sentences from the last selected sentences
+    #     summarized_sentences = get_summary_sentences_by_summarizer_voting(selected_sentences_string)
+    #     print " summarized answers are: "
+    #     for sent in summarized_sentences:
+    #         print sent, "\r\n"
+    #         print get_tagged_sentence(sent[0])
+    #         print "====================="
+    #
+    #     key_noun_list = noun_related_score_to_sentences(nerList, summarized_sentences, embeddings, sim_dict)
+    #     print("key_noun_list scored by relation")
+    #     print key_noun_list
+    #     # explatnations_for_key_sents = list()
+    #     writeSummaries = file('./text/summaries.txt', 'a+')
+    #     for sent in summarized_sentences:
+    #         # writeSummaries.write("explination for " + sent[0] + ': \r\n')
+    #         nuggets = nuggets_finder(sent[0])
+    #         nugget_str = ''
+    #         for nug in nuggets:
+    #             (sbj, vp, obj) = nugget_builder(nug)
+    #         (keyword_explation, e, d) = answer_by_a_few_sentences_by_embedding(
+    #             "why and how " + sbj + " " + vp + " " + obj, 3)
+    #         if keyword_explation is None:
+    #             continue
+    #         for exp in keyword_explation:
+    #             writeSummaries.write("explination for " + sent[0] + " is:-- " + exp[0])
+    #             print "explination for " + sent[0] + " is:-- " + exp[0]
+    #     writeSummaries.write('\r\n===================\r\n')
+    #     writeSummaries.close()
+    #     # Score the last extracted backup sentences by its presence in summarized_sentences
+    #     Voting_summarier_number = 4
+    #     word_black_list = ['do', 'does', 'why', 'when', 'how', 'what', 'which', 'who', 'where', '?', 'html',
+    #                        'ocols and Formats Working Group (PFWG'.lower() \
+    #         , 'Semantic Web Deployment Working Group'.lower(), 'Microsoft'.lower(), 'your browser',
+    #                        'JavaScript'.lower()]
+    #     backupAnswerAfterScoreBySummary = []
+    #     # ansList =getSentencesFromPassageText()
+    #     # envaluate the article
+    #     ansList = getSentencesFromPassageText(rawtext)
+    #     ansList = secondSentenceSplitor(ansList)
+    #     for str_score_pair in ansList:
+    #         ans_str = str_score_pair
+    #         if (not is_sentence_complete(ans_str)) or wordListInString(word_black_list, ans_str.lower()):
+    #             continue
+    #         mean_score = compare_sentence_by_nugget_with_all_words(question, ans_str, embeddings, sim_dict)
+    #         summaryScore = 0.0
+    #         # length factor: we tend to extract longer sentences, they describes more clearly
+    #         # sent_length = len(ans_str)
+    #         # lengthFactor = sent_length/float(1+sent_length)
+    #         tag_str = tagString_of_sentence(ans_str)
+    #         # print '-----------', tag_str
+    #         # check if sentence meets question pattern
+    #         # questionPatternScore = float(0)
+    #         # if checkPatternByRe(tag_str, question_pattern):
+    #         #     questionPatternScore = 1
+    #         # else:
+    #         #     questionPatternScore = 0
+    #         common_combination_score = scoreSentenceByFreqRules(common_combination_rules, ans_str) \
+    #                                    / (len(common_combination_rules) + 1)
+    #         # print "Common_combination_score is ", common_combination_score
+    #         # print 'summaryScore is ', summaryScore
+    #         # print 'mean_score is ', mean_score
+    #         mean_score = 0.020 * summaryScore + \
+    #                      0.88 * mean_score + \
+    #                      0.1 * common_combination_score
+    #         # 0.1 * questionPatternScore
+    #         # 0.01 * lengthFactor
+    #         # + 0.35 * compare_sentence_by_nuggets(question, ans_str)
+    #         # mean_score = mean_score/2
+    #         backupAnswerAfterScoreBySummary.append((ans_str, mean_score))
+    #     backupAnswerAfterScoreBySummary = sorted(backupAnswerAfterScoreBySummary, key=lambda t: (-t[1], t[0]))
+    #     TopScoredSentences = list()
+    #     sent_num = len(backupAnswerAfterScoreBySummary)
+    #     percent = 0.05
+    #     for i in range(sent_num):
+    #         if i <= sent_num * percent:
+    #             TopScoredSentences.append(backupAnswerAfterScoreBySummary[i])
+    #         else:
+    #             break
+    #     print 'passage total num: ', sent_num
+    #     print 'summary num: ', len(TopScoredSentences)
+    #     backupAnswerAfterScoreBySummary = TopScoredSentences
+    #     print "For Question : ", question
+    #     print "Scored by both word relation "
+    #     writeAnswers = file('./text/summaries.txt', 'a+')
+    #     writeAnswers.write("\r\n")
+    #     writeAnswers.write(question + "?")
+    #     for sent_pair in backupAnswerAfterScoreBySummary:
+    #         print sent_pair, "\r\n"
+    #         print "+++++++++++++++++++++++++++++"
+    #         writeAnswers.write(sent_pair[0])
+    #         writeAnswers.write('\r\n')
+    #     writeAnswers.close()
 
 
 def answer_by_a_few_sentences_by_embedding(question_str, ans_num=12):
@@ -3659,7 +3776,7 @@ def do_one_reading_comprehension_by_embedding(article_with_problems, model_param
         # sentence_sorted_list = noun_related_score_to_sentences_for_search_passage(sentences, question, embeddings, dict,
         #                                                                           model_params)
         sentence_sorted_list = noun_related_score_to_sentences(sentences,\
-                                                               question, t_embedding, t_dict, usingGlove)
+                                                               question, t_embedding, t_dict, usingGlove, False)
         for sent in sentence_sorted_list:
             print sent
         # Then sort the sentences from the text by similarity to the question
@@ -3688,7 +3805,7 @@ def do_one_reading_comprehension_by_embedding(article_with_problems, model_param
             for op in options:
                 filledoption2option[op] = op
 
-        sentence_sorted_list = noun_related_score_to_sentences(filled_options_to_question, sentences_can_answer, embedding, dict,usingGlove,
+        sentence_sorted_list = noun_related_score_to_sentences(filled_options_to_question, sentences_can_answer, embedding, dict,usingGlove,True,
                                                                model_params)
         original_options = list()
         for sent in sentence_sorted_list:
@@ -4038,6 +4155,11 @@ class set_of_things:
     def __init__(self, thing_list, thing_type):
         self.thing_set
         self.type = thing_type
+
+class develope_sequence:
+    tag = "sequence"
+    def __init__(self, seq_list):
+        self.sequence = seq_list
 
 def envalue_param_on_one_reading_from_struct_by_glove(readingWithProblems_obj, standrad_answers_tuple, model_params, embedding, usingGlove =False ):
     art_with_problems = readingWithProblems_obj
@@ -4624,6 +4746,22 @@ def lowerFirstLetter(sent_string):
             return head_letter + sent_string[1:]
     return sent_string
 
+def textEntailment(hyposis, sent_text, glove_embedding):
+    base_nuggets = whole_sentence_nuggets_finder(hyposis)
+    (b_sbj,b_vp, b_obj) = nugget_builder(base_nuggets[0])
+    nuggets_list = whole_sentence_nuggets_finder(sent_text)
+    vp_score = 0
+    top_nug = ""
+    sort_by_vp_list = list()
+    for nug in nuggets_list:
+        (sbj,vp,obj) = nugget_builder(nug)
+        v_s = similarity_by_all_words_by_Glove_Aline_Words(vp, b_vp,glove_embedding)
+        o_s = similarity_by_all_words_by_Glove_Aline_Words(sbj + " " + obj, b_sbj + " " + b_obj, glove_embedding)
+        right_score = v_s*0.7 + o_s*0.3
+        sort_by_vp_list.append((nug,right_score))
+    sort_by_vp_list = sorted(sort_by_vp_list, key=lambda d: d[1], reverse=True)
+    return sort_by_vp_list[0]
+
 question_countor = 0
 from word2vec_basic import full_cycle
 
@@ -4788,7 +4926,9 @@ if __name__ == "__main__":
     # compare articles extract similar sentences over different articles
     # extract subtitles: small paragrah followed by a long paragragh
     # FSMonitor()
-    sent0 = lowerFirstLetter("Lucy draws many yellow feathers for Lucy pet bird named Andy .")
+
+    summary_by_wordEmbedding(global_glove_embeddings)
+    sent0 = lowerFirstLetter("Paul park  are all friends but Jack likes Sammy the best")
     # sent0 = lowerFirstLetter("the spell also gave Ellen's voice to the witch.")
     print "They were covered in little beads", sent0
     # sent1 = question2statement( (lowerFirstLetter("boot")),'marshmallows')
@@ -4802,14 +4942,17 @@ if __name__ == "__main__":
 
     # sent1 = question2statement("Why is Tuesday night special for Marsha", "Every Tuesday Marsha meets a new friend")
     # sent2 = question2statement("Why is Tuesday night special for Marsha", 'It\'s spaghetti night and it\'s Marsha\'s favorite dinner')
-    sent1 = "Lucy is the name of the pet bird ?"
-    sent2 = "Andy is the name of the pet bird ?"
+    sent1 = " Paul is jack ' s best friend ?"
+    sent2 = " Sammy is jack ' s best friend ?"
     # s1 = Levenshtein.ratio(str(sent0), str(sent1))
     # s2 = Levenshtein.ratio(str(sent0), str(sent2))
     # print "editting distance s1 ", s1, " s2 ", s2
-    s1 = similarity_by_all_words_by_Glove_Aline_nuggets(sent0, sent1, global_glove_embeddings)
-    s2 = similarity_by_all_words_by_Glove_Aline_nuggets(sent0, sent2, global_glove_embeddings)
-    print "s1 ", s1, " s2 ", s2
+    # s1 = similarity_by_all_words_by_Glove_Aline_nuggets(sent0, sent1, global_glove_embeddings)
+    # s2 = similarity_by_all_words_by_Glove_Aline_nuggets(sent0, sent2, global_glove_embeddings)
+    # print "s1 ", s1, " s2 ", s2
+    s3 = textEntailment(sent1, sent0,global_glove_embeddings)
+    s4 = textEntailment(sent2, sent0, global_glove_embeddings)
+    print "s1 ", s3, " s2 ", s4
     exit()
     # print "Embeddings load finished"
     # question_str = "don't forget to tell me to buy some potato chips at noon"
