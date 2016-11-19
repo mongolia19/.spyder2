@@ -1120,12 +1120,20 @@ def getRelatedSentencesListFromWeb(searchedKeyWords):
     # urlList = getAllLinksFromPage(local_search_engine + searchedKeyWords)
     urlList = getAllLinksFromPage(yahooHead + searchedKeyWords + yahooTail)
 
-    URLNum = 10
+    URLNum = 200
     keySentencesText = ''
     articleStrList = list()
-    for i in range(0, iif(len(urlList) > URLNum, URLNum, len(urlList))):
-        passageSentences = html_to_plain_text(urlList[i][0])
-
+    for urlpair in urlList[:len(urlList)/2]:
+        temp_list = getAllLinksFromPage(urlpair[0])
+        temp_list = temp_list[:iif(len(temp_list)>2, 2,len(temp_list))]
+        urlList += temp_list
+        print "got list: ", len(urlList)
+    print "urlList number ", len(urlList)
+    print "url list are ", urlList
+    i = 0
+    for urlpair in urlList:
+        passageSentences = html_to_plain_text(urlpair[0])
+        print i, " passageSentences is ", passageSentences
         articleStrList.append(passageSentences)
 
         parser = PlaintextParser.from_string(passageSentences, Tokenizer(LANGUAGE))
@@ -1133,13 +1141,14 @@ def getRelatedSentencesListFromWeb(searchedKeyWords):
         summarizer = Summarizer_lex(stemmer)
         summarizer.stop_words = get_stop_words(LANGUAGE)
         if len(parser.document.sentences) == 0:
-            break
+            continue
         for sentence in parser.document.sentences:
             #            print(type(sentence))
             #            print(sentence)
             ks = sentence._text.decode('gbk', 'ignore').encode('utf-8')
             # print ks
             keySentencesText = keySentencesText + ' ' + ks
+        i += 1
     MainSearchResultSentencesList = getSentencesFromPassageText(keySentencesText)
     # MainSearchResultSentencesList = secondSentenceSplitor(MainSearchResultSentencesList)
     # write sentences in format w,w,w, to file
@@ -1163,6 +1172,7 @@ def getRelatedSentencesListFromWeb(searchedKeyWords):
 
     # for a single article remove the summary sentences,leaving only the details.
     # then extract patterns from only the details
+    print "articleStrList length", len(articleStrList)
     return MainSearchResultSentencesList, articleStrList
 
 
@@ -2411,13 +2421,14 @@ def answer_by_a_few_sentence(question_string, question_type, embeddings, sim_dic
     #     last_list.append((only_text_list[n],simVal_list[n]))
     # last_list = sorted(last_list,key=lambda t:t[1],reverse=True)
     return sorted_l, art_str_list
-
+ENTER_STR = "r\n"
 def answer_by_a_few_sentence_by_Glove(question_string, question_type, embeddings, sim_dict):
     print "answer_by_a_few_sentence_by_Glove called, will search, ", question_string
     # ner_tuple = get_synsets_lists_from_sentence(question_string)
     sent_str_list, art_str_list = getRelatedSentencesListFromWeb(question_string)
 
     temp_str_list = list()
+
     for t in sent_str_list:
         temp_str_list.append(t)
 
@@ -2429,29 +2440,42 @@ def answer_by_a_few_sentence_by_Glove(question_string, question_type, embeddings
         , 'Semantic Web Deployment Working Group'.lower(), 'Microsoft'.lower(), 'your browser',
                        'JavaScript'.lower(),'Related searches for'.lower(),'Sign In '.lower()]
     article_struct_list = list()
+    print "found articles ", len(art_str_list)
     for art in art_str_list:
-        print "art type is " , type(art)
+        print "the original article is " , art
         t_art_struct = article_structure(art)
         filtered_art = list()
         article_time_list = list()
+        article_location_list = list()
+        article_entity_list = list()
         for sent in t_art_struct.sentence_list:
             if wordListInString(word_black_list, sent) or (not is_sentence_complete(sent)):
-                print "will not count sentence ", sent
+                # print "will not count sentence ", sent
                 continue
             else:
                 filtered_art.append(sent)
                 temp_time_list = get_digits_and_time(sent)
+                temp_location_list = get_location_in_sentence(sent)
+                article_location_list += temp_location_list
                 article_time_list += temp_time_list
-                print "chose sentence ", sent
+                article_entity_list += get_all_entities_by_nltk(sent)
+                # print "chose sentence ", sent
         if len(filtered_art)>0:
             t_art_struct.set_sentences(filtered_art)
+            print "after filter : ", filtered_art
             t_art_struct.set_time_words(article_time_list)
+            t_art_struct.add_to_location(article_location_list)
+            t_art_struct.add_to_person_list(list(set(article_entity_list)))
             article_struct_list.append(t_art_struct)
+
     writeArticle = open("./text/searched_articles.txt","a+")
     for art_struct in article_struct_list:
         writeArticle.write("=========article start=============")
         for sent in art_struct.sentence_list:
             writeArticle.write(sent + "\r\n")
+        writeArticle.write("titles: " + str(art_struct.title_list) + ENTER_STR)
+        writeArticle.write("loc: " + str(art_struct.location_list) + ENTER_STR)
+        writeArticle.write("time: " + str(art_struct.time_list) + ENTER_STR)
         writeArticle.write("==================article ends=============\r\n")
     writeArticle.close()
 
@@ -2470,15 +2494,28 @@ def answer_by_a_few_sentence_by_Glove(question_string, question_type, embeddings
         sent_eval.append((sent, sc))
     print "Now will do the sorting length is ", len(sent_eval)
     sorted_l = sorted(sent_eval, key=lambda t: t[1], reverse=True)
-    # sorted_l = sorted_l[:len(sorted_l) // 2]
+    sorted_l = sorted_l[:len(sorted_l) // 2]
     str_noun_list =list()
-    if len(sorted_l)>10:
-        cut_len = 10
-    else:
-        cut_len = len(sorted_l)-1
-    for pair in sorted_l[:cut_len]:
+    # if len(sorted_l)>10:
+    #     cut_len = 20
+    # else:
+    #     cut_len = len(sorted_l)-1
+    for pair in sorted_l:
         str_noun_list.append(pair[0])
-    result_list = noun_related_score_to_sentences(str_noun_list, [(lowerFirstLetter(question_string),"")],embeddings,None,True)
+    result_list = list()
+    for sent in str_noun_list:
+        art_score_list = list()
+        for art in article_struct_list:
+            s = evaluate_by_article(sent, art)
+            art_score_list.append(s)
+        a_s = sum(art_score_list) / len(art_score_list)
+        sim_s = similarity_by_all_words_by_Glove_Aline_nuggets(sent, question_string.lower(), embeddings)
+        print "for sent", sent, " article score: ", a_s
+        print "for sent", sent, " similarity score: ", sim_s
+        weighted = 0.4*a_s + 0.6*sim_s
+        result_list.append((sent, weighted))
+    result_list = sorted(result_list, key=lambda t: t[1], reverse=True)
+    # result_list = noun_related_score_to_sentences(str_noun_list, [(lowerFirstLetter(question_string),"")],embeddings,None,True)
     return result_list, art_str_list
 
 class question_ansys_result:
@@ -4141,8 +4178,8 @@ def do_one_reading_comprehension_by_embedding(article_with_problems, model_param
 
 class article_structure:
     # import math
-    def __init__(self, sent_list, length):
-        self.sentence_list = sent_list
+    # def __init__(self, sent_list, length):
+    #     self.sentence_list = sent_list
 
     def __init__(self, art_str):
         # import math.fabs as abs
@@ -4174,6 +4211,67 @@ class article_structure:
 
     def add_to_person_list(self, person_str_list):
         self.person_list = person_str_list
+
+def article_reliable_evaluate(article_struct_obj, time_str_list, place_str_list, entity_list, glove_embeddings):
+    import math
+    # assert type(article_struct_obj) == type(article_structure(list(),0))
+    score_sentence_num = math.tanh(len(article_struct_obj.sentence_list))
+    score_time_list = list()
+    score_place_list = list()
+    score_name_list = list()
+    for time_str in time_str_list:
+        temp_list = list()
+        for time in article_struct_obj.time_list:
+            s = Levenshtein.ratio(str(time_str), str(time))
+            temp_list.append(s)
+        if len(temp_list)>0:
+            s_max = max(temp_list)
+        else:
+            s_max = 0
+        score_time_list.append(s_max)
+    if len(score_time_list) ==0:
+        time_avg = 0
+    else:
+        time_avg = sum(score_time_list)/len(score_time_list)
+    for place_str in place_str_list:
+        # [Levenshtein.ratio(str(w), str(place_str)) for w in article_struct_obj.place_list if w ]
+        temp_list = list()
+        for place in article_struct_obj.location_list:
+            s = Levenshtein.ratio(str(place_str), str(place))
+            temp_list.append(s)
+        if len(temp_list)>0:
+            s_max = max(temp_list)
+        else:
+            s_max = 0
+        score_place_list.append(s_max)
+    if len(score_place_list) == 0:
+        place_avg = 0
+    else:
+        place_avg = sum(score_place_list) / len(score_place_list)
+    for name_str in entity_list:
+        # [Levenshtein.ratio(str(w), str(place_str)) for w in article_struct_obj.place_list if w ]
+        temp_list = list()
+        for name in article_struct_obj.person_list:
+            # s = Levenshtein.ratio(str(name_str), str(name))
+            s = similarity_by_all_words_by_Glove_Aline_Words(name_str, name, glove_embeddings)
+            temp_list.append(s)
+        if len(temp_list)>0:
+            s_max = max(temp_list)
+        else:
+            s_max = 0
+        score_name_list.append(s_max)
+    if len(score_name_list) == 0:
+        name_avg = 0
+    else:
+        name_avg = sum(score_name_list) / len(score_name_list)
+    return (score_sentence_num + math.tanh(time_avg) + math.tanh(place_avg) + math.tanh(name_avg))/4
+
+def evaluate_by_article(sentence_str, article_structure_obj):
+    sent_time_list = get_digits_and_time(sentence_str)
+    sent_place_list = get_location_in_sentence(sentence_str)
+    sent_entity_list = get_all_entities_by_nltk(sentence_str)
+    score = article_reliable_evaluate(article_structure_obj, sent_time_list, sent_place_list, sent_entity_list)
+    return score
 
 def summary_across_articles_by_GLOVE(question_str, glove_embeddings):
     article_list = get_articles_withURKL_from_websearch_query(question_str)
@@ -5140,9 +5238,10 @@ if __name__ == "__main__":
     time_wlist = get_digits_and_time(sent1)
     print time_wlist
     print get_location_in_sentence(sent1)
-    exit()
-    question = str("person who is the inventor of air planes")
+    # exit()
+    question = str("person who is the father of America")
     ans_list, _ = answer_by_a_few_sentence_by_Glove(question,"", global_glove_embeddings,None)
+    # exit()
     hyposis_named_entities = list()
     for res in ans_list:
         print "last selected anwser is ", res
@@ -5160,7 +5259,7 @@ if __name__ == "__main__":
     print "before ", hyposis_named_entities
     hyposis_named_entities = list(set(hyposis_named_entities))
     print hyposis_named_entities
-
+    exit()
     hyp_sent_list = list()
     writeSummaries = file('./text/evidences.txt', 'a+')
     # writeSummaries.write("str(ans_list[0][0]) is "+ str(ans_list[0][0][0]))
