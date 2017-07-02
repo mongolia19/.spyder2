@@ -3,10 +3,8 @@
 
 import os
 allFileNum = 0
-import BeautifulSoup
-def CleanHTMLTextByBS(RawText):
-    tSoup = BeautifulSoup.BeautifulSoup(RawText)
-    return tSoup.text
+
+
 def WriteToFile(path,content):
     f = open(path,'a')
     f.write(content)
@@ -76,18 +74,7 @@ def printPath(level, path):
         # 随便计算一下有多少个文件
         allFileNum = allFileNum + 1
 
-def getContentStrListFromHTMLPath(path='htmls'):    
-    contentStrList=list()    
-    fileList = ReturnAllFileOnPath(1,path)
-    #print soup.text
-    for Onefile in fileList:    
-        fileOBJ = open(Onefile)
-        html_doc = fileOBJ.read().decode('gbk', 'ignore')
-        #html_doc = fileOBJ.read().decode('utf-8', 'ignore').encode('gbk')
-        soup = BeautifulSoup.BeautifulSoup(html_doc)  
-        contentStrList.append(soup.text)
-        fileOBJ.close()
-    return contentStrList
+
 
 def getContentStrListFromRawTextPath(path='text'):
     contentStrList=list()

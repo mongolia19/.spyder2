@@ -9,7 +9,7 @@ import PatternLoader
 import nltk
 import operator
 import itertools
-from BeautifulSoup import BeautifulSoup
+
 import FileUtils
 ###
 ##To Do: impliement a function to envalueate the importance of a sentence in an article
@@ -82,22 +82,7 @@ def repalce(s,re_exp,repl_string):
 def BScleanText(RawText):
     cText = ''.join(BeautifulSoup(RawText).findAll(text=True))
     return cText
-def cleanText(RawText):
-    if not (RawText  == None):
-        RawText = re.sub('\n+', ' ', RawText)
-        RawText = re.sub(('\s+'),' ',RawText)
-        RawText = re.sub(" +", " ", RawText)#remove redandant spaces
 
-        genPattern = re.compile("<[^>]*?>",re.S|re.I|re.M)
-        RawText = genPattern.sub('',RawText)#remove all <....>    
-
-        RawText = BScleanText(RawText)
-        RawText = filter_tags(RawText)
-    
-        RawText = RawText.lower()
-        return RawText
-    else:
-        return ''
 def ImportanceMeasure(sentence,word_dict):
     words_of_sent = nltk.word_tokenize(sentence)
     totalCount = len(words_of_sent)
@@ -116,8 +101,7 @@ def RemoveKeyWordsFromSentence(sentence,keyword_dict):# there is somethine wrong
 def getWebPageRawText(query):
     engineUrl = 'http://global.bing.com/search?q='
     return getText(engineUrl+query)
-def getCleanTextFromQuery(query):
-    return cleanText( getWebPageRawText(query))
+
 def getKeyWordDictFromQuery(query):
     cleanedText = getCleanTextFromQuery(query)
     print cleanedText

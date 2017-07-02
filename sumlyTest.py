@@ -44,17 +44,17 @@ import re
 
 import random
 
-from sumy.parsers.html import HtmlParser
-from sumy.parsers.plaintext import PlaintextParser
-from sumy.nlp.tokenizers import Tokenizer
-from sumy.summarizers.lsa import LsaSummarizer as Summarizer_lsa
-from sumy.summarizers.lex_rank import LexRankSummarizer as Summarizer_lex
-from sumy.summarizers.text_rank import TextRankSummarizer as Summarizer_text
-from sumy.summarizers.luhn import LuhnSummarizer as Summarizer_luhn
-from sumy.nlp.stemmers import Stemmer
-from sumy.utils import get_stop_words
+# from sumy.parsers.html import HtmlParser
+# from sumy.parsers.plaintext import PlaintextParser
+# from sumy.nlp.tokenizers import Tokenizer
+# from sumy.summarizers.lsa import LsaSummarizer as Summarizer_lsa
+# from sumy.summarizers.lex_rank import LexRankSummarizer as Summarizer_lex
+# from sumy.summarizers.text_rank import TextRankSummarizer as Summarizer_text
+# from sumy.summarizers.luhn import LuhnSummarizer as Summarizer_luhn
+# from sumy.nlp.stemmers import Stemmer
+# from sumy.utils import get_stop_words
 import nltk
-
+import Levenshtein
 from pattern.en import parsetree
 # import MySqlHelper
 from wordNet import wordDictRelation, hit_percent_in_sentenceStr ,tokenize
@@ -71,10 +71,9 @@ from wordNet import listToDict
 from wordNet import getAllLinksFromPage
 from wordNet import html_to_plain_text
 from wordNet import word_list_in_sentenceStr, all_word_list_in_sentenceStr
-from wordNet import hypernym_of_word
-import textblob
+
 import copy
-import Levenshtein
+
 import FileUtils
 import threading
 from time import ctime, sleep
@@ -1076,49 +1075,30 @@ def getRelatedSentencesListFromWeb(searchedKeyWords):
     urlList = getAllLinksFromPage(yahooHead + searchedKeyWords + yahooTail)
 
     URLNum = 10
-    keySentencesText = ''
+    keySentences = list()
     articleStrList = list()
+
     for i in range(0, iif(len(urlList) > URLNum, URLNum, len(urlList))):
         passageSentences = html_to_plain_text(urlList[i][0])
-
         articleStrList.append(passageSentences)
-
-        parser = PlaintextParser.from_string(passageSentences, Tokenizer(LANGUAGE))
-        stemmer = Stemmer(LANGUAGE)
-        summarizer = Summarizer_lex(stemmer)
-        summarizer.stop_words = get_stop_words(LANGUAGE)
-        if len(parser.document.sentences) == 0:
+        sents_of_one_article = nltk.sent_tokenize(passageSentences.lower())
+        sents_of_one_article = clean_string_list(sents_of_one_article)
+        # sents_of_one_article = secondSentenceSplitor(sents_of_one_article)
+        # parser = PlaintextParser.from_string(passageSentences, Tokenizer(LANGUAGE))
+        # stemmer = Stemmer(LANGUAGE)
+        if len(sents_of_one_article) == 0:
             break
-        for sentence in parser.document.sentences:
+        for sentence in sents_of_one_article:
             #            print(type(sentence))
             #            print(sentence)
-            ks = sentence._text.decode('gbk', 'ignore').encode('utf-8')
+            ks = sentence.decode('gbk', 'ignore').encode('utf-8')
             # print ks
-            keySentencesText = keySentencesText + ' ' + ks
-    MainSearchResultSentencesList = getSentencesFromPassageText(keySentencesText)
-    # MainSearchResultSentencesList = secondSentenceSplitor(MainSearchResultSentencesList)
-    # write sentences in format w,w,w, to file
-    # global question_countor
-    # if question_countor > 5:
-    #     question_countor = 0
-    #     writeEmpty = file('./text/rawtext/data.txt', 'w')
-    #     writeEmpty.write('')
-    #     writeEmpty.close()
-    # else:
-    #     question_countor += 1
-    # read = file('./text/rawtext/data.txt', 'a+')
-    # for s in MainSearchResultSentencesList:
-    #
-    #     lineStr = sentence2wordStr_removeStopWords(s, ENGLISH_STOP_WORDS)
-    #     if len(lineStr) <= 1 or len(lineStr) > 15:
-    #         continue
-    #     read.write("\r\n")
-    #     read.write(lineStr)
-    # read.close
-
-    # for a single article remove the summary sentences,leaving only the details.
-    # then extract patterns from only the details
-    return MainSearchResultSentencesList, articleStrList
+            keySentences += sents_of_one_article
+        writeAnswers = file('./text/summaries.txt', 'a+')
+        writeAnswers.writelines(sents_of_one_article)
+        writeAnswers.close()
+    # MainSearchResultSentencesList = getSentencesFromPassageText(keySentencesText)
+    return keySentences, articleStrList
 
 
 def getOntologyKnowledge(relationTupleList):
@@ -1176,7 +1156,6 @@ def similarity(sent_list, total_corp):
     return similarity_list
 
 
-import apriori_norule
 
 
 def dataFromFile(fname):
@@ -1747,7 +1726,6 @@ def summary_by_comparing_articles(article, other_article_list):
     return summary_text_list
 
 
-from pyh import *
 
 
 def tuple_to_html_page(tuple_list, title='TestDoc', output_file='./testHtml.html'):
@@ -2389,6 +2367,66 @@ def answer_by_a_few_sentence_by_Glove(question_string, question_type, embeddings
     sorted_l = sorted(sent_eval, key=lambda t: t[1], reverse=True)
     sorted_l = sorted_l[:len(sorted_l) // 2]
     return sorted_l, art_str_list
+
+class MySentences(object):
+    def __init__(self, dirname):
+        self.dirname = dirname
+
+    def __iter__(self):
+        for fname in os.listdir(self.dirname):
+            for line in open(os.path.join(self.dirname, fname)):
+                yield line.split()
+
+# # sentences = MySentences('/some/directory') # a memory-friendly iterator
+# model = gensim.models.Word2Vec(sentences)
+
+def train_word2vec_gensim(sentences):
+    # 引入 word2vec
+    from gensim.models import word2vec
+    # 构建模型
+    model = word2vec.Word2Vec(sentences, min_count=0)
+    return model
+
+def word_similarity_by_wordvec_gensim(word1, word2, model):
+    # 进行相关性比较
+    return model.similarity(word1, word2)
+
+def answer_by_a_few_sentence_by_doc2vec(question_string, embeddings, sim_dict):
+    print "answer_by_a_few_sentence_by_doc2vec called, will search, ", question_string
+    # ner_tuple = get_synsets_lists_from_sentence(question_string)
+    sent_str_list, art_str_list = getRelatedSentencesListFromWeb(question_string)
+    sent_str_list = lower_string_list(sent_str_list)
+    question_string = question_string.lower()
+    temp_str_list = list()
+    for t in sent_str_list:
+        temp_str_list.append(t)
+
+    sent_str_list = interrogative_filter(temp_str_list)
+    candidate_noun_sentence_list = sent_str_list
+    # print 'candidate_noun_sentence_list are ', candidate_noun_sentence_list
+    word_black_list = ['do', 'does', 'why', 'when', 'how', 'what', 'which', 'who', 'where', '?', 'html',
+                       'ocols and Formats Working Group (PFWG'.lower() \
+        , 'Semantic Web Deployment Working Group'.lower(), 'Microsoft'.lower(), 'your browser',
+                       'JavaScript'.lower()]
+    sent_eval = list()
+    similar_level = 0.8
+    scored_list = candidate_noun_sentence_list
+    model = train_doc2vec('./text/summaries.txt', 200 )
+    for sent in scored_list:
+        if (Levenshtein.ratio(str(question_string.lower()), str(sent.lower())) > similar_level) or wordListInString(word_black_list, sent.lower()):
+            continue
+        # if not is_sentence_complete(sent.lower()):
+        #     continue
+        question_word_list = gensim.matutils.utils.simple_preprocess(question_string)
+        sent_word_list = gensim.matutils.utils.simple_preprocess(sent)
+        print "comparing ", question_word_list, " and ", sent_word_list
+        sc = paragraph_similarity(question_word_list, sent_word_list,model_var=model,)
+        sent_eval.append((sent, sc))
+    print "Now will do the sorting length is ", len(sent_eval)
+    sorted_l = sorted(sent_eval, key=lambda t: t[1], reverse=True)
+    sorted_l = sorted_l[:len(sorted_l) // 2]
+    return sorted_l, art_str_list
+
 
 def question_classifier(input_string):
     return HOW
@@ -4062,22 +4100,7 @@ def send_response(result_str, state_body, state_mind):
 global_glove_embeddings = None
 client_sock = None
 import os
-from  pyinotify import  WatchManager, Notifier, \
-ProcessEvent,IN_DELETE, IN_CREATE,IN_MODIFY
 
-class EventHandler(ProcessEvent):
-    """事件处理"""
-    def process_IN_CREATE(self, event):
-        print  "Create file: %s "  %  os.path.join(event.path,event.name)
-    def process_IN_DELETE(self, event):
-        print  "Delete file: %s "  %  os.path.join(event.path,event.name)
-    def process_IN_MODIFY(self, event):
-        print   "Modify file: %s " %   os.path.join(event.path,event.name)
-        f = open(os.path.join(event.path,event.name), 'r')
-        sents = f.readlines()
-        last_sent = sents[-1]
-        f.close()
-        process_sent(last_sent)
 
 def FSMonitor(path='./text/conversation/', embeddings=None):
         local_embeddings = embeddings
@@ -4144,7 +4167,7 @@ def test_thread(): #Use thread.start_new_thread() to create 2 new threads
     # thread.start_new_thread(timer, (2,2))
 
 def tcp_server():
-    from socket import *
+    # from socket import *
     from time import ctime
 
     HOST = ''
@@ -4254,415 +4277,84 @@ def coref_resolver(sent_list, glove_embedding):
     return resolved_list
 
 question_countor = 0
-from word2vec_basic import full_cycle
+import gensim, logging
+# from word2vec_basic import full_cycle
+def lower_string_list(string_list):
+    res_list = list()
+    for string in string_list:
+        res_list.append(str(string).lower())
+    return res_list
+def clean_string_list(string_list):
+    res_list = list()
+    for string in string_list:
+        temp_list = gensim.matutils.utils.simple_preprocess(str(string.lower()))
+        clean_string = " ".join(temp_list)
+        res_list.append(clean_string+"\r\n")
+    return res_list
+logging.basicConfig(format = '%(asctime)s : %(levelname)s : %(message)s', level = logging.INFO)
+def train_doc2vec(corpus_path, step):
+    documents = gensim.models.doc2vec.TaggedLineDocument(corpus_path)
+    # documents.append(td)
+    print ('Data Loading finished')
+    model = gensim.models.Doc2Vec(documents, dm = 1, alpha=0.025, size=300, min_alpha=0.025, min_count=0, workers=9)
 
+    model.alpha -= 0.002  # decrease the learning rate
+    model.min_alpha = model.alpha  # fix the learning rate, no decay
+    model.train(documents, total_examples=model.corpus_count, epochs=step)
+    return model
+
+def paragraph_similarity(string_list, string_list1, model_var, train_step=200):
+    # documents = load_text.get_doc(bug_lib_path)
+    # td_list = gensim.models.doc2vec.TaggedLineDocument(corpus_path)
+    # documents += load_text.read_from_large_file(corpus_path, len(documents))
+    if len(string_list1) <=0 or string_list1 is None or len(string_list) <=0 or string_list is None:
+        return 0
+    td = gensim.models.doc2vec.TaggedDocument(string_list, [0])
+    # documents.append(td)
+    print ('Data Loading finished')
+    doc = 0
+    model = model_var
+    # doc1 = 'report_refactor/Refactoring310'
+    vec0 = model.docvecs[doc]
+    vec = model.infer_vector(string_list)
+    sim_score1 = model.n_similarity(string_list, string_list1)
+    # vec1 = model.docvecs[doc1]
+    print (vec)
+    # print "origin doc ", get_doc_from_tagged_documents(documents, doc)
+    # sim_doc_list = (model.docvecs.most_similar(doc))
+    # sim_score = model.docvecs.similarity(doc, )
+    # model.docvecs.similarity
+
+    # sim_score1 = model.docvecs.similarity(doc, sim_doc_list[0][0])
+    print " similarity is ", sim_score1
+    # print "sim docs ", get_doc_from_tagged_documents(documents, sim_doc_list[0][0])
+    return sim_score1
+
+def read_question(file_path):
+    f = open(file_path)
+    lines = f.readlines()
+    f.close()
+    return lines
 if __name__ == "__main__":
-    # ans_list = answer_by_a_few_sentences_by_embedding("what is a black hole")
-    # print " Answer is", ans_list[0]
-    # print "str(ans_list[0][0]) is ", str(ans_list[0][0][0])
-    # writeSummaries = file('./text/ans_seq.txt', 'a+')
-    # writeSummaries.write("str(ans_list[0][0]) is "+ str(ans_list[0][0][0]))
-    # writeSummaries.write("=============\r\n")
-    #
-    # ans_list = answer_by_a_few_sentences_by_embedding(str(ans_list[0][0][0]))
-    # print " Answer followed by", ans_list[0]
-    # writeSummaries.write("str(ans_list[0][0]) is " + str(ans_list[0][0][0]))
-    # writeSummaries.write("=============\r\n")
-    # f = open("./text/tosummary/text_test", 'r')
-    # art = f.read()
-    # paras = get_paragraph_from_article(art)
-    # for p in paras:
-    #     print p
-    # question_str = "NASA Science Science @ NASA Headline News You may have noticed that the \"look and feel\" of Science @ NASA stories has changed"
-    # ne_in_question = get_all_entities_by_nltk(question_str.lower())
-    # origin_word_not_in_score = hit_percent_in_sentenceStr(ne_in_question, question_str.lower())
-    # print hypernym_of_word("tomatos")
+    sentences = MySentences('./text/tosummary')  # a memory-friendly iterator
+    word_model = train_word2vec_gensim(sentences)
+    w_sim = word_similarity_by_wordvec_gensim('football', 'Cup', word_model)
+    print "word similarity ", w_sim
+    w_sim = word_similarity_by_wordvec_gensim('cream', 'butter', word_model)
+    print "word similarity ", w_sim
+    # paragraph_similarity(['I', 'have', 'a'], ['they', 'have', 'an'])
 
-    global global_glove_embeddings
-    global_glove_embeddings = load_glove("./glove.6B/")
-    # answer_by_a_few_sentence_by_Glove("who is J W Bush","", global_glove_embeddings,None)
-    food_name_list = ["beans", "tomato", "nut", "beef", "chicken","egg", "bread", "milk", \
-                      "mushroom", "salad", "potato", "juice", "coke","rice"]
-    sentlist = list()
-    sentlist.append("John's house was three houses down.")
-    sentlist.append("Mary and Kim stopped by to ask John if he wanted to play at the park.")
-    sentlist.append("John said no.")
-    sentlist.append("He was afraid of being chased by a squirrel.")
-    resolved = coref_resolver(sentlist, global_glove_embeddings)
-    print resolved
+    questions = read_question("./text/questions")
+    exit(0)
+    for q in questions:
+        ans,_ = answer_by_a_few_sentence_by_doc2vec(q, None,None)
 
-    # answer_by_embedding_with_complete_sentences("what will cause a nuclear winter")
-    # for food in food_name_list:
-    #     sim_ne_list = populate_entity_by_wordNet(food, global_glove_embeddings)
-    #     if sim_ne_list is None or len(sim_ne_list)<=0:
-    #         continue
-    #     if len(sim_ne_list[0][0])<=1:
-    #         continue
-    #     center_word = "food"
-    #     edge_score = 1.1*get_lowest_similarity(center_word,food_name_list, global_glove_embeddings)
-    #     for ne_word in sim_ne_list:
-    #         new_food = ne_word[0]
-    #         if new_food in food_name_list:
-    #             continue
-    #         # hyper = hypernym_of_word(food)
-    #         # if hyper == "":
-    #         #     continue
-    #         print "will check ",str(new_food) +  " is " + "food"
-    #         sim_score = similarity_by_all_words_by_Glove_Aline_Words(new_food, center_word, global_glove_embeddings)
-    #         print "score for ", new_food, " is ", sim_score, " edge score is ", edge_score
-    #         if sim_score<edge_score:
-    #             continue
-    #         # if None is evaluate_verb_in_relation_by_search_web(muti_sentence_structure_finder( new_food +  " is food"),0.001,global_glove_embeddings):
-    #         #     continue
-    #         food_name_list.append( new_food)
-    #         print "found food: ", new_food
-    #     if len(food_name_list)>50:
-    #         break
-    # for f_n in food_name_list:
-    #     print f_n
-    #     fill_profile_for_food(f_n ,global_glove_embeddings)
-    # clothing_name_list = ["jacket", "cap", "hat", "glasses", "sweater", "t-shirt", "boot", "jeans", \
-    #                       "pants","coat","BLOUSE"]
-    # for food in clothing_name_list:
-    #     sim_ne_list = populate_entity_by_wordNet(food, global_glove_embeddings)
-    #     if sim_ne_list is None or len(sim_ne_list) <= 0:
-    #         continue
-    #     if len(sim_ne_list[0][0]) <= 1:
-    #         continue
-    #     for ne_word in sim_ne_list:
-    #         new_food = ne_word[0]
-    #         if new_food in clothing_name_list:
-    #             continue
-    #         # hyper = hypernym_of_word(food)
-    #         # if hyper == "":
-    #         #     continue
-    #         print "will check ", str(new_food) + " is " + " clothing"
-    #         if None is evaluate_verb_in_relation_by_search_web(muti_sentence_structure_finder(new_food + " is " + " clothing"), 0.001,
-    #                                                            global_glove_embeddings):
-    #             continue
-    #             clothing_name_list.append(new_food)
-    #         print "found clothing: ", new_food
-    #     if len(clothing_name_list) > 50:
-    #         break
-    # for f_n in clothing_name_list:
-    #     print f_n
+        ans = list(set(ans))
+        ans = sorted(ans, key=lambda d: d[1], reverse=True)
+        print " the last answer is"
+        for a in ans:
+            print a
 
-    # f = open("./text/food_profile.txt")
-    # total_text_lines = f.readlines()
-    # read_index = 0
-    # for i in range(14):
-    #     (lines, read_index)= read_in_segment_text_by_lines(total_text_lines, read_index,"-------", "============")
-    #     food_en = read_in_one_food_entity_by_lines(lines)
-    #     print food_en.name
-    #     print food_en.nutrition
-
-    # breakfast_list = decision_support_food("",["Build on a healthy cereal", "Don’t rule out a.m. vegetables.", "Don’t skip the eggs", "Think whole grain"],food_name_list, global_glove_embeddings)
-    # writeSummaries = file('./text/food_list.txt', 'a+')
-    # writeSummaries.write("breakfast suggestion: \r\n")
-    # for f in breakfast_list:
-    #     writeSummaries.write(str(f) + "\r\n")
-    # writeSummaries.write("dinner suggestion: \r\n")
-    # dinner_list = decision_support_food("",["Add 1/2 cup of any of the following cooked beans to your plate.", "Cooked rice or green veggies to complete the meal", "Top with a little fat", "Time to add some veggie power "],food_name_list, global_glove_embeddings)
-    # for f in dinner_list:
-    #     writeSummaries.write(str(f) + "\r\n")
-    # writeSummaries.write("============\r\n")
-    # writeSummaries.close()
-    # tcp_server()
-
-    # (titles, important_sents, origin_article) = summary_across_articles_by_GLOVE("how to make fried fish", global_glove_embeddings)
-    # print "sub titles "
-    # for t in titles:
-    #     print t
-    # writeSummaries = file('./text/summary_across_articles.txt', 'a+')
-    # writeSummaries.write("origin: \r\n")
-    # writeSummaries.write(origin_article)
-    # writeSummaries.write("============\r\n")
-    # print "important sentences "
-    # for s in important_sents:
-    #     print s
-    #     writeSummaries.write(s)
-    #     writeSummaries.write("\r\n")
-    # writeSummaries.close()
-    # decision supportting question -> extract entities with knowledge tuples about the question
-    # check goals with the mined entities , select the entity scored thee highest with the goal
-
-    # ne_list = list()
-    # arts = get_articles_withURKL_from_websearch_query("food for dinner")
-    # for art in arts:
-    #     nes = get_all_entities_by_nltk(art[0].lower())
-    #     ne_list.extend(nes)
-    # ne_list = list(set(ne_list))
-    # print ne_list
-    # resorted_nouns = noun_related_score_to_sentences(ne_list, [("food for dinner","")],global_glove_embeddings,None,True)
-    # print resorted_nouns
-
-    # self_learn_by_question_answer("./text/questions", "./text/relations", 0.3, global_glove_embeddings, "nutrition lunch should contains what",999999999999)
-
-    # compare articles extract similar sentences over different articles
-    # extract subtitles: small paragrah followed by a long paragragh
-    # FSMonitor()
-    # # sent0 = "who is the father of USA"
-    # # sent1 = "In grade school and beyond, every American learns that George Washington is the Father of the country."
-    # # sent2 = "Father's Day is an occasion to mark and celebrate the contribution that your own father has made to your life."
-    # # s1 = similarity_by_all_words_by_Glove_Aline_Words(sent0, sent1, glove_embeddings)
-    # # s2 = similarity_by_all_words_by_Glove_Aline_Words(sent0, sent2, glove_embeddings)
-    # # print "s1 ", s1, " s2 ", s2
-    # print "Embeddings load finished"
-    # question_str = "don't forget to tell me to buy some potato chips at noon"
-    # question_str = "I was always wondering when did the first fish come into being "
-    # question_str = "what weather it be tomorrow"
-    # question_str = "I am really tired"
-    #
-    # function_list = [REMINDER,\
-    #                 STORY, NEWS, WEATHER,\
-    #                  QUESTION]
-    # resort_list = noun_related_score_to_sentences(function_list, [(question_str, "")], \
-    #                                                   glove_embeddings, None, True)
-    # for sent in resort_list:
-    #     print sent
-    # result = function_switcher(resort_list[0], question_str)
-    #
-    # state_body = human_state_anlayze(question_str,time_of_day)
-    #
-    # state_mind = human_mood_anlayze(question_str)
-    #
-    # send_response(result, state_body, state_mind)
-
-    #
-    # question_list = read_in_questions_to_list("./text/questions")
-    # for quest in question_list:
-    #
-    #     writeSummaries = file('./text/ans_seq.txt', 'a+')
-    #     question_str = quest
-    #     (reslist, glove_embeddings) = answer_by_Glove(question_str, glove_embeddings)
-    #     sent_str_list = list()
-    #     for res in reslist:
-    #         print "selected anwser is ", res[0]
-    #         sent_str_list.append(res[0])
-    #         print "in paragraph: ", res[2]
-    #     # sents_with_paragraph_to_html_page(reslist, quest, "./text/", quest+".html")
-    #     resort_list = noun_related_score_to_sentences(sent_str_list, [(question_str, "")], \
-    #                                                   glove_embeddings, None, True)
-    #     html_text_list = list()
-    #     for str_score_pair in resort_list:
-    #         for sent_para_pair in reslist:
-    #             if str_score_pair[0] in sent_para_pair[0]:
-    #                 html_text_list.append((sent_para_pair))
-    #     sents_with_paragraph_to_html_page(html_text_list, quest, "./text/", quest + ".html")
-    #     # sents_with_paragraph_to_html_page(html_text_list, quest + ".html")
-    #     print 'After resorting '
-    #     for sent in resort_list:
-    #         print sent
-    #     writeSummaries.write("question ------> ")
-    #     writeSummaries.write(str(quest) + "\r\n")
-    #     writeSummaries.write("answer ======= ")
-    #     writeSummaries.write(str(resort_list[0][0]))
-    #     writeSummaries.write("\r\n")
-    #     writeSummaries.write(str(resort_list[1][0]))
-    #     writeSummaries.write("\r\n")
-    #     writeSummaries.write(str(resort_list[2][0]))
-    #     writeSummaries.write("\r\n")
-    #     writeSummaries.close()
-
-
-    # chunks = get_chunks_in_sentence("old big fathers and celebrating fatherhood, paternal bonds, and the influence of fathers in society.")
-    # for chunk in chunks:
-    #     print chunk.head
-    #     print chunk.relations
-    #     print chunk.role
-    #     print chunk.type
-    #     print chunk.start
-    #     print chunk.modifiers
-    # nuggets = nuggets_finder("where is New York")
-    # for nug in nuggets:
-    #     print nug
-    #     print nugget_builder(nug)
-    # answer_by_embedding_with_complete_sentences("What is natural language processing")
-    # print ans_list[0]
-    # writeSummaries.write("str(ans_list[0][0]) is " + str(ans_list[0][0][0]))
-    # writeSummaries.write("=============\r\n")
-    # writeSummaries.close()
-    # 从搜索引擎到回答引擎再到动作引擎
-    # summary_by_wordEmbedding()
-    # art_with_problems = read_in_one_comprehension("./text/tosummary/text")
-    # option_pair_list = art_with_problems.question_option_pair_list
-    # opt_str = ''
-    # for op in option_pair_list:
-    #     for opt in op.options:
-    #         opt_str += " " + opt
-    #
-    # textlist = art_with_problems.textStr
-    # full_passage = ""
-    # for sent in textlist:
-    #     full_passage += sent
-    # sentences = getSentencesFromPassageText(full_passage)
-    # text2search = full_passage + opt_str
-    # (embedding, dict) = get_wordembedding_simdict(text2search)
-    # param_list = list()
-    # optimal_param = None
-    # for i in range(500):
-    #     param = paramGenerator(param_list)
-    #
-    #     results = do_one_reading_comprehension_by_embedding(art_with_problems, param,embedding, dict)
-    #     answers = [4,3,1,2,4]
-    #     precision = getPrecision(art_with_problems, results, answers)
-    #     print "precison is " ,precision, "for param " , str(param)
-    #     writeSummaries = file('./text/opt_params.txt', 'a+')
-    #     writeSummaries.write("param: " + str(param) + ": " + str(precision))
-    #     writeSummaries.write("\r\n")
-    #     writeSummaries.close()
-    #     if precision >= 0.6:
-    #         optimal_param = param
-    #         break
-    optimal_param = (0.7733611596766595, 0.06991093490256266, 0.9548839847918859, 1)
-
-    # sent0 =  question2_statement_order("3 .: one : Sally like walking in the woods Why")
-    # sent1 = "Sally's favorite activity was walking in the woods because she enjoyed nature"
-    # sent2 = "Sally went to the beach with her family in the summer as well."
-    # similarity_by_all_words_by_Glove_Aline_Words(sent0, sent1, global_glove_embeddings)
-    # similarity_by_all_words_by_Glove_Aline_Words(sent0, sent2, global_glove_embeddings)
-    #####Test on another reading problem
-    # art_with_problems = read_in_one_comprehension("./text/tosummary/text_test")
-    # option_pair_list = art_with_problems.question_option_pair_list
-    # opt_str = ''
-    # for op in option_pair_list:
-    #     for opt in op.options:
-    #         opt_str += " " + op.question_str + " " + opt
-    #
-    # textlist = art_with_problems.textStr
-    # full_passage = ""
-    # for sent in textlist:
-    #     full_passage += sent
-    # sentences = getSentencesFromPassageText(full_passage)
-    # text2search = full_passage + opt_str
-    # (embedding, dict) = get_wordembedding_simdict(text2search)
-    # results = do_one_reading_comprehension_by_embedding(art_with_problems, optimal_param, embedding, dict)
-    # answers = [4, 2, 3, 4, 1]
-    # precision = getPrecision(art_with_problems, results, answers)
-    # print "on test text: precison is ", precision, "for param ", str(optimal_param)
-    #
-    # total_text = open("./text/mc500.dev.txt")
-    # total_lines = total_text.readlines()
-    # cursor = 0
-    # precision_sum = 0
-    # for i in range(0,50):
-    #     text_lines , cursor= read_in_one_comprehension_text_by_lines(total_lines, cursor)
-    #     readingWithProblems_obj, ans_list = read_in_one_comprehension_by_lines(text_lines)
-    #     p = envalue_param_on_one_reading_from_struct_by_glove(readingWithProblems_obj,ans_list,optimal_param,global_glove_embeddings,True)
-    #     precision_sum += p
-    #     print "precision is ", p, " i is ", i, " avg precision is ", precision_sum/(i+1)
-    # precision = envalue_param_on_one_reading_text("./text/tosummary/test4",[1,3,2,2],optimal_param,global_glove_embeddings,True)
-    # writeSummaries = file('./text/opt_params.txt', 'a+')
-    # writeSummaries.write("test ======= ")
-    # writeSummaries.write("on test text: precison is" + str(precision))
-    # writeSummaries.write("\r\n")
-    # writeSummaries.close()
-    # precision = envalue_param_on_one_reading_text("./text/tosummary/test2",[1,3,3,1,2],optimal_param,glove_embeddings,True)
-    # writeSummaries = file('./text/opt_params.txt', 'a+')
-    # writeSummaries.write("test ======= ")
-    # writeSummaries.write("on test text: precison is" + str(precision))
-    # writeSummaries.write("\r\n")
-    # writeSummaries.close()
-    # precision = envalue_param_on_one_reading_text("./text/tosummary/test3", [2, 3, 1, 3, 2], optimal_param,glove_embeddings,True)
-    # writeSummaries = file('./text/opt_params.txt', 'a+')
-    # writeSummaries.write("test ======= ")
-    # writeSummaries.write("on test text: precison is" + str(precision))
-    # writeSummaries.write("\r\n")
-    # writeSummaries.close()
-    # try to answer question with given text
-    # first search the given text from the web to get the embedding
-
-    # question = list()
-    # question.append(("The significance of Brocklehurst’s research is that ",""))
-    # filehandler = open('./text/tosummary/text', 'r')
-    # SHORT_SENT = 3
-    # full_passage = filehandler.read()
-    # sentences = getSentencesFromPassageText(full_passage)
-    # text2search = full_passage[0:250]
-    # (embedding, dict) = get_wordembedding_simdict(text2search)
-    # sentences = getSentencesFromPassageText(full_passage)
-    #
-    # sentence_sorted_list = noun_related_score_to_sentences(sentences, question,embeddings, dict)
-    # for sent in sentence_sorted_list:
-    #     print sent
-    # # Then sort the sentences from the text by similarity to the question
-    # # pick up the most related sentence
-    # sentences_can_answer = sentence_sorted_list[0:4]
-    # options = [ "it suggested a way to keep some foods fresh without preservatives",
-    #             "it discovered tiny globules in both cream and butter",
-    #             "it revealed the secret of how bacteria multiply in cream and butter",
-    #             "it found that cream and butter share the same chemical composition"]
-    # sentence_sorted_list = noun_related_score_to_sentences(options, sentences_can_answer, embeddings, dict)
-    # for sent in sentence_sorted_list:
-    #     print sent
-    # print "question ends"
-    # # //////////////////////////
-    # question = list()
-    # question.append(("According to the researchers, cream sours fast than butter because bacteria",""))
-    # sentence_sorted_list = noun_related_score_to_sentences(sentences, question,embeddings, dict)
-    # for sent in sentence_sorted_list:
-    #     print sent
-    # # Then sort the sentences from the text by similarity to the question
-    # # pick up the most related sentence
-    # sentences_can_answer = sentence_sorted_list[0:4]
-    # options = [ "are more evenly distributed in cream",
-    #             "multiply more easily in cream than in butter",
-    #             "live on less fat in cream than in butter",
-    #             "produce less waste in cream than in butter"]
-    # sentence_sorted_list = noun_related_score_to_sentences(options, sentences_can_answer, embeddings, dict)
-    # for sent in sentence_sorted_list:
-    #     print sent
-    # # //////////////////////////
-    # print "question ends"
-    # question = list()
-    # question.append(("According to Brocklehurst, we can keep cream fresh by ", ""))
-    # sentence_sorted_list = noun_related_score_to_sentences(sentences, question, embeddings, dict)
-    # for sent in sentence_sorted_list:
-    #     print sent
-    # # Then sort the sentences from the text by similarity to the question
-    # # pick up the most related sentence
-    # sentences_can_answer = sentence_sorted_list[0:4]
-    # options = ["removing its fat",
-    #            "killing the bacteria",
-    #            "reducing its water content",
-    #            "altering its structure"]
-    # sentence_sorted_list = noun_related_score_to_sentences(options, sentences_can_answer, embeddings, dict)
-    # for sent in sentence_sorted_list:
-    #     print sent
-    # # //////////////////////////
-    # question = list()
-    # question.append(("The word “colonies” (Line 2, Para. 4) refers to",""))
-    # sentence_sorted_list = noun_related_score_to_sentences(sentences, question,embeddings, dict)
-    # for sent in sentence_sorted_list:
-    #     print sent
-    # # Then sort the sentences from the text by similarity to the question
-    # # pick up the most related sentence
-    # sentences_can_answer = sentence_sorted_list[0:4]
-    # options = [ "tiny globules",
-    #             "watery regions",
-    #             "bacteria communities",
-    #             "little compartments"]
-    # sentence_sorted_list = noun_related_score_to_sentences(options, sentences_can_answer, embeddings, dict)
-    # for sent in sentence_sorted_list:
-    #     print sent
-    # print "question ends"
-    # # //////////////////////////
-    # question = list()
-    # question.append(("Commercial application of the research finding will be possible if salad cream can be made resistant to bacterial attack",""))
-    # sentence_sorted_list = noun_related_score_to_sentences(sentences, question,embeddings, dict)
-    # for sent in sentence_sorted_list:
-    #     print sent
-    # # Then sort the sentences from the text by similarity to the question
-    # # pick up the most related sentence
-    # sentences_can_answer = sentence_sorted_list[0:4]
-    # options = [ "by varying its chemical composition",
-    #             "by turning it into a solid lump",
-    #             "while keeping its structure unchanged",
-    #             "while retaining its liquid form"]
-    # sentence_sorted_list = noun_related_score_to_sentences(options, sentences_can_answer, embeddings, dict)
-    # for sent in sentence_sorted_list:
-    #     print sent
-    # print "question ends"
     print '----------summary ends-------'
 
 
