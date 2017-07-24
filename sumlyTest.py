@@ -822,8 +822,6 @@ def get_chunks_in_sentence(sent_str):
     if (not sent_str) or (len(sent_str) <= 1) or (sent_str == ""):
         return []
     s = parsetree(sent_str, relations=True, lemmata=True)
-    if s is None or len(s)<1:
-        return None
     sent = s[0]
     chunk_list = list()
     for chunk in sent.chunks:
@@ -1076,7 +1074,7 @@ def getRelatedSentencesListFromWeb(searchedKeyWords):
     # urlList = getAllLinksFromPage(local_search_engine + searchedKeyWords)
     urlList = getAllLinksFromPage(yahooHead + searchedKeyWords + yahooTail)
 
-    URLNum = 5
+    URLNum = 10
     keySentences = list()
     articleStrList = list()
 
@@ -1089,7 +1087,7 @@ def getRelatedSentencesListFromWeb(searchedKeyWords):
         # parser = PlaintextParser.from_string(passageSentences, Tokenizer(LANGUAGE))
         # stemmer = Stemmer(LANGUAGE)
         if len(sents_of_one_article) == 0:
-            continue
+            break
         for sentence in sents_of_one_article:
             #            print(type(sentence))
             #            print(sentence)
@@ -1806,8 +1804,6 @@ def nuggets_finder(sub_sent_string):
     tempSBJ = ''
     tempOBJ = ''
     tempVP = ''
-    if chunks is None:
-        return None
     for i in range(0, len(chunks)):
         if scan_state == SCANNING_SBJ:
             # DO things
@@ -2123,15 +2119,14 @@ def compare_sentence_by_all_words_with_all_words(sent1, sent2, embeddings, sim_d
     print avg
     return avg
 
-def compare_sentence_by_all_words_with_all_words_by_Glove(sent1, sent2, embeddings, weight_tuple=(0.3, 0.3, 0.4, 1)):
+def compare_sentence_by_all_words_with_all_words_by_Glove(sent1, sent2, embeddings, sim_dict, weight_tuple=(0.3, 0.3, 0.4, 1)):
     base_word_list = sent1.split()
     words_list = sent2.split()
     score_list = list()
     for word_in_base in base_word_list:
         h_score = 0
         for word in words_list:
-            s = word_similarity_by_wordvec_gensim(word_in_base, word,embeddings)
-            # s = sentence_similarity_by_word_mover(word_in_base, word,embeddings)
+            s = similarityByGloveEmedding(word_in_base, word, embeddings, sim_dict)
             score = s
 
             if h_score < score:
@@ -2211,8 +2206,6 @@ def compare_sentence_by_nuggets(sent1, sent2):
 
 def is_sentence_complete(sent):
     nuggets = nuggets_finder(sent)
-    if nuggets is None:
-        return False
     if len(nuggets) > 1:
         return True
     else:
@@ -2342,104 +2335,18 @@ def answer_by_a_few_sentence(question_string, question_type, embeddings, sim_dic
     # last_list = sorted(last_list,key=lambda t:t[1],reverse=True)
     return sorted_l, art_str_list
 
-def sentenceA_minus_sentenceB(sentA, sentB):
-    wordlistA = gensim.matutils.utils.simple_preprocess(sentA)
-    wordlistB = gensim.matutils.utils.simple_preprocess(sentB)
-
-    return " ".join( list(set(wordlistA).difference(set(wordlistB))))
-
 def answer_by_a_few_sentence_by_Glove(question_string, question_type, embeddings, sim_dict):
     print "answer_by_a_few_sentence_by_Glove called, will search, ", question_string
-    # ner_tuple = get_synsets_lists_from_sentence(question_string)
+    ner_tuple = get_synsets_lists_from_sentence(question_string)
     sent_str_list, art_str_list = getRelatedSentencesListFromWeb(question_string)
 
     temp_str_list = list()
     for t in sent_str_list:
         temp_str_list.append(t)
 
-    sent_str_list = temp_str_list
+    sent_str_list = interrogative_filter(temp_str_list)
     candidate_noun_sentence_list = sent_str_list
     print 'candidate_noun_sentence_list are ', candidate_noun_sentence_list
-    word_black_list = ['do', 'does', 'why', 'when', 'how', 'what', 'which', 'who', 'where', '?', 'html',
-                       'ocols and Formats Working Group (PFWG'.lower() \
-        , 'Semantic Web Deployment Working Group'.lower(), 'Microsoft'.lower(), 'your browser',
-                       'JavaScript'.lower()]
-    sent_eval = list()
-    similar_level = 0.5
-    scored_list = candidate_noun_sentence_list
-    for sent in scored_list:
-        string_match_score = Levenshtein.ratio(str(question_string.lower()), str(sent.lower()))
-        if (string_match_score > similar_level):
-            continue
-        if not is_sentence_complete(sent.lower()):
-            continue
-        if len(str(sent.lower()).split())<6:
-            continue
-        minused_sent = sentenceA_minus_sentenceB(sent, question_string)
-        sc = compare_sentence_by_all_words_with_all_words_by_Glove(question_string, minused_sent, embeddings, )
-        # sc =0.6*sentence_similarity_by_word_mover(question_string, sent,embeddings) - 0.4*string_match_score
-              # + compare_sentence_by_nugget_with_all_words(question_string, sent, embeddings, sim_dict, True)*0.4
-        sent_eval.append((sent, sc))
-    print "Now will do the sorting length is ", len(sent_eval)
-    sorted_l = sorted(sent_eval, key=lambda t: t[1], reverse=True)
-    sorted_l = sorted_l[:len(sorted_l) // 2]
-    return sorted_l, art_str_list
-import jieba
-class MySentences(object):
-    def __init__(self, dirname):
-        self.dirname = dirname
-
-    def __iter__(self):
-        for fname in os.listdir(self.dirname):
-            for line in open(os.path.join(self.dirname, fname)):
-                inter = jieba.cut(line)
-                yield list(inter)
-
-class FolderDocuments(object):
-    def __init__(self, dirname):
-        self.dirname = dirname
-        self.index = 0
-    def __iter__(self):
-        for fname in os.listdir(self.dirname):
-            for line in open(os.path.join(self.dirname, fname)):
-                self.index += 1
-                yield gensim.models.doc2vec.TaggedDocument(gensim.matutils.utils.simple_preprocess(line), [self.index])
-
-
-# # sentences = MySentences('/some/directory') # a memory-friendly iterator
-# model = gensim.models.Word2Vec(sentences)
-word_embedding_model = "/tmp/w_model"
-def train_word2vec_gensim(sentences, forced_train = False):
-    # 引入 word2vec
-    import os
-    from gensim.models import word2vec
-    # 构建模型
-    if os.path.exists(word_embedding_model) and  not forced_train:
-        model = gensim.models.Word2Vec.load(word_embedding_model)
-
-        # model.train(sentences, total_examples=model.corpus_count,epochs=model.iter)
-    else:
-        model = word2vec.Word2Vec(sentences, size=400,min_count=0, workers=4)
-    model.save(word_embedding_model)
-    return model
-
-def word_similarity_by_wordvec_gensim(word1, word2, model):
-    # 进行相关性比较
-    try:
-        s = model.similarity(word1, word2)
-        return s
-    except:
-        return 0
-
-def answer_by_a_few_sentence_by_doc2vec(question_string, model_var):
-    print "answer_by_a_few_sentence_by_doc2vec called, will search, ", question_string
-    # ner_tuple = get_synsets_lists_from_sentence(question_string)
-    sent_str_list, art_str_list = getRelatedSentencesListFromWeb(question_string)
-    sent_str_list = lower_string_list(sent_str_list)
-    model = model_var
-    question_string = question_string.lower()
-    candidate_noun_sentence_list = sent_str_list
-    # print 'candidate_noun_sentence_list are ', candidate_noun_sentence_list
     word_black_list = ['do', 'does', 'why', 'when', 'how', 'what', 'which', 'who', 'where', '?', 'html',
                        'ocols and Formats Working Group (PFWG'.lower() \
         , 'Semantic Web Deployment Working Group'.lower(), 'Microsoft'.lower(), 'your browser',
@@ -2450,8 +2357,66 @@ def answer_by_a_few_sentence_by_doc2vec(question_string, model_var):
     for sent in scored_list:
         if (Levenshtein.ratio(str(question_string.lower()), str(sent.lower())) > similar_level) or wordListInString(word_black_list, sent.lower()):
             continue
-        if len(sent.lower().split())<=5:
+        if not is_sentence_complete(sent.lower()):
             continue
+        sc = compare_sentence_by_all_words_with_all_words_by_Glove(question_string.split()[0], sent, embeddings, sim_dict)*0.3\
+              + compare_sentence_by_all_words_with_all_words_by_Glove(question_string, sent, embeddings, sim_dict)*0.3\
+              + compare_sentence_by_nugget_with_all_words(question_string, sent, embeddings, sim_dict, True)*0.4
+        sent_eval.append((sent, sc))
+    print "Now will do the sorting length is ", len(sent_eval)
+    sorted_l = sorted(sent_eval, key=lambda t: t[1], reverse=True)
+    sorted_l = sorted_l[:len(sorted_l) // 2]
+    return sorted_l, art_str_list
+
+class MySentences(object):
+    def __init__(self, dirname):
+        self.dirname = dirname
+
+    def __iter__(self):
+        for fname in os.listdir(self.dirname):
+            for line in open(os.path.join(self.dirname, fname)):
+                yield line.split()
+
+# # sentences = MySentences('/some/directory') # a memory-friendly iterator
+# model = gensim.models.Word2Vec(sentences)
+
+def train_word2vec_gensim(sentences):
+    # 引入 word2vec
+    from gensim.models import word2vec
+    # 构建模型
+    model = word2vec.Word2Vec(sentences, min_count=0)
+    return model
+
+def word_similarity_by_wordvec_gensim(word1, word2, model):
+    # 进行相关性比较
+    return model.similarity(word1, word2)
+
+def answer_by_a_few_sentence_by_doc2vec(question_string, embeddings, sim_dict):
+    print "answer_by_a_few_sentence_by_doc2vec called, will search, ", question_string
+    # ner_tuple = get_synsets_lists_from_sentence(question_string)
+    sent_str_list, art_str_list = getRelatedSentencesListFromWeb(question_string)
+    sent_str_list = lower_string_list(sent_str_list)
+    question_string = question_string.lower()
+    temp_str_list = list()
+    for t in sent_str_list:
+        temp_str_list.append(t)
+
+    sent_str_list = interrogative_filter(temp_str_list)
+    candidate_noun_sentence_list = sent_str_list
+    # print 'candidate_noun_sentence_list are ', candidate_noun_sentence_list
+    word_black_list = ['do', 'does', 'why', 'when', 'how', 'what', 'which', 'who', 'where', '?', 'html',
+                       'ocols and Formats Working Group (PFWG'.lower() \
+        , 'Semantic Web Deployment Working Group'.lower(), 'Microsoft'.lower(), 'your browser',
+                       'JavaScript'.lower()]
+    sent_eval = list()
+    similar_level = 0.8
+    scored_list = candidate_noun_sentence_list
+    model = train_doc2vec('./text/summaries.txt', 200 )
+    for sent in scored_list:
+        if (Levenshtein.ratio(str(question_string.lower()), str(sent.lower())) > similar_level) or wordListInString(word_black_list, sent.lower()):
+            continue
+        # if not is_sentence_complete(sent.lower()):
+        #     continue
         question_word_list = gensim.matutils.utils.simple_preprocess(question_string)
         sent_word_list = gensim.matutils.utils.simple_preprocess(sent)
         print "comparing ", question_word_list, " and ", sent_word_list
@@ -4328,41 +4293,31 @@ def clean_string_list(string_list):
     return res_list
 logging.basicConfig(format = '%(asctime)s : %(levelname)s : %(message)s', level = logging.INFO)
 def train_doc2vec(corpus_path, step):
-    documents = FolderDocuments('./text')
-    # documents = gensim.models.doc2vec.TaggedLineDocument(corpus_path)
-    # documents += gensim.models.doc2vec.TaggedLineDocument(corpus_path)
+    documents = gensim.models.doc2vec.TaggedLineDocument(corpus_path)
     # documents.append(td)
     print ('Data Loading finished')
-    model = gensim.models.Doc2Vec(documents, dm = 1, alpha=0.025, size=300, min_alpha=0.025, min_count=0, workers=4)
-    # model.build_vocab(documents)
+    model = gensim.models.Doc2Vec(documents, dm = 1, alpha=0.025, size=300, min_alpha=0.025, min_count=0, workers=9)
+
+    model.alpha -= 0.002  # decrease the learning rate
+    model.min_alpha = model.alpha  # fix the learning rate, no decay
     model.train(documents, total_examples=model.corpus_count, epochs=step)
     return model
-def sentence_similarity_by_word_mover(sentstring, sentstring1, word_model_var):
-    from math import tanh
-    wordlist = gensim.matutils.utils.simple_preprocess(sentstring)
-    wordlist1 = gensim.matutils.utils.simple_preprocess(sentstring1)
-    distance = word_model_var.wmdistance(wordlist, wordlist1)
-    return tanh(1/(distance + 1.0))
 
-def paragraph_similarity(string_list, string_list1, model_var):
+def paragraph_similarity(string_list, string_list1, model_var, train_step=200):
     # documents = load_text.get_doc(bug_lib_path)
     # td_list = gensim.models.doc2vec.TaggedLineDocument(corpus_path)
     # documents += load_text.read_from_large_file(corpus_path, len(documents))
     if len(string_list1) <=0 or string_list1 is None or len(string_list) <=0 or string_list is None:
         return 0
-
+    td = gensim.models.doc2vec.TaggedDocument(string_list, [0])
     # documents.append(td)
     print ('Data Loading finished')
     doc = 0
     model = model_var
     # doc1 = 'report_refactor/Refactoring310'
-    # vec0 = model.docvecs[doc]
+    vec0 = model.docvecs[doc]
     vec = model.infer_vector(string_list)
-    vec1 = model.infer_vector(string_list1)
-    from scipy import spatial
-    sim_score1 = 1 - spatial.distance.cosine(vec, vec1)
-
-    # sim_score1 = model.n_similarity(string_list, string_list1)
+    sim_score1 = model.n_similarity(string_list, string_list1)
     # vec1 = model.docvecs[doc1]
     print (vec)
     # print "origin doc ", get_doc_from_tagged_documents(documents, doc)
@@ -4380,49 +4335,26 @@ def read_question(file_path):
     lines = f.readlines()
     f.close()
     return lines
-docvec_model_path = '/tmp/doc_model'
 if __name__ == "__main__":
-    sentences = MySentences('./test')  # a memory-friendly iterator
-    # if not os.path.exists(word_embedding_model):
-    list_t = jieba.cut("title:老鼠仓现首个“情节特别严重”判例 投资老将9亿暗盘曝光")
-    print type(list_t)
-    list_t = list(list_t)
-    print type(list_t)
-    print list_t
-    word_model   = train_word2vec_gensim(sentences, True)
-        # word_model.save(word_embedding_model)
-    # else:
-        # word_model = gensim.models.Word2Vec.load(word_embedding_model)
-    w_sim = word_similarity_by_wordvec_gensim(u'国务院', u'新华社', word_model)
+    sentences = MySentences('./text/tosummary')  # a memory-friendly iterator
+    word_model = train_word2vec_gensim(sentences)
+    w_sim = word_similarity_by_wordvec_gensim('football', 'Cup', word_model)
     print "word similarity ", w_sim
-    exit(0)
-    # w_sim = word_similarity_by_wordvec_gensim('dog', 'cat', word_model)
-    # print "word similarity ", w_sim
+    w_sim = word_similarity_by_wordvec_gensim('cream', 'butter', word_model)
+    print "word similarity ", w_sim
     # paragraph_similarity(['I', 'have', 'a'], ['they', 'have', 'an'])
 
-    # if not os.path.exists(docvec_model_path):
-    #     doc_model = train_doc2vec('./text',step=200)
-    #     doc_model.save(docvec_model_path)
-    # else:
-    #     doc_model = gensim.models.Doc2Vec.load(docvec_model_path)
-    # doc_model.train(None,total_examples=doc_model.corpus_count,epochs=200)
-    # doc_model.save(docvec_model_path)
     questions = read_question("./text/questions")
-    results = open('result.txt','w')
+    exit(0)
     for q in questions:
-        # ans,_ = answer_by_a_few_sentence_by_doc2vec('who is the father of usa', doc_model)
-        ans, _ = answer_by_a_few_sentence_by_Glove(q, None,word_model,None)
+        ans,_ = answer_by_a_few_sentence_by_doc2vec(q, None,None)
+
         ans = list(set(ans))
         ans = sorted(ans, key=lambda d: d[1], reverse=True)
         print " the last answer is"
         for a in ans:
             print a
-        results.write('============\r\n')
-        results.write(q+'\r\n')
-        results.write(str(ans[0])+'\r\n')
-        results.write(str(ans[1])+'\r\n')
-        results.write(str(ans[2])+'\r\n')
-    results.close()
+
     print '----------summary ends-------'
 
 
@@ -4450,5 +4382,3 @@ if __name__ == "__main__":
     # clothes matching module
     # dinning module
     # free chat with goals (response human with goals, such as healthy, keep fit, everyday life tips)
-    # Try another way: for sentence in the search result: remove the words appeared in question
-    #  then compare the rest part of the sentence with the question
