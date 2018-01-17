@@ -67,11 +67,11 @@ debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/GetAllUrl.py', wdir='C:/
 debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/GetAllUrl.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
 
 ##---(Thu Jun 11 21:12:07 2015)---
-debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/BS4Test.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
+debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/stanfordCoreAPI.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
 
 ##---(Fri Jun 12 21:27:45 2015)---
 debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/GetAllUrl.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
-debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/BS4Test.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
+debugfile('C:/WinPython-32bit-2.7.9.3/settings/.spyder2/stanfordCoreAPI.py', wdir='C:/WinPython-32bit-2.7.9.3/settings/.spyder2')
 
 ##---(Sat Jun 13 12:15:16 2015)---
 Synset??

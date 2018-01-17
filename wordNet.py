@@ -5,10 +5,6 @@ Created on Sat Jun 13 13:53:23 2015
 @author: mongolia19
 """
 
-from nltk.corpus import wordnet as wn
-from nltk.stem import PorterStemmer
-from nltk.stem.wordnet import WordNetLemmatizer
-
 # To Do:
 # Just take lib Pattern for relation extraction
 # !!!
@@ -32,13 +28,11 @@ from nltk.stem.wordnet import WordNetLemmatizer
 #    print w
 #    print type(w)
 import sys
+import imp
 
-reload(sys)
-sys.setdefaultencoding('utf-8')
+imp.reload(sys)
 import re
-import nltk
-import nltk.corpus
-import PipLineTest
+
 import FileUtils
 import string
 import htmlDownLoader
@@ -48,14 +42,16 @@ import htmlDownLoader
 
 
 # import FileUtils
-from pattern.web import URL, plaintext
-import urllib
+# from pattern.web import URL, plaintext
+import urllib.request, urllib.parse, urllib.error
 
 
 def getAllLinksFromPage(url):
     try:
-
-        htmlSource = urllib.urlopen(url).read(200000)
+        from CxExtractor import  CxExtractor
+        cx = CxExtractor(threshold=186)
+        htmlSource = cx.getHtml(url)
+        # htmlSource = urllib.request.urlopen(url).read(200000)
     except:
         htmlSource = ''
     # soup = BeautifulSoup.BeautifulSoup(htmlSource)
@@ -67,20 +63,47 @@ def getAllLinksFromPage(url):
     return links
 
 
+import urllib.request
+
+import socket
+def getHtml(url):
+    socket.setdefaulttimeout(20)
+    html = urllib.request.urlopen(url).read()
+    html = html.decode('utf-8')
+    return html
 def html_to_plain_text(url_str):
     try:
-        s = URL(url_str).download()
-        s = plaintext(s)
-        s = s.decode('gbk', 'ignore')
+        print("downloading ", url_str)
+        from CxExtractor import CxExtractor
+        cx = CxExtractor(threshold=186)
+
+        html = getHtml(url_str)
+        # s = URL(url_str).download(timeout=2)
+        # s = plaintext(s)
+        content = cx.filter_tags(html)
+        text = cx.getText(content)
+        # s = s.decode('gbk', 'ignore')
         # pattern = re.compile('(?<=\<[h1]\>)[^<,^>](?=\</[h1]\>)')
         result_s = ''
-        result_s = s.replace('*', '. ')
+        # if len(text)<=1 and len(content)>len(text):
+        #     result_s = content
+        # else:
+        result_s = text
         # s = s.encode('raw_unicode_escape').decode('utf8')
-    except Exception, ex:
-        print "exception found in html_to_plain_text"
-        print Exception, ":", ex
+    except Exception as ex:
+        print(("exception found in html_to_plain_text", ex))
         return ''
     return result_s
+def raw_html_download(url_str, file_path):
+    try:
+        print(("downloading ", url_str))
+        s = URL(url_str).download(timeout=2)
+        f = open(file_path,'a')
+        f.write(s)
+        f.close()
+        # s = s.encode('raw_unicode_escape').decode('utf8')
+    except Exception as ex:
+        print(("exception found in html_to_plain_text", ex))
 
 
 def measure_similarity_by_search_engine(word1, word2):
@@ -119,7 +142,7 @@ def getSummaryFromText(passage):
     summarizer.stop_words = get_stop_words(LANGUAGE)
     sentList = list()
     for sentence in summarizer(parser.document, SENTENCES_COUNT):
-        print(type(sentence))
+        print((type(sentence)))
         sentList.append(sentence)
     return sentList
 
@@ -133,7 +156,7 @@ def listToDict(in_list):
 
 def wordSimilarityToWordDict(w, wordDict):
     sim = 0
-    for key in wordDict.keys():
+    for key in list(wordDict.keys()):
         if str(w) == str(key):
             tSim = 1
         else:
@@ -150,7 +173,7 @@ def wordDictRelation(MeasuredDict, dictBase):
     if length == 0 or length_base == 0:
         return 0
     sum = 0
-    for word in MeasuredDict.keys():
+    for word in list(MeasuredDict.keys()):
         sum = wordSimilarityToWordDict(word, dictBase) + sum
     return sum / length_base
 
@@ -286,7 +309,7 @@ def getAllVerbs(TaggedWordList):
 def wordInSentStr(word, sentStr):
     sentStr = sentStr.decode('gbk', 'ignore')
     wordsDisctInSent = PipLineTest.getWordDictInSentence(sentStr)
-    if wordsDisctInSent.has_key(str(word)):
+    if str(word) in wordsDisctInSent:
         return True
     else:
         return False
@@ -302,36 +325,36 @@ def get_word_lemma_dict_in_sentence(sent_str):
 
 
 def word_list_in_sentenceStr(word_str_list, sentStr):
-    print "the sentence is", sentStr
+    print("the sentence is", sentStr)
     sentStr = sentStr.decode('gbk', 'ignore')
     wordsDictInSent = get_word_lemma_dict_in_sentence(sentStr)
-    wordsList = wordsDictInSent.keys()
+    wordsList = list(wordsDictInSent.keys())
     word_str_lemma_list = list()
     for word_str in word_str_list:
         word_str_lemma_list.append(get_lemma_of_word(word_str))
-    print "question nouns ", word_str_lemma_list
-    print "sentence words ", wordsDictInSent
+    print("question nouns ", word_str_lemma_list)
+    print("sentence words ", wordsDictInSent)
     for word in word_str_lemma_list:
-        if wordsDictInSent.has_key(str(word)) or (str(word) in wordsList):
-            print 'sentence hit!'
+        if str(word) in wordsDictInSent or (str(word) in wordsList):
+            print('sentence hit!')
             return True
-        for k in wordsDictInSent.keys():
+        for k in list(wordsDictInSent.keys()):
             if k in word:
-                print 'sentence hit --- key in one synet !'
+                print('sentence hit --- key in one synet !')
                 return True
-    print "sentence pass..."
+    print("sentence pass...")
     return False
 
 
 def all_word_list_in_sentenceStr(word_str_list, sentStr):
     sentStr = sentStr.decode('gbk', 'ignore')
     wordsDisctInSent = get_word_lemma_dict_in_sentence(sentStr)
-    wordsList = wordsDisctInSent.keys()
+    wordsList = list(wordsDisctInSent.keys())
     word_str_lemma_list = list()
     for word_str in word_str_list:
         word_str_lemma_list.append(get_lemma_of_word(word_str))
     for word in word_str_lemma_list:
-        if wordsDisctInSent.has_key(str(word)) or (str(word) in wordsList):
+        if str(word) in wordsDisctInSent or (str(word) in wordsList):
             continue
         else:
             return False
@@ -349,7 +372,7 @@ def hit_percent_in_sentenceStr(word_str_list, sentStr):
     wordSet = set(wordList)
     count = 0
     for w in wordSet:
-        if unicode(w) in word_str_list:
+        if str(w) in word_str_list:
             # print 'one hit'
             count = count + 1
     return count/float(len(word_str_list)+1)
@@ -358,7 +381,7 @@ def getMatchSentenceListFromSentenceList(keyWord, sentList):
     RetList = list()
     for sent in sentList:
         wordsDisctInSent = PipLineTest.getWordDictInSentence(sent)
-        if wordsDisctInSent.has_key(str(keyWord)):
+        if str(keyWord) in wordsDisctInSent:
             RetList.append(sent)
     return RetList
 
@@ -378,10 +401,10 @@ def getSentenceDictMatchingPatternList(keyWords, sentList):
 def getTopScoredSentenceDict(sentDict):
     Highscore = 0
     ResDict = {}
-    for key in sentDict.keys():
+    for key in list(sentDict.keys()):
         if sentDict[key] > Highscore:
             Highscore = sentDict[key]
-    for key in sentDict.keys():
+    for key in list(sentDict.keys()):
         if sentDict[key] == Highscore:
             ResDict[key] = Highscore
     return ResDict
@@ -441,8 +464,8 @@ def grammerParser(sentPosList):
     trees = parser.parse(sentPosList)
     treeList = list()
     for tree in trees:
-        print(type(tree))
-        print(tree.label())
+        print((type(tree)))
+        print((tree.label()))
         print(tree)
         treeList.append(tree)
         # print tree.start() ,'-' ,tree.end()
@@ -467,8 +490,8 @@ def SentenceFailGrammerParser(sentPosList):
     trees = parser.chart_parse(sentPosList)
     treeList = list()
     for tree in trees:
-        print type(tree)
-        print tree.lhs
+        print(type(tree))
+        print(tree.lhs)
         print (tree)
         treeList.append(tree)
     return treeList
@@ -525,7 +548,7 @@ def getDeepestNPFromChartParser(tree, posTupleList):
     retList = list()
     name = str(tree.lhs())
     right = str(tree.rhs())
-    print right
+    print(right)
     if name == 'VP':
         t1 = tree.start()
         t2 = tree.end()
@@ -539,7 +562,7 @@ def getDeepestNPFromChartParser(tree, posTupleList):
 def getDeepestNP(tree, posTupleList):
     name = tree.label()
     h = tree.height()
-    print name, h
+    print(name, h)
     posList = tree.leaves()
     retList = list()
     t = tree
@@ -557,7 +580,7 @@ def getDeepestNP(tree, posTupleList):
 def getDeepestVP(tree, posTupleList):
     name = tree.label()
     h = tree.height()
-    print name, h
+    print(name, h)
     posList = tree.leaves()
     retList = list()
     t = tree
@@ -572,10 +595,10 @@ def getDeepestVP(tree, posTupleList):
     return retList
 
 
-from pattern.en import Sentence
-from pattern.en import tree
-from pattern.en import parsetree
-from pattern.en import tag
+# from pattern.en import Sentence
+# from pattern.en import tree
+# from pattern.en import parsetree
+# from pattern.en import tag
 
 
 def getRelation(SentStr):
@@ -593,9 +616,9 @@ def getRelation(SentStr):
 
 def getSubSentence(posTrees, posTupleList):
     subSentDict = {}
-    print "inside getSubSentence ", posTrees
+    print("inside getSubSentence ", posTrees)
     for tree in posTrees:
-        print "getSubSentence", tree
+        print("getSubSentence", tree)
         root = (tree.label())
         if root == 'S':
             subSent = ''
@@ -611,13 +634,13 @@ def getSubSentence(posTrees, posTupleList):
                 p = str(posTupleList[i][1])
                 subSent = subSent + ' ' + w
                 PosStr = PosStr + ' ' + p
-            if subSentDict.has_key(subSent):
+            if subSent in subSentDict:
                 continue
             else:
                 subSentDict[subSent] = subSent
-                print 'in getSubSentence: get a sub sentence', tree
-                print 'the sub sentence is ', subSent
-                print 'the pos is ', PosStr
+                print('in getSubSentence: get a sub sentence', tree)
+                print('the sub sentence is ', subSent)
+                print('the pos is ', PosStr)
     return subSentDict
 
 
@@ -630,7 +653,7 @@ def getSimilarityByConceptNet(wordA, wordB):
     queryUrl = 'http://conceptnet5.media.mit.edu/data/5.2/assoc/c/en/' + wordA + '?filter=/c/en/' + wordB + '&limit=1'
     try:
         jsonText = htmlDownLoader.getTextFromURL(queryUrl)
-        print jsonText
+        print(jsonText)
         sim = json.loads(jsonText)
         if not sim.get("similar"):
             return 0
@@ -761,7 +784,7 @@ if __name__ == '__main__':
     blob = TextBlob(passage)
     NoneList = blob.noun_phrases
     for sentence in blob.sentences:
-        print(sentence.sentiment.polarity)
+        print((sentence.sentiment.polarity))
     passage_sentList = PipLineTest.getSentenceListFromText(passage)
     qList = questionLoader('./reading/questions1.txt')
     temp_qestion = qList[3]  # the question number
@@ -776,19 +799,19 @@ if __name__ == '__main__':
     sentDict = getTopScoredSentenceDict(sentDict)
     sentDict = getSentenceDictMatchingPatternList(verbs, sentDict)
     related_passage_sentence_ner_dict = {}
-    for sent in sentDict.keys():
+    for sent in list(sentDict.keys()):
         tokens = nltk.word_tokenize(removePunctuation(sent))
         tags = nltk.pos_tag(tokens)
         relation = getRelation(sent)
         relationStr = ''
         if relation:
             for k in relation:
-                print type(relation[k])
-                print k, relation[k]
+                print(type(relation[k]))
+                print(k, relation[k])
                 for s in relation[k]:
-                    print relation[k][s].string
+                    print(relation[k][s].string)
                     relationStr = relationStr + " " + relation[k][s].string
-        print relationStr
+        print(relationStr)
         posTags = getPosTagList(tagTupleList=tags)
         tempTrees = grammerParser(posTags)
         # getSubSentence(tempTrees,tags)
@@ -823,8 +846,8 @@ if __name__ == '__main__':
         posTags = getPosTagList(tagTupleList=tags)
         tempTrees = grammerParser(posTags)
         # nltk.tree.Tree
-        print type(tempTrees)
-        print 'options'
+        print(type(tempTrees))
+        print('options')
         nList = list()
         vList = list()
         LastIndex = len(tempTrees) - 1
@@ -855,8 +878,8 @@ if __name__ == '__main__':
         # KeyWordsDictFromOption = PipLineTest.getKeyWordDictFromCleanedSentence(opt)
         option_score_list_for_similarity.append(
             wordDictRelation(KeyWordsDictFromOption, related_passage_sentence_ner_dict))
-    print question
-    print sentDict
-    print option_score_list_for_similarity
+    print(question)
+    print(sentDict)
+    print(option_score_list_for_similarity)
     # ners = nltk.ne_chunk(tags)
     # print '%s --- %s' % (str(ners),str(ners.label))

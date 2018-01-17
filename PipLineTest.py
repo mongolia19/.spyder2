@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 import sys
-reload(sys)
-sys.setdefaultencoding('utf-8')
-import urllib
+import imp
+imp.reload(sys)
+import urllib.request, urllib.parse, urllib.error
 import nlpExmp
 import re
 import PatternLoader
-import nltk
+
 import operator
 import itertools
 
@@ -21,7 +21,7 @@ import FileUtils
 ##To Do:Get all two word combinations,and get the combinations that appear most frequently
 ## in other sentences(cleaned sentences AKA removed key words) 
 def getText(httpLink):
-    return  urllib.urlopen(httpLink).read(200000)
+    return  urllib.request.urlopen(httpLink).read(200000)
 
 def loadPatterns():
     return PatternLoader.LoadExpositoryPattern(PatternLoader.CONST_PATTERN_FILE_PATH)
@@ -86,16 +86,16 @@ def BScleanText(RawText):
 def ImportanceMeasure(sentence,word_dict):
     words_of_sent = nltk.word_tokenize(sentence)
     totalCount = len(words_of_sent)
-    print type(words_of_sent)
+
     count = 0.0
     for word in words_of_sent:
-        print word
-        if word_dict.has_key(word):
+        print(word)
+        if word in word_dict:
             count = count + 1.0
     return count/totalCount        
 
 def RemoveKeyWordsFromSentence(sentence,keyword_dict):# there is somethine wrong with the method
-    for key in keyword_dict.keys():
+    for key in list(keyword_dict.keys()):
         sentence = re.sub(key, "",str(sentence))
     return sentence
 def getWebPageRawText(query):
@@ -104,12 +104,12 @@ def getWebPageRawText(query):
 
 def getKeyWordDictFromQuery(query):
     cleanedText = getCleanTextFromQuery(query)
-    print cleanedText
+    print(cleanedText)
     KeyRatio = 0.1
     sent_list = nltk.sent_tokenize(cleanedText)
     sentCount = len(sent_list)
     keyWordsList = ExtractKeyWords(cleanedText,int(sentCount*KeyRatio))
-    print keyWordsList
+    print(keyWordsList)
     patternHashMap = {}
     for key in keyWordsList:
          patternHashMap[key] = key
@@ -137,7 +137,7 @@ def getKeyWordDictFromFile(filePath):
     sent_list = nltk.sent_tokenize(cleanedText)
     sentCount = len(sent_list)
     keyWordsList = ExtractKeyWords(cleanedText,int(sentCount*KeyRatio)+1)
-    print keyWordsList
+    print(keyWordsList)
     patternHashMap = {}
     for key in keyWordsList:
          patternHashMap[key] = key
@@ -189,7 +189,7 @@ def sentenceSortingByKeyWords(sent_list,patternHashMap):
     for sent in sent_list:
         imp = ImportanceMeasure( sent,patternHashMap)
         impDict[sent] = imp
-    sorted_imp = sorted(impDict.iteritems(), key=operator.itemgetter(1),reverse=True)  
+    sorted_imp = sorted(iter(impDict.items()), key=operator.itemgetter(1),reverse=True)  
     return sorted_imp
 
 #########################
@@ -207,11 +207,11 @@ def getWordCombinationDict(wordNum,sent_list,patternHashMap):#patternHashMap is 
         comb = list(itertools.permutations(words_in_sent,CombWordNum))
         #print comb
         for OneComb in comb:
-            if combination_Dict.has_key(OneComb):
+            if OneComb in combination_Dict:
                 combination_Dict[OneComb] = combination_Dict[OneComb] + 1
             else:
                 combination_Dict[OneComb] = 1
-        print "All possiable combinations in a sentence."
+        print("All possiable combinations in a sentence.")
 #    for OneComb in combination_Dict.keys():
 #        if combination_Dict[OneComb] == 1:
 #            combination_Dict.pop(OneComb)
@@ -228,7 +228,7 @@ def CombinationInSentence(OneComb,sentenceStr):#if combination is in return 1
     wordsInSentDict = getWordDictInSentence(sentenceStr)
     for word in OneComb:
 
-        if wordsInSentDict.has_key(str(word)):
+        if str(word) in wordsInSentDict:
             mark = mark + 1
     if mark >=len(OneComb):
         return 1
@@ -265,7 +265,7 @@ def tupleContains(A,B):#B contains A
             return False
     return True
 def IsCombinationInDict(comb,CombDict):
-    for entry in CombDict.keys():
+    for entry in list(CombDict.keys()):
         if tupleContains( entry,comb):
             return True
     return False

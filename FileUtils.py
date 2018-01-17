@@ -65,12 +65,12 @@ def printPath(level, path):
             i_dl = i_dl + 1
         else:
             # 打印至控制台，不是第一个的目录
-            print '-' * (int(dirList[0])), dl
+            print('-' * (int(dirList[0])), dl)
             # 打印目录下的所有文件夹和文件，目录级别+1
             printPath((int(dirList[0]) + 1), path + '/' + dl)
     for fl in fileList:
         # 打印文件
-        print '-' * (int(dirList[0])), fl
+        print('-' * (int(dirList[0])), fl)
         # 随便计算一下有多少个文件
         allFileNum = allFileNum + 1
 
@@ -79,8 +79,8 @@ def printPath(level, path):
 def getContentStrListFromRawTextPath(path='text'):
     contentStrList=list()
     fileList = ReturnAllFileOnPath(1,path)
-    print "files are :"
-    print  fileList
+    print("files are :")
+    print(fileList)
     #print soup.text
     for Onefile in fileList:
         fileOBJ = open(Onefile)

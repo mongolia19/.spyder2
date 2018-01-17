@@ -20,7 +20,7 @@ def getAllLinksFromPage(url):
 
  
 
-def urlsToFile(url_list,folder='htmls'):   
+def urlsToFile(url_list,folder='pics'):
     i = 0
     for url in url_list:
         i = i + 1        
@@ -37,7 +37,7 @@ def urlsToFile(url_list,folder='htmls'):
         f.write(m)
         f.close()
 
-PATH_CONST = 'htmls'
+PATH_CONST = 'pics'
 fileList = FileUtils.ReturnAllFileOnPath(1,PATH_CONST)
 ScoreBase = int( 0.6 * len(fileList))
 
