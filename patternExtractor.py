@@ -4,7 +4,7 @@ Created on Fri Jul 24 00:08:18 2015
 
 @author: mongolia19
 """
-import sumlyTest
+import OpenAnswer
 import PipLineTest
 import FileUtils
 def isSameCombination(tupleA ,tupleB):
@@ -31,20 +31,20 @@ if __name__ == "__main__":
     noneList = list(['some stories about albert einstein','the world shall be destroied'])
 
     for n in noneList:
-        sumlyTest.questionPatternMining('','',n,'./default_patterns_txt.txt')
+        OpenAnswer.questionPatternMining('', '', n, './default_patterns_txt.txt')
 
     print '.....................default questions patterns ..........................'
     whatTxt = FileUtils.OpenFileUnicode('./default_patterns_txt.txt')
-    MainSearchResultSentencesList = sumlyTest.getSentencesFromPassageText(whatTxt)
+    MainSearchResultSentencesList = OpenAnswer.getSentencesFromPassageText(whatTxt)
 
     qDict = {}
     combinationDict = PipLineTest.getWordCombinationDict(3,MainSearchResultSentencesList,qDict)
 
-    patternList = sumlyTest.getTopPercentCombinations(combinationDict,0.0001)
+    patternList = OpenAnswer.getTopPercentCombinations(combinationDict, 0.0001)
     patternList = removeDiffArrangeMents(patternList)
     for p in patternList:
         print p
-        sumlyTest.WriteTupleToFile('./default_tuple_patterns.txt',p)
+        OpenAnswer.WriteTupleToFile('./default_tuple_patterns.txt', p)
     for k in combinationDict.keys():
         if combinationDict[k] > 50:
             print k , ":" , combinationDict[k]

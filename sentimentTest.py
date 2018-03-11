@@ -6,7 +6,7 @@ f = open("./reading/passage.txt",'r')
 str_article = (f.read())
 f.close()
 
-from sumlyTest import get_all_entities_by_nltk, get_summary_sentences_from_article_text_sentiment, get_summary_sentences_by_summarizer_voting
+from OpenAnswer import get_all_entities_by_nltk, get_summary_sentences_from_article_text_sentiment, get_summary_sentences_by_summarizer_voting
 out = get_summary_sentences_from_article_text_sentiment(str_article)
 out1 = get_summary_sentences_by_summarizer_voting(str_article)
 # sent_list = Sentiment(str_article)

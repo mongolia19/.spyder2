@@ -15,6 +15,6 @@ text = cx.getText(content)
 textfile = open("./text/new_text.txt",'w')
 textfile.write(text)
 textfile.close()
-from sumlyTest import getRelatedSentencesListFromWeb
+from OpenAnswer import getRelatedSentencesListFromWeb
 sent_list = getRelatedSentencesListFromWeb("who is the father of USA")
 print(sent_list)

@@ -59,7 +59,6 @@ from wordNet import getAllNumbers, getAllProperEntities, getAllPronounEntities, 
 from wordNet import sentence_parse
 from wordNet import get_synsets
 from wordNet import get_verb_list_hit
-import PipLineTest
 from wordNet import listToDict
 from wordNet import getAllLinksFromPage
 from wordNet import html_to_plain_text
@@ -2421,7 +2420,7 @@ def answer_by_a_few_sentence_by_word2vec_adding(question_string, embeddings, sim
     similar_level = 0.8
     scored_list = candidate_noun_sentence_list
     if embeddings is None:
-        sentences = MySentences('./text/')  # a memory-friendly iterator
+        sentences = MySentences('./reading/')  # a memory-friendly iterator
 
         word_model = train_word2vec_gensim(sentences, word_dim)
     else:
